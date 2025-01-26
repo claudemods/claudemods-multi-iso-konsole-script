@@ -26,16 +26,8 @@ contains Apex Gamester and Apex Recovery
 their will be 1 Application Apex Recovery And 2 isos
 
 
+![2025-01-26-044839_hyprshot](https://github.com/user-attachments/assets/c66484eb-7b6c-4c81-b2a2-0dbe641c6e14)
 
-![G33k](https://i.imgur.com/z1gHBMm.jpeg)
-1 will be a custom iso For The Desktop with lots installed
-which will also contain Apex Recovery
-
-2 will be a custom iso for the Recovery
-with minimal installed This will Also Contain The Desktop
-
-currently no release date more being tested and added check back soon
-</div>
 
 <div align="center">
 
