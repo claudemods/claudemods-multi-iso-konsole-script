@@ -31,7 +31,10 @@ more info on releases
 ![2025-01-26-044839_hyprshot](https://github.com/user-attachments/assets/c66484eb-7b6c-4c81-b2a2-0dbe641c6e14)
 
 
-https://github.com/user-attachments/assets/be3793dd-224e-41ad-8c94-b1e463ec719c
+
+https://github.com/user-attachments/assets/d7f1c250-49ff-47ae-b599-7f4f3d19a051
+
+
 
 
 <div align="center">
