@@ -20,10 +20,9 @@
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&label=claudemods&color=A836FF&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/claudemods)</div>
 
 <div align="center">
-claudemods Apex Tools v1.0 Built On Hyprland
-contains Apex Gamester and Apex Recovery
+claudemods Multi Iso Creator v1.06.1
+Lots of new things added more coming soon 
 
-their will be 1 Application Apex Recovery And 2 isos
 
 
 ![2025-01-26-044839_hyprshot](https://github.com/user-attachments/assets/c66484eb-7b6c-4c81-b2a2-0dbe641c6e14)
