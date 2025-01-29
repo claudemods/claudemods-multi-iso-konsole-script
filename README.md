@@ -15,7 +15,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=%230567ff&label=Latest%20Release&style=for-the-badge)](https://github.com/claudemods/claudemods-multi-iso-konsole-script/latest)
+[![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=%230567ff&label=Latest%20Release&style=for-the-badge)](https://github.com/claudemods/claudemods-multi-iso-konsole-script/releases/tag/v1.06.1-build-26-01-2025)
 
 
 </div>
