@@ -14,7 +14,10 @@
 </a>
 
 <div align="center">
+
 [![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=%230567ff&label=Latest%20Release&style=for-the-badge)](https://github.com/claudemods/claudemods-multi-iso-konsole-script/latest)
+
+
 </div>
 ## [ Support Me ](https://www.paypal.com/paypalme/claudemods?country.x=GB&locale)
 
