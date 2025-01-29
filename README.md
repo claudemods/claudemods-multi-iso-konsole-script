@@ -7,13 +7,12 @@
   <a href="https://www.linux.org" target="_blank"><img src="https://img.shields.io/badge/OS-Linux-e06c75?style=for-the-badge&logo=linux" /></a>
 	<a href="https://archlinux.org" target="_blank"><img src="https://img.shields.io/badge/DISTRO-Arch-56b6c2?style=for-the-badge&logo=arch-linux" /></a>
            <a href="https://www.debian.org" target="_blank"><img src="https://img.shields.io/badge/DISTRO-Debian-CE0058?style=for-the-badge&logo=debian-linux" /></a>
- <a href="https://chat.deepseek.com/" target="_blank">
+[![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=%230567ff&label=Latest%20Release&style=for-the-badge)](https://github.com/claudemods/claudemods-multi-iso-konsole-script/latest)
+  </a>
+  <a href="https://chat.deepseek.com/" target="_blank">
   <img src="https://img.shields.io/badge/Built_Using-DeepSeek-blue?style=for-the-badge&logo=deepseek&logoColor=white" alt="Built Using DeepSeek">
   <img src="https://i.postimg.cc/ydBbyvRt/Deepseek.jpg" alt="DeepSeek Logo" style="height: 30px; vertical-align: middle;">
 </a>
-[![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=%230567ff&label=Latest%20Release&style=for-the-badge)](https://github.com/claudemods/claudemods-multi-iso-konsole-script/latest)
-  </a>
-  
 
 <div align="center">
 
