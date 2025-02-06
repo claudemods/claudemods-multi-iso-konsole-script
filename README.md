@@ -37,12 +37,9 @@ Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and fat
 more info on releases
 
 
-
-![2025-01-26-044839_hyprshot](https://github.com/user-attachments/assets/c66484eb-7b6c-4c81-b2a2-0dbe641c6e14)
-
-
-
-https://github.com/user-attachments/assets/d7f1c250-49ff-47ae-b599-7f4f3d19a051
+![2025-02-06-002858_hyprshot](https://github.com/user-attachments/assets/0573af1b-5121-429e-90a3-528c7447f7e6)
+![2025-02-06-002858_hyprshot](https://github.com/user-attachments/assets/366d9cb4-3957-4cf0-ab99-e4e4d2df051b)
+![2025-02-06-002943_hyprshot](https://github.com/user-attachments/assets/fb9bdd6d-2721-4ad6-9d92-961a72697ce7)
 
 
 
