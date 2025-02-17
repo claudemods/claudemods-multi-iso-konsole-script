@@ -32,8 +32,10 @@
 
 <div align="center">
 Hello, welcome to claudemods Multi ISO Creator v1.06.1 Final Demo 05-02-2025 Written in Cpp,
+	<div align="center">
 Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
-
+i wouldnt be sailing if the code was forkable so no their will be no .cpp .pro or other forkable files in this repo
+<div align="center">
 more info on releases
 
 
