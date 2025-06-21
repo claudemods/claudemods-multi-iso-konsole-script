@@ -282,7 +282,6 @@ void install_dependencies_ubuntu() {
     "thin-provisioning-tools "
     "squashfs-tools "
     "xorriso "
-    "ubuntu-defaults-builder";
     
     std::string command = "sudo apt install " + packages;
     run_command(command);
@@ -370,7 +369,6 @@ void install_dependencies_debian() {
     "thin-provisioning-tools "
     "squashfs-tools "
     "xorriso "
-    "debian-goodies";
     
     std::string command = "sudo apt install " + packages;
     run_command(command);
