@@ -20,8 +20,8 @@
 #define GREEN "\033[32m"
 #define RED "\033[31m"
 #define RESET "\033[0m"
-#define COLOR_CYAN "\033[38;2;36;255;255m"
-#define COLOR_GOLD "\033[33m"
+#define COLOR_CYAN "\033[34m"
+#define COLOR_GOLD "\033[31m"
 #define PASSWORD_MAX 100
 
 // Terminal control
