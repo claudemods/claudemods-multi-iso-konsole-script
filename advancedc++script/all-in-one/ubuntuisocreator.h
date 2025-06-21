@@ -252,26 +252,26 @@ int show_menu(const std::string &title, const std::vector<std::string> &items, i
 void install_dependencies_ubuntu() {
     progress_dialog("Installing dependencies...");
     const std::string packages =
-    "cryptsetup "
-    "dmeventd "
-    "isolinux "
-    "libaio-dev "
-    "libcares2 "
-    "libdevmapper-event1.02.1 "
-    "liblvm2cmd2.03 "
-    "live-boot "
-    "live-boot-doc "
-    "live-boot-initramfs-tools "
+    "cryptsetup"
+    "dmeventd"
+    "isolinux"
+    2libaio-dev"
+    "libcares2"
+    "libdevmapper-event1.02.1"
+    "liblvm2cmd2.03"
+    "live-boot"
+    "live-boot-doc"
+    "live-boot-initramfs-tools
     "live-config-systemd "
-    "live-tools "
-    "lvm2 "
-    "pxelinux "
-    "syslinux "
-    "syslinux-common "
-    "thin-provisioning-tools "
-    "squashfs-tools "
-    "xorriso";
-    std::string command = "sudo pacman -S --needed --noconfirm " + packages;
+    "live-tools"
+    "lvm2"
+    "pxelinux"
+    "syslinux"
+    "syslinux-common"
+    "thin-provisioning-tools"
+    "squashfs-tools"
+    "xorriso"
+    std::string command = "sudo apt install " + packages;
     run_command(command);
     message_box("Success", "Dependencies installed successfully.");
 }
@@ -492,9 +492,11 @@ void create_iso() {
         return;
     }
     std::string xorriso_command = "sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
-    "-isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat "
-    "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table "
-    "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
+                                  "-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin "
+                                  "-c isolinux/boot.cat -b isolinux/isolinux.bin "
+                                  "-no-emul-boot -boot-load-size 4 -boot-info-table "
+                                  "-eltorito-alt-boot -e boot/grub/efi.img "
+                                  "-no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
     if (xorriso_command.length() >= MAX_CMD) {
         error_box("Error", "Command too long for buffer");
         return;
