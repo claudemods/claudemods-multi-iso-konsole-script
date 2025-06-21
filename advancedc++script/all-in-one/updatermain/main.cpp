@@ -157,7 +157,7 @@ void* execute_update_thread(void* arg) {
     std::cout << COLOR_GREEN << "\nBuilding application...\n" << COLOR_RESET;
     snprintf(command, sizeof(command),
              "cd \"%s/claudemods-multi-iso-konsole-script/advancedc++script\" && "
-             "echo '%s' | sudo -S qmake && echo '%s' | sudo -S make >/dev/null 2>&1", 
+             "echo '%s' | qmake && make >/dev/null 2>&1", 
              home, password->c_str(), password->c_str());
     system(command);
 
