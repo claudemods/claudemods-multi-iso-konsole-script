@@ -1,7 +1,8 @@
 
 new custom installer
 
-![Screenshot_20250621_035616](https://github.com/user-attachments/assets/afaa789b-89d7-4f05-97b0-3123a3aa0553)
+![Screenshot_20250621_042011](https://github.com/user-attachments/assets/d2537d88-ced0-4d09-8936-9b2c764d0536)
+
 
 
 current ubuntu ui 
