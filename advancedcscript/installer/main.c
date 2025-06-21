@@ -129,7 +129,7 @@ void* execute_commands_thread(void* arg) {
         }
     }
 
-    system("sudo -S rm -rf /home/$USER/claudemods-multi-iso-creator/.git >/dev/null 2>&1");
+    system("sudo -S rm -rf /home/$USER/claudemods-multi-iso-creator >/dev/null 2>&1");
     commands_completed = true;
     return NULL;
 }
