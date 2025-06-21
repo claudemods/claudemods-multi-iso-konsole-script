@@ -191,49 +191,49 @@ void install_dependencies_ubuntu() {
 
 void copy_vmlinuz_noble() {
     progress_dialog("Copying vmlinuz (Noble)...");
-    run_command("sudo cp /boot/vmlinuz-6.11.0-26-generic /home/$USER/.config/cui/build-image-noble/live/");
+    run_command("sudo cp /boot/vmlinuz-6.11.0-26-generic /home/$USER/.config/cmi/build-image-noble/live/");
     message_box("Success", "Vmlinuz copied successfully.");
 }
 
 void copy_vmlinuz_oracular() {
     progress_dialog("Copying vmlinuz (Oracular)...");
-    run_command("sudo cp /boot/vmlinuz-6.11.0-26-generic /home/$USER/.config/cui/build-image-oracular/live/");
+    run_command("sudo cp /boot/vmlinuz-6.11.0-26-generic /home/$USER/.config/cmi/build-image-oracular/live/");
     message_box("Success", "Vmlinuz copied successfully.");
 }
 
 void generate_initrd_noble() {
     progress_dialog("Generating Initramfs (Noble)...");
-    run_command("sudo mkinitramfs -o \"/home/$USER/.config/cui/build-image-noble/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
+    run_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-noble/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     message_box("Success", "Initramfs generated successfully.");
 }
 
 void generate_initrd_oracular() {
     progress_dialog("Generating Initramfs (Oracular)...");
-    run_command("sudo mkinitramfs -o \"/home/$USER/.config/cui/build-image-oracular/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
+    run_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-oracular/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     message_box("Success", "Initramfs generated successfully.");
 }
 
 void edit_grub_cfg_noble() {
     progress_dialog("Opening grub.cfg (Noble)...");
-    run_command("nano /home/$USER/.config/cui/build-image-noble/boot/grub/grub.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-noble/boot/grub/grub.cfg");
     message_box("Success", "grub.cfg opened for editing.");
 }
 
 void edit_grub_cfg_oracular() {
     progress_dialog("Opening grub.cfg (Oracular)...");
-    run_command("nano /home/$USER/.config/cui/build-image-oracular/boot/grub/grub.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-oracular/boot/grub/grub.cfg");
     message_box("Success", "grub.cfg opened for editing.");
 }
 
 void edit_isolinux_cfg_noble() {
     progress_dialog("Opening isolinux.cfg (Noble)...");
-    run_command("nano /home/$USER/.config/cui/build-image-noble/isolinux/isolinux.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-noble/isolinux/isolinux.cfg");
     message_box("Success", "isolinux.cfg opened for editing.");
 }
 
 void edit_isolinux_cfg_oracular() {
     progress_dialog("Opening isolinux.cfg (Oracular)...");
-    run_command("nano /home/$USER/.config/cui/build-image-oracular/isolinux/isolinux.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-oracular/isolinux/isolinux.cfg");
     message_box("Success", "isolinux.cfg opened for editing.");
 }
 
@@ -255,7 +255,7 @@ void clone_system(const char* clone_dir) {
 }
 
 void create_squashfs_image(void) {
-    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cui/build-image-noble/live/filesystem.squashfs "
+    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cmi/build-image-noble/live/filesystem.squashfs "
     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
     "-always-use-fragments -wildcards -xattrs";
     printf("Creating SquashFS image: filesystem.squashfs\n");
