@@ -17,6 +17,8 @@
 #include <fstream>
 #include <memory>
 #include <array>
+#include "ubuntuisocreator.h"
+#include "debianisocreator.h"
 
 #define MAX_PATH 4096
 #define MAX_CMD 16384
@@ -24,87 +26,30 @@
 #define GREEN "\033[32m"
 #define RED "\033[31m"
 #define RESET "\033[0m"
-#define COLOR_CYAN "\033[36m" // Corrected from original
+#define COLOR_CYAN "\033[36m"
 #define COLOR_GOLD "\033[38;2;36;255;255m"
 #define PASSWORD_MAX 100
 
 // Terminal control
 struct termios original_term;
 
-// Function prototypes
-void enable_raw_mode();
-void disable_raw_mode();
-int get_key();
-void print_banner();
-void print_blue(const std::string &text);
-void message_box(const std::string &title, const std::string &message);
-void error_box(const std::string &title, const std::string &message);
-void progress_dialog(const std::string &message);
-void run_command(const std::string &command);
-std::string prompt(const std::string &prompt_text);
-void run_sudo_command(const std::string &command, const std::string &password);
-bool dir_exists(const std::string &path);
-std::string get_kernel_version();
-int show_menu(const std::string &title, const std::vector<std::string> &items, int selected);
-void install_dependencies_arch();
-void copy_vmlinuz_arch();
-void generate_initrd_arch();
-void edit_grub_cfg_arch();
-void edit_isolinux_cfg_arch();
-void save_clone_dir(const std::string &dir_path);
-std::string read_clone_dir();
-void clone_system(const std::string &clone_dir);
-void create_squashfs_image();
-void delete_clone_system_temp();
-void set_clone_directory();
-void install_one_time_updater();
-void squashfs_menu();
-void create_iso();
-void run_iso_in_qemu();
-void iso_creator_menu();
-void create_command_files();
-void remove_command_files();
-void command_installer_menu();
-void setup_script_menu();
+// Distribution detection
+enum Distro { ARCH, UBUNTU, DEBIAN, UNKNOWN };
 
-// New functions added
-void execute_command(const std::string& cmd);
-std::string exec(const char* cmd);
-std::string get_root_usage_df();
+Distro detect_distro() {
+    std::ifstream os_release("/etc/os-release");
+    if (!os_release.is_open()) return UNKNOWN;
 
-// ============ NEW FUNCTIONS ============
-void execute_command(const std::string& cmd) {
-    std::cout << COLOR_CYAN;
-    std::fflush(stdout);
-    std::string full_cmd = "sudo " + cmd;
-    int status = system(full_cmd.c_str());
-    std::cout << RESET;
-    if (status != 0) {
-        std::cerr << RED << "Error executing: " << full_cmd << RESET << std::endl;
-        exit(1);
+    std::string line;
+    while (std::getline(os_release, line)) {
+        if (line.find("ID=") == 0) {
+            if (line.find("arch") != std::string::npos) return ARCH;
+            if (line.find("ubuntu") != std::string::npos) return UBUNTU;
+            if (line.find("debian") != std::string::npos) return DEBIAN;
+        }
     }
+    return UNKNOWN;
 }
-
-std::string exec(const char* cmd) {
-    std::array<char, 128> buffer;
-    std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-    if (!pipe) {
-        throw std::runtime_error("popen() failed!");
-    }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result += buffer.data();
-    }
-    return result;
-}
-
-std::string get_root_usage_df() {
-    std::string cmd = "df -h /";
-    return exec(cmd.c_str());
-}
-// ============ END NEW FUNCTIONS ============
-
-// ============ ORIGINAL CODE BELOW ============
 
 void enable_raw_mode() {
     struct termios term;
@@ -146,29 +91,6 @@ void run_command(const std::string &command) {
     if (status != 0) {
         std::cout << RED << "Command failed with exit code: " << WEXITSTATUS(status) << RESET << std::endl;
     }
-}
-
-void print_banner() {
-    std::cout << RED;
-    std::cout <<
-    "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
-    "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
-    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
-    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
-    "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
-    "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        std::cout << RESET;
-        std::cout << RED << "Claudemods Arch ISO Creator Advanced C++ Script v1.01 21-06-2025" << RESET << std::endl;
-
-        time_t now = time(NULL);
-        struct tm *t = localtime(&now);
-        char datetime[50];
-        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
-        std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
-
-        std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-        std::string df_output = get_root_usage_df();
-        std::cout << df_output << std::endl;
 }
 
 std::string prompt(const std::string &prompt_text) {
@@ -686,39 +608,112 @@ void command_installer_menu() {
 }
 
 void setup_script_menu() {
-    std::vector<std::string> items = {
-        "Generate initcpio configuration (arch)",
-        "Edit isolinux.cfg (arch)",
-        "Edit grub.cfg (arch)",
-        "Set clone directory path",
-        "Install One Time Updater",
-        "Back to Main Menu"
-    };
-    int selected = 0;
-    int key;
-    while (true) {
-        key = show_menu("Setup Script Menu", items, selected);
-        switch (key) {
-            case 'A':
-                if (selected > 0) selected--;
-                break;
-            case 'B':
-                if (selected < 5) selected++;
-                break;
-            case '\n':
-                switch (selected) {
-                    case 0: generate_initrd_arch(); break;
-                    case 1: edit_isolinux_cfg_arch(); break;
-                    case 2: edit_grub_cfg_arch(); break;
-                    case 3: set_clone_directory(); break;
-                    case 4: install_one_time_updater(); break;
-                    case 5: return;
+    Distro distro = detect_distro();
+    
+    switch(distro) {
+        case ARCH:
+            {
+                std::vector<std::string> items = {
+                    "Generate initcpio configuration (arch)",
+                    "Edit isolinux.cfg (arch)",
+                    "Edit grub.cfg (arch)",
+                    "Set clone directory path",
+                    "Install One Time Updater",
+                    "Back to Main Menu"
+                };
+                int selected = 0;
+                int key;
+                while (true) {
+                    key = show_menu("Setup Script Menu", items, selected);
+                    switch (key) {
+                        case 'A':
+                            if (selected > 0) selected--;
+                            break;
+                        case 'B':
+                            if (selected < 5) selected++;
+                            break;
+                        case '\n':
+                            switch (selected) {
+                                case 0: generate_initrd_arch(); break;
+                                case 1: edit_isolinux_cfg_arch(); break;
+                                case 2: edit_grub_cfg_arch(); break;
+                                case 3: set_clone_directory(); break;
+                                case 4: install_one_time_updater(); break;
+                                case 5: return;
+                            }
+                            std::cout << "\nPress Enter to continue...";
+                            while (getchar() != '\n');
+                            break;
+                    }
                 }
-                std::cout << "\nPress Enter to continue...";
-                while (getchar() != '\n');
-                break;
-        }
+            }
+            break;
+            
+        case UBUNTU:
+            // Will call functions from ubuntuisocreator.h
+            break;
+            
+        case DEBIAN:
+            // Will call functions from debianisocreator.h
+            break;
+            
+        case UNKNOWN:
+            error_box("Error", "Unsupported Linux distribution");
+            break;
     }
+}
+
+void execute_command(const std::string& cmd) {
+    std::cout << COLOR_CYAN;
+    std::fflush(stdout);
+    std::string full_cmd = "sudo " + cmd;
+    int status = system(full_cmd.c_str());
+    std::cout << RESET;
+    if (status != 0) {
+        std::cerr << RED << "Error executing: " << full_cmd << RESET << std::endl;
+        exit(1);
+    }
+}
+
+std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
+
+std::string get_root_usage_df() {
+    std::string cmd = "df -h /";
+    return exec(cmd.c_str());
+}
+
+void print_banner() {
+    std::cout << RED;
+    std::cout <<
+    "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
+    "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
+    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+    "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
+    "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
+    std::cout << RESET;
+    std::cout << RED << "Claudemods Arch ISO Creator Advanced C++ Script v1.01 21-06-2025" << RESET << std::endl;
+
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char datetime[50];
+    strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+    std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
+
+    std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
+    std::string df_output = get_root_usage_df();
+    std::cout << df_output << std::endl;
 }
 
 int main(int argc, char *argv[]) {
