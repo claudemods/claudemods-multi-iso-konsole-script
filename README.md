@@ -35,7 +35,8 @@ Hello, welcome to claudemods Multi ISO Creator  Written in C,
 	<div align="center">
 Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
 		<div align="center">
-
+			
+build dependencies needed to install on older distros for new instal method libreadline6-dev and libncurses-dev
 
 ### new install method use below command
 
