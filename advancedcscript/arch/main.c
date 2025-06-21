@@ -174,16 +174,25 @@ int show_menu(const char *title, const char *items[], int count, int selected) {
 void install_dependencies_arch() {
     progress_dialog("Installing dependencies...");
     const char *packages =
-    "arch-install-scripts "
-    "cdrkit "
     "cryptsetup "
     "dmeventd "
-    "libisoburn "
+    "isolinux "
+    "libaio-dev "
+    "libcares2 "
+    "libdevmapper-event1.02.1 "
+    "liblvm2cmd2.03 "
+    "live-boot "
+    "live-boot-doc "
+    "live-boot-initramfs-tools "
+    "live-config-systemd "
+    "live-tools "
     "lvm2 "
-    "mkinitcpio "
-    "mkinitcpio-archiso "
+    "pxelinux "
+    "syslinux "
+    "syslinux-common "
+    "thin-provisioning-tools "
     "squashfs-tools "
-    "syslinux";
+    "xorriso";
 
     char command[512];
     snprintf(command, sizeof(command), "sudo pacman -S --needed --noconfirm %s", packages);
