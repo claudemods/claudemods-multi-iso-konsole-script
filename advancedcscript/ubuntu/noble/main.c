@@ -466,7 +466,6 @@ void iso_creator_menu() {
 
 // ==================== COMMAND INSTALLER FUNCTIONS ====================
 void create_command_files() {
-    // Get current executable path
     char exe_path[PATH_MAX];
     ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
     if (len == -1) {
@@ -475,101 +474,101 @@ void create_command_files() {
     }
     exe_path[len] = '\0';
 
-    // Create gen-init command
-    FILE *f = fopen("gen-init", "w");
-    if (!f) {
-        perror("fopen gen-init");
+    // Create files directly in /usr/bin with sudo
+    char *sudo_password = prompt("Enter sudo password to create command files: ");
+    if (!sudo_password || strlen(sudo_password) == 0) {
+        error_box("Error", "Sudo password cannot be empty");
         return;
     }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: gen-init\"\n");
-    fprintf(f, "  echo \"Generate initcpio configuration\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 5\n", exe_path);
-    fclose(f);
-    chmod("gen-init", 0755);
 
-    // Create edit-isocfg command
-    f = fopen("edit-isocfg", "w");
-    if (!f) {
-        perror("fopen edit-isocfg");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: edit-isocfg\"\n");
-    fprintf(f, "  echo \"Edit isolinux.cfg file\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 6\n", exe_path);
-    fclose(f);
-    chmod("edit-isocfg", 0755);
+    // gen-init
+    char command[MAX_CMD];
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: gen-init\"\n"
+        "  echo \"Generate initcpio configuration\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 5\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/gen-init'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    // Create edit-grubcfg command
-    f = fopen("edit-grubcfg", "w");
-    if (!f) {
-        perror("fopen edit-grubcfg");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: edit-grubcfg\"\n");
-    fprintf(f, "  echo \"Edit grub.cfg file\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 7\n", exe_path);
-    fclose(f);
-    chmod("edit-grubcfg", 0755);
+    // edit-isocfg
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: edit-isocfg\"\n"
+        "  echo \"Edit isolinux.cfg file\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 6\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/edit-isocfg'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    // Create setup-script command
-    f = fopen("setup-script", "w");
-    if (!f) {
-        perror("fopen setup-script");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: setup-script\"\n");
-    fprintf(f, "  echo \"Open setup script menu\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 8\n", exe_path);
-    fclose(f);
-    chmod("setup-script", 0755);
+    // edit-grubcfg
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: edit-grubcfg\"\n"
+        "  echo \"Edit grub.cfg file\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 7\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/edit-grubcfg'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    // Create make-iso command
-    f = fopen("make-iso", "w");
-    if (!f) {
-        perror("fopen make-iso");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: make-iso\"\n");
-    fprintf(f, "  echo \"Launches the ISO creation menu\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 3\n", exe_path);
-    fclose(f);
-    chmod("make-iso", 0755);
+    // setup-script
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: setup-script\"\n"
+        "  echo \"Open setup script menu\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 8\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/setup-script'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    // Create make-squashfs command
-    f = fopen("make-squashfs", "w");
-    if (!f) {
-        perror("fopen make-squashfs");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: make-squashfs\"\n");
-    fprintf(f, "  echo \"Launches the SquashFS creation menu\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 4\n", exe_path);
-    fclose(f);
-    chmod("make-squashfs", 0755);
+    // make-iso
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: make-iso\"\n"
+        "  echo \"Launches the ISO creation menu\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 3\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/make-iso'", exe_path);
+    run_sudo_command(command, sudo_password);
+
+    // make-squashfs
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: make-squashfs\"\n"
+        "  echo \"Launches the SquashFS creation menu\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 4\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/make-squashfs'", exe_path);
+    run_sudo_command(command, sudo_password);
+
+    printf("%sActivated! You can now use all commands in your terminal.%s\n", GREEN, RESET);
+    free(sudo_password);
+}
 
     // Install commands to /usr/bin
     run_command("sudo cp gen-init /usr/bin/");
