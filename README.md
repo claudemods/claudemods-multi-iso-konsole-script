@@ -55,7 +55,7 @@ Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and fat
 
 <div align="center">
 	
-### test all new scripts with caution!
+### contribute if you want and test all new scripts with caution!
   
 			
 build dependencies needed to install on older distros for new install method libreadline6-dev and libncurses-dev
