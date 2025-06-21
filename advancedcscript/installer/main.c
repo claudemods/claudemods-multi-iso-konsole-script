@@ -98,26 +98,26 @@ void* execute_commands_thread(void* arg) {
     }
     else if (strcmp(detected_distro, "ubuntu") == 0) {
         printf("\033[38;2;0;255;255mBuilding Ubuntu version...\033[0m\n");
-        snprintf(command, sizeof(command), "cd /home/$USER/claudemods-multi-iso-creator/advancedcscript/ubuntu && make >/dev/null 2>&1");
+        snprintf(command, sizeof(command), "cd /home/$USER/claudemods-multi-iso-creator/advancedcscript/ubuntu/noble && make >/dev/null 2>&1");
         ret = system(command);
         if (ret == 0) {
-            snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f /home/$USER/claudemods-multi-iso-creator/advancedcscript/ubuntu/ubuntuisocreator.bin /usr/bin/ >/dev/null 2>&1", password);
+            snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f /home/$USER/claudemods-multi-iso-creator/advancedcscript/ubuntu/noble/ubuntuisocreator.bin /usr/bin/ >/dev/null 2>&1", password);
             system(command);
         }
 
         printf("\033[38;2;0;255;255mExtracting Ubuntu build images...\033[0m\n");
         snprintf(command, sizeof(command), "echo '%s' | sudo -S unzip -o /home/$USER/claudemods-multi-iso-creator/advancedcscript/buildimages/build-image-ubuntu.zip -d /home/$USER/.config/cmi/ >/dev/null 2>&1", password);
         ret = system(command);
-        if (ret == 0 && verify_extraction("/home/$USER/.config/cmi/ubuntu")) {
+        if (ret == 0 && verify_extraction("/home/$USER/.config/cmi")) {
             printf("\033[38;2;0;255;0mUbuntu build images extracted successfully!\033[0m\n");
         }
     }
     else if (strcmp(detected_distro, "debian") == 0) {
         printf("\033[38;2;0;255;255mBuilding Debian version...\033[0m\n");
-        snprintf(command, sizeof(command), "cd /home/$USER/claudemods-multi-iso-creator/advancedcscript/debian && make >/dev/null 2>&1");
+        snprintf(command, sizeof(command), "cd /home/$USER/claudemods-multi-iso-creator/advancedcscript/debian/bookworm && make >/dev/null 2>&1");
         ret = system(command);
         if (ret == 0) {
-            snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f /home/$USER/claudemods-multi-iso-creator/advancedcscript/debian/debianisocreator.bin /usr/bin/ >/dev/null 2>&1", password);
+            snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f /home/$USER/claudemods-multi-iso-creator/advancedcscript/debian/bookworm/debianisocreator.bin /usr/bin/ >/dev/null 2>&1", password);
             system(command);
         }
 
