@@ -49,6 +49,11 @@ Distro detect_distro() {
     return UNKNOWN;
 }
 
+// Forward declarations
+std::string read_clone_dir();
+void save_clone_dir(const std::string &dir_path);
+void print_banner(const std::string& distro_name = "Arch");
+
 void enable_raw_mode() {
     struct termios term;
     tcgetattr(STDIN_FILENO, &term);
@@ -155,7 +160,7 @@ std::string get_kernel_version() {
     return version;
 }
 
-void print_banner(const std::string& distro_name = "Arch") {
+void print_banner(const std::string& distro_name) {
     std::cout << RED;
     std::cout <<
     "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
@@ -179,7 +184,7 @@ void print_banner(const std::string& distro_name = "Arch") {
     std::string result;
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
     if (pipe) {
-        while (fgets(buffer.data(), buffer.size(), pipe.get()) {
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
             std::cout << buffer.data();
         }
     }
