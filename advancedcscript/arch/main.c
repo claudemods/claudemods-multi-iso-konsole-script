@@ -27,6 +27,42 @@
 // Terminal control
 struct termios original_term;
 
+// Function prototypes
+void enable_raw_mode();
+void disable_raw_mode();
+int get_key();
+void print_banner();
+void print_blue(const char *text);
+void message_box(const char *title, const char *message);
+void error_box(const char *title, const char *message);
+void progress_dialog(const char *message);
+void run_command(const char *command);
+char* prompt(const char *prompt_text);
+void run_sudo_command(const char *command, const char *password);
+bool dir_exists(const char* path);
+char* get_kernel_version();
+int show_menu(const char *title, const char *items[], int count, int selected);
+void install_dependencies_arch();
+void copy_vmlinuz_arch();
+void generate_initrd_arch();
+void edit_grub_cfg_arch();
+void edit_isolinux_cfg_arch();
+void save_clone_dir(const char* dir_path);
+char* read_clone_dir();
+void clone_system(const char* clone_dir);
+void create_squashfs_image(void);
+void delete_clone_system_temp(void);
+void set_clone_directory();
+void install_one_time_updater();
+void squashfs_menu();
+void create_iso();
+void run_iso_in_qemu();
+void iso_creator_menu();
+void create_command_files();
+void remove_command_files();
+void command_installer_menu();
+void setup_script_menu();
+
 void enable_raw_mode() {
     struct termios term;
     tcgetattr(STDIN_FILENO, &term);
@@ -47,20 +83,6 @@ int get_key() {
     return c;
 }
 
-void print_banner() {
-    printf("%s", RED);
-    printf(
-        "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
-        "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
-        "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
-        "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
-        "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
-        "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n"
-    );
-    printf("%s", RESET);
-    printf("%sClaudemods Arch ISO Creator Advanced C Script v1.01 21-06-2025%s\n", RED, RESET);
-}
-
 void print_blue(const char *text) { printf("%s%s%s\n", BLUE, text, RESET); }
 void message_box(const char *title, const char *message) {
     printf("%s%s%s\n", GREEN, title, RESET);
@@ -78,6 +100,31 @@ void run_command(const char *command) {
     if (status != 0) {
         printf("%sCommand failed with exit code: %d%s\n", RED, WEXITSTATUS(status), RESET);
     }
+}
+
+void print_banner() {
+    printf("%s", RED);
+    printf(
+        "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
+        "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
+        "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+        "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+        "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
+        "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n"
+    );
+    printf("%s", RESET);
+    printf("%sClaudemods Arch ISO Creator Advanced C Script v1.01 21-06-2025%s\n", RED, RESET);
+
+    // Display current date/time in UK format
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char datetime[50];
+    strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+    printf("%sCurrent UK Time: %s%s\n", GREEN, datetime, RESET);
+
+    // Display system disk usage
+    printf("%sDisk Usage:%s\n", GREEN, RESET);
+    run_command("df -h | grep -E 'Filesystem|/$'");
 }
 
 char* prompt(const char *prompt_text) {
@@ -240,7 +287,7 @@ void edit_isolinux_cfg_arch() {
 void save_clone_dir(const char* dir_path) {
     char config_dir[MAX_PATH];
     snprintf(config_dir, sizeof(config_dir), "/home/%s/.config/cmi", getenv("USER"));
-    
+
     if (!dir_exists(config_dir)) {
         char mkdir_cmd[MAX_PATH + 10];
         snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", config_dir);
@@ -249,13 +296,13 @@ void save_clone_dir(const char* dir_path) {
 
     char file_path[MAX_PATH];
     snprintf(file_path, sizeof(file_path), "%s/clonedir.txt", config_dir);
-    
+
     FILE* f = fopen(file_path, "w");
     if (!f) {
         perror("Failed to open clonedir.txt");
         return;
     }
-    
+
     fprintf(f, "%s", dir_path);
     fclose(f);
     message_box("Success", "Clone directory path saved successfully.");
@@ -265,17 +312,17 @@ char* read_clone_dir() {
     static char dir_path[MAX_PATH] = "";
     char file_path[MAX_PATH];
     snprintf(file_path, sizeof(file_path), "/home/%s/.config/cmi/clonedir.txt", getenv("USER"));
-    
+
     FILE* f = fopen(file_path, "r");
     if (!f) {
         return NULL;
     }
-    
+
     if (fgets(dir_path, sizeof(dir_path), f)) {
         dir_path[strcspn(dir_path, "\n")] = '\0';
     }
     fclose(f);
-    
+
     return dir_path;
 }
 
@@ -285,14 +332,18 @@ void clone_system(const char* clone_dir) {
     } else {
         mkdir(clone_dir, 0755);
     }
-    const char* command = "sudo rsync -aHAxSr --numeric-ids --info=progress2 "
-    "--include=dev --include=usr --include=proc --include=tmp --include=sys "
-    "--include=run --include=media "
-    "--exclude=dev/* --exclude=proc/* --exclude=tmp/* --exclude=sys/* "
-    "--exclude=run/* --exclude=media/* --exclude=clone_system_temp "
-    "/ clone_system_temp";
-        printf("Cloning system directory to: %s\n", clone_dir);
-        run_command(command);
+
+    char command[MAX_CMD];
+    snprintf(command, sizeof(command),
+             "sudo rsync -aHAxSr --numeric-ids --info=progress2 "
+             "--include=dev --include=usr --include=proc --include=tmp --include=sys "
+             "--include=run --include=media "
+             "--exclude=dev/* --exclude=proc/* --exclude=tmp/* --exclude=sys/* "
+             "--exclude=run/* --exclude=media/* --exclude=%s "
+             "/ %s", clone_dir, clone_dir);
+
+    printf("Cloning system directory to: %s\n", clone_dir);
+    run_command(command);
 }
 
 void create_squashfs_image(void) {
@@ -303,11 +354,11 @@ void create_squashfs_image(void) {
     }
 
     char command[MAX_CMD];
-    snprintf(command, sizeof(command), 
-        "sudo mksquashfs %s /home/$USER/.config/cmi/build-image-arch/live/filesystem.squashfs "
-        "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
-        "-always-use-fragments -wildcards -xattrs", clone_dir);
-    
+    snprintf(command, sizeof(command),
+             "sudo mksquashfs %s /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs "
+             "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
+             "-always-use-fragments -wildcards -xattrs", clone_dir);
+
     printf("Creating SquashFS image from: %s\n", clone_dir);
     run_command(command);
 }
@@ -323,10 +374,10 @@ void delete_clone_system_temp(void) {
     snprintf(command, sizeof(command), "sudo rm -rf %s", clone_dir);
     printf("Deleting temporary clone directory: %s\n", clone_dir);
     run_command(command);
-    
+
     struct stat st;
     if (stat("filesystem.squashfs", &st) == 0) {
-        strcpy(command, "sudo rm -f filesystem.squashfs");
+        strcpy(command, "sudo rm -f /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs");
         printf("Deleting SquashFS image: filesystem.squashfs\n");
         run_command(command);
     } else {
@@ -343,6 +394,28 @@ void set_clone_directory() {
 
     save_clone_dir(dir_path);
     free(dir_path);
+}
+
+void install_one_time_updater() {
+    progress_dialog("Installing one-time updater...");
+
+    const char* commands[] = {
+        "cd /home/$USER",
+        "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git >/dev/null 2>&1",
+        "mkdir -p /home/$USER/.config/cmi >/dev/null 2>&1",
+        "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/updatermain/advancedcscriptupdater /home/$USER/.config/cmi >/dev/null 2>&1",
+        "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1",
+        "chmod +x /home/$USER/.config/cmi/patch.sh >/dev/null 2>&1",
+        "chmod +x /home/$USER/.config/cmi/advancedcscriptupdater >/dev/null 2>&1",
+        "rm -rf /home/$USER/claudemods-multi-iso-konsole-script >/dev/null 2>&1",
+        NULL
+    };
+
+    for (int i = 0; commands[i] != NULL; i++) {
+        run_command(commands[i]);
+    }
+
+    message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
 }
 
 void squashfs_menu() {
@@ -368,18 +441,18 @@ void squashfs_menu() {
             case '\n':
                 switch (selected) {
                     case 0:
-                        {
-                            char* clone_dir = read_clone_dir();
-                            if (!clone_dir || strlen(clone_dir) == 0) {
-                                error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
-                                break;
-                            }
-                            if (!dir_exists(clone_dir)) {
-                                clone_system(clone_dir);
-                            }
-                            create_squashfs_image();
+                    {
+                        char* clone_dir = read_clone_dir();
+                        if (!clone_dir || strlen(clone_dir) == 0) {
+                            error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
+                            break;
                         }
-                        break;
+                        if (!dir_exists(clone_dir)) {
+                            clone_system(clone_dir);
+                        }
+                        create_squashfs_image();
+                    }
+                    break;
                     case 1:
                         create_squashfs_image();
                         break;
@@ -549,87 +622,87 @@ void create_command_files() {
 
     // gen-init
     char command[MAX_CMD];
-    snprintf(command, sizeof(command), 
-        "sudo bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
-        "#!/bin/sh\n"
-        "if [ \"$1\" = \"--help\" ]; then\n"
-        "  echo \"Usage: gen-init\"\n"
-        "  echo \"Generate initcpio configuration\"\n"
-        "  exit 0\n"
-        "fi\n"
-        "exec %s 5\n"
-        "EOF\n"
-        "chmod 755 /usr/bin/gen-init'", exe_path);
+    snprintf(command, sizeof(command),
+             "sudo bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
+             "#!/bin/sh\n"
+             "if [ \"$1\" = \"--help\" ]; then\n"
+             "  echo \"Usage: gen-init\"\n"
+             "  echo \"Generate initcpio configuration\"\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec %s 5\n"
+             "EOF\n"
+             "chmod 755 /usr/bin/gen-init'", exe_path);
     run_sudo_command(command, sudo_password);
 
     // edit-isocfg
-    snprintf(command, sizeof(command), 
-        "sudo bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
-        "#!/bin/sh\n"
-        "if [ \"$1\" = \"--help\" ]; then\n"
-        "  echo \"Usage: edit-isocfg\"\n"
-        "  echo \"Edit isolinux.cfg file\"\n"
-        "  exit 0\n"
-        "fi\n"
-        "exec %s 6\n"
-        "EOF\n"
-        "chmod 755 /usr/bin/edit-isocfg'", exe_path);
+    snprintf(command, sizeof(command),
+             "sudo bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
+             "#!/bin/sh\n"
+             "if [ \"$1\" = \"--help\" ]; then\n"
+             "  echo \"Usage: edit-isocfg\"\n"
+             "  echo \"Edit isolinux.cfg file\"\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec %s 6\n"
+             "EOF\n"
+             "chmod 755 /usr/bin/edit-isocfg'", exe_path);
     run_sudo_command(command, sudo_password);
 
     // edit-grubcfg
-    snprintf(command, sizeof(command), 
-        "sudo bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
-        "#!/bin/sh\n"
-        "if [ \"$1\" = \"--help\" ]; then\n"
-        "  echo \"Usage: edit-grubcfg\"\n"
-        "  echo \"Edit grub.cfg file\"\n"
-        "  exit 0\n"
-        "fi\n"
-        "exec %s 7\n"
-        "EOF\n"
-        "chmod 755 /usr/bin/edit-grubcfg'", exe_path);
+    snprintf(command, sizeof(command),
+             "sudo bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
+             "#!/bin/sh\n"
+             "if [ \"$1\" = \"--help\" ]; then\n"
+             "  echo \"Usage: edit-grubcfg\"\n"
+             "  echo \"Edit grub.cfg file\"\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec %s 7\n"
+             "EOF\n"
+             "chmod 755 /usr/bin/edit-grubcfg'", exe_path);
     run_sudo_command(command, sudo_password);
 
     // setup-script
-    snprintf(command, sizeof(command), 
-        "sudo bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
-        "#!/bin/sh\n"
-        "if [ \"$1\" = \"--help\" ]; then\n"
-        "  echo \"Usage: setup-script\"\n"
-        "  echo \"Open setup script menu\"\n"
-        "  exit 0\n"
-        "fi\n"
-        "exec %s 8\n"
-        "EOF\n"
-        "chmod 755 /usr/bin/setup-script'", exe_path);
+    snprintf(command, sizeof(command),
+             "sudo bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
+             "#!/bin/sh\n"
+             "if [ \"$1\" = \"--help\" ]; then\n"
+             "  echo \"Usage: setup-script\"\n"
+             "  echo \"Open setup script menu\"\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec %s 8\n"
+             "EOF\n"
+             "chmod 755 /usr/bin/setup-script'", exe_path);
     run_sudo_command(command, sudo_password);
 
     // make-iso
-    snprintf(command, sizeof(command), 
-        "sudo bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
-        "#!/bin/sh\n"
-        "if [ \"$1\" = \"--help\" ]; then\n"
-        "  echo \"Usage: make-iso\"\n"
-        "  echo \"Launches the ISO creation menu\"\n"
-        "  exit 0\n"
-        "fi\n"
-        "exec %s 3\n"
-        "EOF\n"
-        "chmod 755 /usr/bin/make-iso'", exe_path);
+    snprintf(command, sizeof(command),
+             "sudo bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
+             "#!/bin/sh\n"
+             "if [ \"$1\" = \"--help\" ]; then\n"
+             "  echo \"Usage: make-iso\"\n"
+             "  echo \"Launches the ISO creation menu\"\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec %s 3\n"
+             "EOF\n"
+             "chmod 755 /usr/bin/make-iso'", exe_path);
     run_sudo_command(command, sudo_password);
 
     // make-squashfs
-    snprintf(command, sizeof(command), 
-        "sudo bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
-        "#!/bin/sh\n"
-        "if [ \"$1\" = \"--help\" ]; then\n"
-        "  echo \"Usage: make-squashfs\"\n"
-        "  echo \"Launches the SquashFS creation menu\"\n"
-        "  exit 0\n"
-        "fi\n"
-        "exec %s 4\n"
-        "EOF\n"
-        "chmod 755 /usr/bin/make-squashfs'", exe_path);
+    snprintf(command, sizeof(command),
+             "sudo bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
+             "#!/bin/sh\n"
+             "if [ \"$1\" = \"--help\" ]; then\n"
+             "  echo \"Usage: make-squashfs\"\n"
+             "  echo \"Launches the SquashFS creation menu\"\n"
+             "  exit 0\n"
+             "fi\n"
+             "exec %s 4\n"
+             "EOF\n"
+             "chmod 755 /usr/bin/make-squashfs'", exe_path);
     run_sudo_command(command, sudo_password);
 
     printf("%sActivated! You can now use all commands in your terminal.%s\n", GREEN, RESET);
@@ -689,20 +762,21 @@ void setup_script_menu() {
         "Edit isolinux.cfg (arch)",
         "Edit grub.cfg (arch)",
         "Set clone directory path",
+        "Install One Time Updater",
         "Back to Main Menu"
     };
     int selected = 0;
     int key;
 
     while (1) {
-        key = show_menu("Setup Script Menu", items, 5, selected);
+        key = show_menu("Setup Script Menu", items, 6, selected);
 
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
                 break;
             case 'B':
-                if (selected < 4) selected++;
+                if (selected < 5) selected++;
                 break;
             case '\n':
                 switch (selected) {
@@ -710,7 +784,8 @@ void setup_script_menu() {
                     case 1: edit_isolinux_cfg_arch(); break;
                     case 2: edit_grub_cfg_arch(); break;
                     case 3: set_clone_directory(); break;
-                    case 4: return;
+                    case 4: install_one_time_updater(); break;
+                    case 5: return;
                 }
                 printf("\nPress Enter to continue...");
                 while (getchar() != '\n');
