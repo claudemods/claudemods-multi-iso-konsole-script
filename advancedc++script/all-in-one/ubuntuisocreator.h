@@ -255,7 +255,7 @@ void install_dependencies_ubuntu() {
     "cryptsetup"
     "dmeventd"
     "isolinux"
-    2libaio-dev"
+    "libaio-dev"
     "libcares2"
     "libdevmapper-event1.02.1"
     "liblvm2cmd2.03"
