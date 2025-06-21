@@ -44,7 +44,7 @@ char* get_password() {
     // Clone immediately after getting password
     char command[1024];
     char* home = getenv("HOME");
-    printf(COLOR_CYAN "\nCloning repository...\n" COLOR_RESET);
+    printf(COLOR_CYAN "\ngetting some info...\n" COLOR_RESET);
     snprintf(command, sizeof(command), "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1", home);
     system(command);
 
@@ -83,13 +83,13 @@ char* detect_distro() {
 
         if (strcmp(buffer, "arch") == 0 || strcmp(buffer, "cachyos") == 0) {
             detected_distro = "arch";
-            executable_name = "archisocreator.bin";
+            executable_name = "archisocreator";
         } else if (strcmp(buffer, "ubuntu") == 0) {
             detected_distro = "ubuntu";
-            executable_name = "ubuntuisocreator.bin";
+            executable_name = "ubuntuisocreator";
         } else if (strcmp(buffer, "debian") == 0) {
             detected_distro = "debian";
-            executable_name = "debianisocreator.bin";
+            executable_name = "debianisocreator";
         }
     }
 
@@ -176,7 +176,7 @@ void* execute_update_thread(void* arg) {
         system(command);
 
         // Install new binary
-        snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedcscript/arch/archisocreator.bin\" /usr/bin/ >/dev/null 2>&1",
+        snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedcscript/arch/archisocreator.bin\" /usr/bin/archisocreator >/dev/null 2>&1",
                  password, home);
         system(command);
 
@@ -196,7 +196,7 @@ void* execute_update_thread(void* arg) {
         system(command);
 
         // Install new binary
-        snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedcscript/ubuntu/noble/ubuntuisocreator.bin\" /usr/bin/ >/dev/null 2>&1",
+        snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedcscript/ubuntu/noble/ubuntuisocreator.bin\" /usr/bin/ubuntuisocreator >/dev/null 2>&1",
                  password, home);
         system(command);
 
@@ -216,7 +216,7 @@ void* execute_update_thread(void* arg) {
         system(command);
 
         // Install new binary
-        snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedcscript/debian/bookworm/debianisocreator.bin\" /usr/bin/ >/dev/null 2>&1",
+        snprintf(command, sizeof(command), "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedcscript/debian/bookworm/debianisocreator.bin\" /usr/bin/debianisocreator >/dev/null 2>&1",
                  password, home);
         system(command);
 
@@ -271,6 +271,24 @@ void print_installed_version() {
     }
 }
 
+bool prompt_launch_script() {
+    char response[4];
+    printf(COLOR_YELLOW "\nDo you want to open the script now? [y/N]: " COLOR_RESET);
+    if (fgets(response, sizeof(response), stdin) == NULL) {
+        return false;
+    }
+
+    response[strcspn(response, "\n")] = '\0';
+    return (strcasecmp(response, "y") == 0 || strcasecmp(response, "yes") == 0);
+}
+
+void launch_script() {
+    char command[256];
+    snprintf(command, sizeof(command), "%s", executable_name);
+    printf(COLOR_CYAN "\nLaunching %s...\n" COLOR_RESET, executable_name);
+    system(command);
+}
+
 int main() {
     // 1. Get password FIRST (which clones repo)
     password = get_password();
@@ -304,6 +322,12 @@ int main() {
     printf(COLOR_GREEN "Start with command: %s\n" COLOR_RESET, executable_name);
 
     print_installed_version();
+
+    // Ask if user wants to launch the script now
+    if (prompt_launch_script()) {
+        launch_script();
+    }
+
     free(password);
     return EXIT_SUCCESS;
 }
