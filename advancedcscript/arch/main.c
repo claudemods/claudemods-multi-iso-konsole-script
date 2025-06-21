@@ -58,7 +58,7 @@ void print_banner() {
         "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n"
     );
     printf("%s", RESET);
-    printf("%sClaudemods Arch ISO Creator Advanced C Script v1.01%s\n", RED, RESET);
+    printf("%sClaudemods Arch ISO Creator Advanced C Script v1.01 21-06-2025%s\n", RED, RESET);
 }
 
 void print_blue(const char *text) { printf("%s%s%s\n", BLUE, text, RESET); }
@@ -237,6 +237,48 @@ void edit_isolinux_cfg_arch() {
     message_box("Success", "isolinux.cfg opened for editing.");
 }
 
+void save_clone_dir(const char* dir_path) {
+    char config_dir[MAX_PATH];
+    snprintf(config_dir, sizeof(config_dir), "/home/%s/.config/cmi", getenv("USER"));
+    
+    if (!dir_exists(config_dir)) {
+        char mkdir_cmd[MAX_PATH + 10];
+        snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", config_dir);
+        run_command(mkdir_cmd);
+    }
+
+    char file_path[MAX_PATH];
+    snprintf(file_path, sizeof(file_path), "%s/clonedir.txt", config_dir);
+    
+    FILE* f = fopen(file_path, "w");
+    if (!f) {
+        perror("Failed to open clonedir.txt");
+        return;
+    }
+    
+    fprintf(f, "%s", dir_path);
+    fclose(f);
+    message_box("Success", "Clone directory path saved successfully.");
+}
+
+char* read_clone_dir() {
+    static char dir_path[MAX_PATH] = "";
+    char file_path[MAX_PATH];
+    snprintf(file_path, sizeof(file_path), "/home/%s/.config/cmi/clonedir.txt", getenv("USER"));
+    
+    FILE* f = fopen(file_path, "r");
+    if (!f) {
+        return NULL;
+    }
+    
+    if (fgets(dir_path, sizeof(dir_path), f)) {
+        dir_path[strcspn(dir_path, "\n")] = '\0';
+    }
+    fclose(f);
+    
+    return dir_path;
+}
+
 void clone_system(const char* clone_dir) {
     if (dir_exists(clone_dir)) {
         printf("Skipping removal of existing clone directory: %s\n", clone_dir);
@@ -254,18 +296,34 @@ void clone_system(const char* clone_dir) {
 }
 
 void create_squashfs_image(void) {
-    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cmi/build-image-arch/live/filesystem.squashfs "
-    "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
-    "-always-use-fragments -wildcards -xattrs";
-    printf("Creating SquashFS image: filesystem.squashfs\n");
+    char* clone_dir = read_clone_dir();
+    if (!clone_dir || strlen(clone_dir) == 0) {
+        error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
+        return;
+    }
+
+    char command[MAX_CMD];
+    snprintf(command, sizeof(command), 
+        "sudo mksquashfs %s /home/$USER/.config/cmi/build-image-arch/live/filesystem.squashfs "
+        "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
+        "-always-use-fragments -wildcards -xattrs", clone_dir);
+    
+    printf("Creating SquashFS image from: %s\n", clone_dir);
     run_command(command);
 }
 
 void delete_clone_system_temp(void) {
+    char* clone_dir = read_clone_dir();
+    if (!clone_dir || strlen(clone_dir) == 0) {
+        error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
+        return;
+    }
+
     char command[MAX_CMD];
-    strcpy(command, "sudo rm -rf clone_system_temp");
-    printf("Deleting temporary clone directory: clone_system_temp\n");
+    snprintf(command, sizeof(command), "sudo rm -rf %s", clone_dir);
+    printf("Deleting temporary clone directory: %s\n", clone_dir);
     run_command(command);
+    
     struct stat st;
     if (stat("filesystem.squashfs", &st) == 0) {
         strcpy(command, "sudo rm -f filesystem.squashfs");
@@ -276,11 +334,22 @@ void delete_clone_system_temp(void) {
     }
 }
 
+void set_clone_directory() {
+    char* dir_path = prompt("Enter full path for clone_system_temp directory: ");
+    if (!dir_path || strlen(dir_path) == 0) {
+        error_box("Error", "Directory path cannot be empty");
+        return;
+    }
+
+    save_clone_dir(dir_path);
+    free(dir_path);
+}
+
 void squashfs_menu() {
     const char *items[] = {
         "Max compression (xz)",
-        "Create SquashFS from clone_system_temp",
-        "Delete clone_system_temp and SquashFS image",
+        "Create SquashFS from clone directory",
+        "Delete clone directory and SquashFS image",
         "Back to Main Menu"
     };
     int selected = 0;
@@ -299,16 +368,19 @@ void squashfs_menu() {
             case '\n':
                 switch (selected) {
                     case 0:
-                        if (!dir_exists("clone_system_temp")) {
-                            clone_system("clone_system_temp");
+                        {
+                            char* clone_dir = read_clone_dir();
+                            if (!clone_dir || strlen(clone_dir) == 0) {
+                                error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
+                                break;
+                            }
+                            if (!dir_exists(clone_dir)) {
+                                clone_system(clone_dir);
+                            }
+                            create_squashfs_image();
                         }
-                        create_squashfs_image();
                         break;
                     case 1:
-                        if (!dir_exists("clone_system_temp")) {
-                            error_box("Error", "clone_system_temp doesn't exist");
-                            break;
-                        }
                         create_squashfs_image();
                         break;
                     case 2:
@@ -468,109 +540,100 @@ void create_command_files() {
     }
     exe_path[len] = '\0';
 
-    FILE *f = fopen("gen-init", "w");
-    if (!f) {
-        perror("fopen gen-init");
+    // Create files directly in /usr/bin with sudo
+    char *sudo_password = prompt("Enter sudo password to create command files: ");
+    if (!sudo_password || strlen(sudo_password) == 0) {
+        error_box("Error", "Sudo password cannot be empty");
         return;
     }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: gen-init\"\n");
-    fprintf(f, "  echo \"Generate initcpio configuration\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 5\n", exe_path);
-    fclose(f);
-    chmod("gen-init", 0755);
 
-    f = fopen("edit-isocfg", "w");
-    if (!f) {
-        perror("fopen edit-isocfg");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: edit-isocfg\"\n");
-    fprintf(f, "  echo \"Edit isolinux.cfg file\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 6\n", exe_path);
-    fclose(f);
-    chmod("edit-isocfg", 0755);
+    // gen-init
+    char command[MAX_CMD];
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: gen-init\"\n"
+        "  echo \"Generate initcpio configuration\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 5\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/gen-init'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    f = fopen("edit-grubcfg", "w");
-    if (!f) {
-        perror("fopen edit-grubcfg");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: edit-grubcfg\"\n");
-    fprintf(f, "  echo \"Edit grub.cfg file\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 7\n", exe_path);
-    fclose(f);
-    chmod("edit-grubcfg", 0755);
+    // edit-isocfg
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: edit-isocfg\"\n"
+        "  echo \"Edit isolinux.cfg file\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 6\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/edit-isocfg'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    f = fopen("setup-script", "w");
-    if (!f) {
-        perror("fopen setup-script");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: setup-script\"\n");
-    fprintf(f, "  echo \"Open setup script menu\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 8\n", exe_path);
-    fclose(f);
-    chmod("setup-script", 0755);
+    // edit-grubcfg
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: edit-grubcfg\"\n"
+        "  echo \"Edit grub.cfg file\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 7\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/edit-grubcfg'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    f = fopen("make-iso", "w");
-    if (!f) {
-        perror("fopen make-iso");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: make-iso\"\n");
-    fprintf(f, "  echo \"Launches the ISO creation menu\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 3\n", exe_path);
-    fclose(f);
-    chmod("make-iso", 0755);
+    // setup-script
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: setup-script\"\n"
+        "  echo \"Open setup script menu\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 8\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/setup-script'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    f = fopen("make-squashfs", "w");
-    if (!f) {
-        perror("fopen make-squashfs");
-        return;
-    }
-    fprintf(f, "#!/bin/sh\n");
-    fprintf(f, "if [ \"$1\" = \"--help\" ]; then\n");
-    fprintf(f, "  echo \"Usage: make-squashfs\"\n");
-    fprintf(f, "  echo \"Launches the SquashFS creation menu\"\n");
-    fprintf(f, "  exit 0\n");
-    fprintf(f, "fi\n");
-    fprintf(f, "exec %s 4\n", exe_path);
-    fclose(f);
-    chmod("make-squashfs", 0755);
+    // make-iso
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: make-iso\"\n"
+        "  echo \"Launches the ISO creation menu\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 3\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/make-iso'", exe_path);
+    run_sudo_command(command, sudo_password);
 
-    run_command("sudo cp gen-init /usr/bin/");
-    run_command("sudo cp edit-isocfg /usr/bin/");
-    run_command("sudo cp edit-grubcfg /usr/bin/");
-    run_command("sudo cp setup-script /usr/bin/");
-    run_command("sudo cp make-iso /usr/bin/");
-    run_command("sudo cp make-squashfs /usr/bin/");
-    run_command("rm -f gen-init");
-    run_command("rm -f edit-isocfg");
-    run_command("rm -f edit-grubcfg");
-    run_command("rm -f setup-script");
-    run_command("rm -f make-iso");
-    run_command("rm -f make-squashfs");
+    // make-squashfs
+    snprintf(command, sizeof(command), 
+        "sudo bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
+        "#!/bin/sh\n"
+        "if [ \"$1\" = \"--help\" ]; then\n"
+        "  echo \"Usage: make-squashfs\"\n"
+        "  echo \"Launches the SquashFS creation menu\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "exec %s 4\n"
+        "EOF\n"
+        "chmod 755 /usr/bin/make-squashfs'", exe_path);
+    run_sudo_command(command, sudo_password);
+
     printf("%sActivated! You can now use all commands in your terminal.%s\n", GREEN, RESET);
+    free(sudo_password);
 }
 
 void remove_command_files() {
@@ -620,70 +683,34 @@ void command_installer_menu() {
     }
 }
 
-void arch_menu() {
-    const char *items[] = {
-        "Install Dependencies",
-        "Copy vmlinuz",
-        "Generate Initrd",
-        "Edit grub.cfg",
-        "Edit isolinux.cfg",
-        "Back to Main Menu"
-    };
-    int selected = 0;
-    int key;
-
-    while (1) {
-        key = show_menu("Arch Linux Configuration", items, 6, selected);
-
-        switch (key) {
-            case 'A':
-                if (selected > 0) selected--;
-                break;
-            case 'B':
-                if (selected < 5) selected++;
-                break;
-            case '\n':
-                switch (selected) {
-                    case 0: install_dependencies_arch(); break;
-                    case 1: copy_vmlinuz_arch(); break;
-                    case 2: generate_initrd_arch(); break;
-                    case 3: edit_grub_cfg_arch(); break;
-                    case 4: edit_isolinux_cfg_arch(); break;
-                    case 5: return;
-                }
-                printf("\nPress Enter to continue...");
-                while (getchar() != '\n');
-                break;
-        }
-    }
-}
-
 void setup_script_menu() {
     const char *items[] = {
         "Generate initcpio configuration (arch)",
         "Edit isolinux.cfg (arch)",
         "Edit grub.cfg (arch)",
+        "Set clone directory path",
         "Back to Main Menu"
     };
     int selected = 0;
     int key;
 
     while (1) {
-        key = show_menu("Setup Script Menu", items, 4, selected);
+        key = show_menu("Setup Script Menu", items, 5, selected);
 
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
                 break;
             case 'B':
-                if (selected < 3) selected++;
+                if (selected < 4) selected++;
                 break;
             case '\n':
                 switch (selected) {
                     case 0: generate_initrd_arch(); break;
                     case 1: edit_isolinux_cfg_arch(); break;
                     case 2: edit_grub_cfg_arch(); break;
-                    case 3: return;
+                    case 3: set_clone_directory(); break;
+                    case 4: return;
                 }
                 printf("\nPress Enter to continue...");
                 while (getchar() != '\n');
@@ -725,7 +752,6 @@ int main(int argc, char *argv[]) {
     }
 
     const char *items[] = {
-        "Arch Linux Configuration",
         "SquashFS Creator",
         "ISO Creator",
         "Setup Script",
@@ -736,23 +762,22 @@ int main(int argc, char *argv[]) {
     int key;
 
     while (1) {
-        key = show_menu("Main Menu", items, 6, selected);
+        key = show_menu("Main Menu", items, 5, selected);
 
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
                 break;
             case 'B':
-                if (selected < 5) selected++;
+                if (selected < 4) selected++;
                 break;
             case '\n':
                 switch (selected) {
-                    case 0: arch_menu(); break;
-                    case 1: squashfs_menu(); break;
-                    case 2: iso_creator_menu(); break;
-                    case 3: setup_script_menu(); break;
-                    case 4: command_installer_menu(); break;
-                    case 5:
+                    case 0: squashfs_menu(); break;
+                    case 1: iso_creator_menu(); break;
+                    case 2: setup_script_menu(); break;
+                    case 3: command_installer_menu(); break;
+                    case 4:
                         disable_raw_mode();
                         return 0;
                 }
