@@ -35,6 +35,12 @@ Hello, welcome to claudemods Multi ISO Creator  Written in C,
 	<div align="center">
 Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
 		<div align="center">
+
+
+new install method use below command
+
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
+   
 <div align="center">
 
 
