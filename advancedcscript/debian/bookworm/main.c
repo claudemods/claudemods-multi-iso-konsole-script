@@ -203,14 +203,14 @@ void install_dependencies_debian() {
 void copy_vmlinuz_debian() {
     char command[512];
     snprintf(command, sizeof(command),
-             "sudo cp /boot/vmlinuz-6.1.0-27-amd64 /home/$USER/.config/cui/build-image-debian/live/");
+             "sudo cp /boot/vmlinuz-6.1.0-27-amd64 /home/$USER/.config/cmi/build-image-debian/live/");
     run_command(command);
     message_box("Success", "Vmlinuz copied successfully.");
 }
 
 void generate_initrd_debian() {
     progress_dialog("Generating Initramfs (Debian)...");
-    run_command("cd /home/$USER/.config/cui");
+    run_command("cd /home/$USER/.config/cmi");
     char initramfs_command[512];
     snprintf(initramfs_command, sizeof(initramfs_command),
              "sudo mkinitramfs -o \"$(pwd)/Debian/build-image-debian/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
@@ -220,13 +220,13 @@ void generate_initrd_debian() {
 
 void edit_grub_cfg_debian() {
     progress_dialog("Opening grub.cfg (debian)...");
-    run_command("nano /home/$USER/.config/cui/build-image-debian/boot/grub/grub.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-debian/boot/grub/grub.cfg");
     message_box("Success", "grub.cfg opened for editing.");
 }
 
 void edit_isolinux_cfg_debian() {
     progress_dialog("Opening isolinux.cfg (debian)...");
-    run_command("nano /home/$USER/.config/cui/build-image-debian/isolinux/isolinux.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-debian/isolinux/isolinux.cfg");
     message_box("Success", "isolinux.cfg opened for editing.");
 }
 
@@ -247,7 +247,7 @@ void clone_system(const char* clone_dir) {
 }
 
 void create_squashfs_image(void) {
-    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cui/build-image-debian/live/filesystem.squashfs "
+    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cmi/build-image-debian/live/filesystem.squashfs "
     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
     "-always-use-fragments -wildcards -xattrs";
     printf("Creating SquashFS image: filesystem.squashfs\n");
