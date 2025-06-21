@@ -66,7 +66,9 @@ build dependencies needed to install on older distros for new install method lib
    
 <div align="center">
 
+### new install method for advanced c++ script beta v2.0 use below command
 
+- bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/installermain/patch.sh)"
 
 <div align="center">
 
