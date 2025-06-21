@@ -57,7 +57,7 @@ std::string get_password() {
     char command[1024];
     const char* home = getenv("HOME");
     std::cout << COLOR_CYAN << "\nGetting some info...\n" << COLOR_RESET;
-    snprintf(command, sizeof(command), "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1", home);
+    snprintf(command, sizeof(command), "echo '%s' | git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1", password.c_str(), home);
     system(command);
 
     return password;
@@ -67,7 +67,7 @@ std::string get_distro_version_path() {
     char path[MAX_PATH_LENGTH];
     const char* home = getenv("HOME");
 
-    snprintf(path, sizeof(path), "%s/claudemods-multi-iso-konsole-script/advancedc++script/version/%s/version.txt",
+    snprintf(path, sizeof(path), "%s/claudemods-multi-iso-konsole-script/advancedc++script/version/version.txt",
              home, detected_distro.c_str());
     return path;
 }
@@ -138,10 +138,6 @@ void clean_old_installation() {
 
     std::cout << COLOR_CYAN << "\nCleaning old installation...\n" << COLOR_RESET;
 
-    snprintf(command, sizeof(command), "echo '%s' | sudo -S rm -f /usr/bin/%s >/dev/null 2>&1",
-             password.c_str(), executable_name.c_str());
-    system(command);
-
     snprintf(command, sizeof(command), "echo '%s' | sudo -S rm -rf \"%s/.config/cmi\" >/dev/null 2>&1",
              password.c_str(), home);
     system(command);
@@ -155,13 +151,14 @@ void* execute_update_thread(void* arg) {
     clean_old_installation();
 
     std::cout << COLOR_CYAN << "Creating config directory...\n" << COLOR_RESET;
-    snprintf(command, sizeof(command), "mkdir -p \"%s/.config/cmi\" >/dev/null 2>&1", home);
+    snprintf(command, sizeof(command), "echo '%s' | sudo -S mkdir -p \"%s/.config/cmi\" >/dev/null 2>&1", password->c_str(), home);
     system(command);
 
     std::cout << COLOR_GREEN << "\nBuilding application...\n" << COLOR_RESET;
     snprintf(command, sizeof(command),
              "cd \"%s/claudemods-multi-iso-konsole-script/advancedc++script\" && "
-             "qmake && make >/dev/null 2>&1", home);
+             "echo '%s' | sudo -S qmake && echo '%s' | sudo -S make >/dev/null 2>&1", 
+             home, password->c_str(), password->c_str());
     system(command);
 
     // Install binary
@@ -173,13 +170,14 @@ void* execute_update_thread(void* arg) {
     // Install version file
     std::cout << COLOR_GREEN << "Installing version file...\n" << COLOR_RESET;
     snprintf(command, sizeof(command),
-             "cp \"%s/claudemods-multi-iso-konsole-script/advancedc++script/version/%s/version.txt\" \"%s/.config/cmi/version.txt\"",
-             home, detected_distro.c_str(), home);
+             "echo '%s' | sudo -S cp \"%s/claudemods-multi-iso-konsole-script/advancedc++script/version/version.txt\" \"%s/.config/cmi/version.txt\"",
+             password->c_str(), home, detected_distro.c_str(), home);
     system(command);
 
     // Clean up repository
     snprintf(command, sizeof(command),
-             "rm -rf \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1", home);
+             "echo '%s' | sudo -S rm -rf \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1",
+             password->c_str(), home);
     system(command);
 
     commands_completed = true;
@@ -217,7 +215,7 @@ bool prompt_launch_script() {
     std::getline(std::cin, response);
 
     return (response == "y" || response == "Y" ||
-    response == "yes" || response == "YES");
+            response == "yes" || response == "YES");
 }
 
 void launch_script() {
@@ -259,4 +257,3 @@ int main() {
 
     return EXIT_SUCCESS;
 }
-
