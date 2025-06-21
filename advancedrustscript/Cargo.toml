@@ -1,0 +1,10 @@
+[package]
+name = "claudemods-iso-creator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nix = "0.26"
+termios = "0.3"
+chrono = "0.4"
+libc = "0.2"     # Required for some low-level system calls
