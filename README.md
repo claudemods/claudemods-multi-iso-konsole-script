@@ -34,6 +34,17 @@
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&label=claudemods&color=A836FF&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/claudemods)</div>
 
 
+
+
+<div align="center">
+Hello, welcome to claudemods Multi ISO Creator  Written in C,
+	<div align="center">
+Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
+		<div align="center">
+
+
+
+
 <div align="center">
 	
 ### this project is an experimental playground 
@@ -44,14 +55,8 @@
 
 <div align="center">
 	
-### test all scripts with caution!
-
-
-<div align="center">
-Hello, welcome to claudemods Multi ISO Creator  Written in C,
-	<div align="center">
-Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
-		<div align="center">
+### test all new scripts with caution!
+  
 			
 build dependencies needed to install on older distros for new install method libreadline6-dev and libncurses-dev
 
