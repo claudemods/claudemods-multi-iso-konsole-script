@@ -2,7 +2,7 @@
 Comment[en_GB]=
 Comment=
 Comment[en_US]=
-Exec=konsole -e /home/$USER/Downloads/patch.sh
+Exec=konsole -e /home/$USER/claudemods-multi-iso-creator/advancedcscript/installer/patch.sh
 GenericName[en_GB]=claudemods multi iso creator script
 GenericName=claudemods multi iso creator script
 GenericName[en_US]=laudemods multi iso creator script
