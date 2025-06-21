@@ -39,7 +39,7 @@ Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and fat
 
 ### new install method use below command
 
-- [bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"]
+- bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
    
 <div align="center">
 
