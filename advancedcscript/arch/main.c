@@ -212,7 +212,7 @@ void copy_vmlinuz_arch() {
 
     char command[512];
     snprintf(command, sizeof(command),
-             "sudo cp /boot/vmlinuz-%s /home/$USER/.config/cui/build-image-arch/live/",
+             "sudo cp /boot/vmlinuz-%s /home/$USER/.config/cmi/build-image-arch/live/",
              kernel_version);
     run_command(command);
     message_box("Success", "Vmlinuz copied successfully.");
@@ -220,20 +220,20 @@ void copy_vmlinuz_arch() {
 
 void generate_initrd_arch() {
     progress_dialog("Generating Initramfs (Arch)...");
-    run_command("cd /home/$USER/.config/cui");
-    run_command("sudo mkinitcpio -c live.conf -g /home/$USER/.config/cui/build-image-arch/live/initramfs-linux.img");
+    run_command("cd /home/$USER/.config/cmi");
+    run_command("sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
     message_box("Success", "Initramfs generated successfully.");
 }
 
 void edit_grub_cfg_arch() {
     progress_dialog("Opening grub.cfg (arch)...");
-    run_command("nano /home/$USER/.config/cui/build-image-arch/boot/grub/grub.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-arch/boot/grub/grub.cfg");
     message_box("Success", "grub.cfg opened for editing.");
 }
 
 void edit_isolinux_cfg_arch() {
     progress_dialog("Opening isolinux.cfg (arch)...");
-    run_command("nano /home/$USER/.config/cui/build-image-arch/isolinux/isolinux.cfg");
+    run_command("nano /home/$USER/.config/cmi/build-image-arch/isolinux/isolinux.cfg");
     message_box("Success", "isolinux.cfg opened for editing.");
 }
 
@@ -254,7 +254,7 @@ void clone_system(const char* clone_dir) {
 }
 
 void create_squashfs_image(void) {
-    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cui/build-image-arch/live/filesystem.squashfs "
+    const char* command = "sudo mksquashfs clone_system_temp /home/$USER/.config/cmi/build-image-arch/live/filesystem.squashfs "
     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
     "-always-use-fragments -wildcards -xattrs";
     printf("Creating SquashFS image: filesystem.squashfs\n");
