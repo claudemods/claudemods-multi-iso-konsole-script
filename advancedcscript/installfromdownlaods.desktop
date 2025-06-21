@@ -1,0 +1,21 @@
+[Desktop Entry]
+Comment[en_GB]=
+Comment=
+Comment[en_US]=
+Exec=konsole -e /home/$USER/Downloads/patch.sh
+GenericName[en_GB]=claudemods multi iso creator script
+GenericName=claudemods multi iso creator script
+GenericName[en_US]=laudemods multi iso creator script
+Icon=
+MimeType=
+Name[en_GB]=laudemods multi iso creator script
+Name=laudemods multi iso creator script
+Name[en_US]=laudemods multi iso creator script
+Path=
+PrefersNonDefaultGPU=false
+StartupNotify=true
+Terminal=false
+TerminalOptions=\s--noclose
+Type=Application
+X-KDE-SubstituteUID=false
+X-KDE-Username=
