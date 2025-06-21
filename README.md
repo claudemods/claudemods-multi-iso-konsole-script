@@ -51,7 +51,7 @@ Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and fat
 
 <div align="center">
 	
-### i have wild idea alots of things being made in this repository
+### i have wild ideas and lots of things being made in this repository
 
 <div align="center">
 	
