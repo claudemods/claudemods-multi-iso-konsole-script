@@ -38,7 +38,7 @@ Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and fat
 			
 build dependencies needed to install on older distros for new install method libreadline6-dev and libncurses-dev
 
-### new install method for beta v2.0 use below command
+### new install method for advanced c script beta v2.0 use below command
 
 - bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
    
