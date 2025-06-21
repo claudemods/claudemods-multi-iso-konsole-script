@@ -31,13 +31,11 @@
 [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&label=claudemods&color=A836FF&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/claudemods)</div>
 
 <div align="center">
-Hello, welcome to claudemods Multi ISO Creator v1.06.1 Final Demo 05-02-2025 Written in Cpp,
+Hello, welcome to claudemods Multi ISO Creator  Written in C,
 	<div align="center">
 Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
 		<div align="center">
-i wouldnt be sailing if the code was forkable so no their will be no .cpp .pro or other forkable files in this repo
 <div align="center">
-more info on releases
 
 
 ![2025-02-06-002858_hyprshot](https://github.com/user-attachments/assets/0573af1b-5121-429e-90a3-528c7447f7e6)
