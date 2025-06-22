@@ -41,7 +41,7 @@
 </div>
 
 <div align="center">
-  <h6 align="center">This Is For UEFI EXT4 Arch Ubuntu, Debian Systems Without Separate Swap Or Home</h6>
+  <h5 align="center">This Is For UEFI EXT4 Arch Ubuntu, Debian Systems Without Separate Swap Or Home</h5>
 </div>
 
 <div align="center">
