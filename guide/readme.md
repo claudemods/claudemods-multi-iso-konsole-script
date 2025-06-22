@@ -1,6 +1,6 @@
 # ClaudeMods Multi ISO Creator v2.0 Guide 22-06-2025  
 
-*"This Is For UEFI EXT4 Systems Without Separate Swap Or Home Only Supporting Arch Ubuntu And Debian"*  
+*"This Is For UEFI EXT4 Systems Without Separate Swap Or Home And Only Supporting Arch Ubuntu, Debian"*  
 
 *(Edited from guide in [ApexArchIsoCreatorScriptAppImage](https://github.com/claudemods/ApexArchIsoCreatorScriptAppImage))*  
 *(I will add this into newer updates as a menu option shortly)*  
