@@ -40,14 +40,7 @@
   <h5 align="center">Hello, welcome to claudemods Multi ISO Creator Written in C, C++ And Rust</h5>
 </div>
 
-<div align="center">
-  <h5 align="center">This Is For UEFI EXT4 Arch Ubuntu, Debian Systems Without Separate Swap Or Home</h5>
-</div>
-
-<div align="center">
-  Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
-</div>
-
+<p align="center">This Is For UEFI EXT4 Arch Ubuntu, Debian Systems Without Separate Swap Or Home<br>Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!</p>
 ---
 
 <div align="center">
