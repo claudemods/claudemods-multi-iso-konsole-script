@@ -52,7 +52,7 @@ void* execute_update_thread(void* /*arg*/) {
     while (!loading_complete) usleep(10000);
 
     // 1. GIT CLONE (SILENT)
-    silent_command("git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  /home/$USER/claudemods-multi-iso-konsole-script");
+    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git");
 
     // 2. CURRENT VERSION (RUN COMMAND - NOT SILENT)
     try {
