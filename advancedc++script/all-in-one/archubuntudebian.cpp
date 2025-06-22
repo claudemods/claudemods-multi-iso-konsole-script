@@ -179,15 +179,14 @@ void print_banner(const std::string& distro_name) {
         std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
 
         std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-        std::string cmd = "df -h /";
-        std::array<char, 128> buffer;
-        std::string result;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-                std::cout << buffer.data();
-            }
-        }
+std::string cmd = "df -h /";
+std::array<char, 128> buffer;
+std::string result;
+std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+if (pipe) {
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        std::cout << GREEN << buffer.data() << RESET; // Added GREEN color here
+    }
 }
 
 int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, const std::string& distro_name = "Arch") {
@@ -901,87 +900,87 @@ void setup_script_menu() {
             }
             break;
 
-                                case UBUNTU:
-                                    distro_name = "Ubuntu";
-                                    {
-                                        std::vector<std::string> items = {
-                                            "Generate initcpio configuration (ubuntu)",
-                                            "Edit isolinux.cfg (ubuntu)",
-                                            "Edit grub.cfg (ubuntu)",
-                                            "Set clone directory path",
-                                            "Install One Time Updater",
-                                            "Back to Main Menu"
-                                        };
-                                        int selected = 0;
-                                        int key;
-                                        while (true) {
-                                            key = show_menu("Setup Script Menu", items, selected, distro_name);
-                                            switch (key) {
-                                                case 'A':
-                                                    if (selected > 0) selected--;
-                                                    break;
-                                                case 'B':
-                                                    if (selected < 5) selected++;
-                                                    break;
-                                                case '\n':
-                                                    switch (selected) {
-                                                        case 0: generate_initrd_ubuntu(); break;
-                                                        case 1: edit_isolinux_cfg_ubuntu(); break;
-                                                        case 2: edit_grub_cfg_ubuntu(); break;
-                                                        case 3: set_clone_directory(); break;
-                                                        case 4: install_one_time_updater(); break;
-                                                        case 5: return;
-                                                    }
-                                                    std::cout << "\nPress Enter to continue...";
-                                                    while (getchar() != '\n');
-                                                    break;
-                                            }
-                                        }
-                                    }
-                                    break;
+        case UBUNTU:
+            distro_name = "Ubuntu";
+            {
+                std::vector<std::string> items = {
+                    "Generate initcpio configuration (ubuntu)",
+                    "Edit isolinux.cfg (ubuntu)",
+                    "Edit grub.cfg (ubuntu)",
+                    "Set clone directory path",
+                    "Install One Time Updater",
+                    "Back to Main Menu"
+                };
+                int selected = 0;
+                int key;
+                while (true) {
+                    key = show_menu("Setup Script Menu", items, selected, distro_name);
+                    switch (key) {
+                        case 'A':
+                            if (selected > 0) selected--;
+                            break;
+                        case 'B':
+                            if (selected < 5) selected++;
+                            break;
+                        case '\n':
+                            switch (selected) {
+                                case 0: generate_initrd_ubuntu(); break;
+                                case 1: edit_isolinux_cfg_ubuntu(); break;
+                                case 2: edit_grub_cfg_ubuntu(); break;
+                                case 3: set_clone_directory(); break;
+                                case 4: install_one_time_updater(); break;
+                                case 5: return;
+                            }
+                            std::cout << "\nPress Enter to continue...";
+                            while (getchar() != '\n');
+                            break;
+                    }
+                }
+            }
+            break;
 
-                                                        case DEBIAN:
-                                                            distro_name = "Debian";
-                                                            {
-                                                                std::vector<std::string> items = {
-                                                                    "Generate initcpio configuration (debian)",
-                                                                    "Edit isolinux.cfg (debian)",
-                                                                    "Edit grub.cfg (debian)",
-                                                                    "Set clone directory path",
-                                                                    "Install One Time Updater",
-                                                                    "Back to Main Menu"
-                                                                };
-                                                                int selected = 0;
-                                                                int key;
-                                                                while (true) {
-                                                                    key = show_menu("Setup Script Menu", items, selected, distro_name);
-                                                                    switch (key) {
-                                                                        case 'A':
-                                                                            if (selected > 0) selected--;
-                                                                            break;
-                                                                        case 'B':
-                                                                            if (selected < 5) selected++;
-                                                                            break;
-                                                                        case '\n':
-                                                                            switch (selected) {
-                                                                                case 0: generate_initrd_debian(); break;
-                                                                                case 1: edit_isolinux_cfg_debian(); break;
-                                                                                case 2: edit_grub_cfg_debian(); break;
-                                                                                case 3: set_clone_directory(); break;
-                                                                                case 4: install_one_time_updater(); break;
-                                                                                case 5: return;
-                                                                            }
-                                                                            std::cout << "\nPress Enter to continue...";
-                                                                            while (getchar() != '\n');
-                                                                            break;
-                                                                    }
-                                                                }
-                                                            }
-                                                            break;
+        case DEBIAN:
+            distro_name = "Debian";
+            {
+                std::vector<std::string> items = {
+                    "Generate initcpio configuration (debian)",
+                    "Edit isolinux.cfg (debian)",
+                    "Edit grub.cfg (debian)",
+                    "Set clone directory path",
+                    "Install One Time Updater",
+                    "Back to Main Menu"
+                };
+                int selected = 0;
+                int key;
+                while (true) {
+                    key = show_menu("Setup Script Menu", items, selected, distro_name);
+                    switch (key) {
+                        case 'A':
+                            if (selected > 0) selected--;
+                            break;
+                        case 'B':
+                            if (selected < 5) selected++;
+                            break;
+                        case '\n':
+                            switch (selected) {
+                                case 0: generate_initrd_debian(); break;
+                                case 1: edit_isolinux_cfg_debian(); break;
+                                case 2: edit_grub_cfg_debian(); break;
+                                case 3: set_clone_directory(); break;
+                                case 4: install_one_time_updater(); break;
+                                case 5: return;
+                            }
+                            std::cout << "\nPress Enter to continue...";
+                            while (getchar() != '\n');
+                            break;
+                    }
+                }
+            }
+            break;
 
-                                                                                case UNKNOWN:
-                                                                                    error_box("Error", "Unsupported Linux distribution");
-                                                                                    break;
+        case UNKNOWN:
+            error_box("Error", "Unsupported Linux distribution");
+            break;
     }
 }
 
