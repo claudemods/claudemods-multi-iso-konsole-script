@@ -84,7 +84,7 @@ build dependencies needed to install on older distros for new cscript libreadlin
 
 <div align="center">
 
-<h2 align="center"> Connect With Me On Social </h2>
+<h3 align="center"> Connect With Me On Social </h3>
 
 <div align="center">
 
