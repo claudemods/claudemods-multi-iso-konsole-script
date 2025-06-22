@@ -4,6 +4,8 @@ edited from guide in  https://github.com/claudemods/ApexArchIsoCreatorScriptAppI
 
 i will add this in to newer updates as a menu option shortly
 
+This Is For Uefi Ext4 Systems Without Seperate Swap Or Home Only
+
 Please Follow Guide In Full
 
 1:) use one of the setup commands to install a version of my script
