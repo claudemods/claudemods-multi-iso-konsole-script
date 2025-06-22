@@ -122,7 +122,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
     }
 
-    silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/ && qmake && make");
+    silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/ && qmake && make >/dev/null 2>&1");
     silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
     silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
     // Capture installed version after installation
