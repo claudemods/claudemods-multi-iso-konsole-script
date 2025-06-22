@@ -24,7 +24,7 @@
 #define GREEN "\033[32m"
 #define RED "\033[31m"
 #define RESET "\033[0m"
-#define COLOR_CYAN "\033[36m"
+#define COLOR_CYAN "\033[38;2;0;255;255m"
 #define COLOR_GOLD "\033[38;2;36;255;255m"
 #define PASSWORD_MAX 100
 
@@ -48,6 +48,27 @@ Distro detect_distro() {
         }
     }
     return UNKNOWN;
+}
+
+// Color schemes based on distro
+std::string get_highlight_color(Distro distro) {
+    switch(distro) {
+        case ARCH: return "\033[38;2;36;255;255m"; // 24FFFF (cyan/blue)
+        case UBUNTU: return "\033[38;2;255;165;0m"; // orange
+        case DEBIAN: return "\033[31m"; // red
+        case CACHYOS: return "\033[38;2;36;255;255m"; // same as Arch
+        default: return "\033[36m"; // cyan as default
+    }
+}
+
+std::string get_distro_name(Distro distro) {
+    switch(distro) {
+        case ARCH: return "Arch";
+        case UBUNTU: return "Ubuntu";
+        case DEBIAN: return "Debian";
+        case CACHYOS: return "CachyOS";
+        default: return "Unknown";
+    }
 }
 
 // Forward declarations
@@ -170,34 +191,38 @@ void print_banner(const std::string& distro_name) {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        std::cout << RESET;
-        std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 22-06-2025" << RESET << std::endl;
+    std::cout << RESET;
+    std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 22-06-2025" << RESET << std::endl;
 
-        time_t now = time(NULL);
-        struct tm *t = localtime(&now);
-        char datetime[50];
-        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
-        std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    char datetime[50];
+    strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+    std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
 
-        std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-        std::string cmd = "df -h /";
-        std::array<char, 128> buffer;
-        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-                std::cout << GREEN << buffer.data() << RESET;
-            }
+    std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
+    std::string cmd = "df -h /";
+    std::array<char, 128> buffer;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (pipe) {
+        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+            std::cout << GREEN << buffer.data() << RESET;
         }
+    }
 }
 
-int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, const std::string& distro_name = "Arch") {
+int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, Distro distro = ARCH) {
     system("clear");
-    print_banner(distro_name);
+    print_banner(get_distro_name(distro));
+    
+    std::string highlight_color = get_highlight_color(distro);
+    
     std::cout << COLOR_CYAN << "  " << title << RESET << std::endl;
     std::cout << COLOR_CYAN << "  " << std::string(title.length(), '-') << RESET << std::endl;
+    
     for (size_t i = 0; i < items.size(); i++) {
         if (i == static_cast<size_t>(selected)) {
-            std::cout << COLOR_GOLD << "➤ " << items[i] << RESET << "\n";
+            std::cout << highlight_color << "➤ " << items[i] << RESET << "\n";
         } else {
             std::cout << COLOR_CYAN << "  " << items[i] << RESET << "\n";
         }
@@ -562,7 +587,7 @@ void install_one_time_updater() {
     message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
 }
 
-void squashfs_menu(const std::string& distro_name = "Arch") {
+void squashfs_menu(Distro distro) {
     std::vector<std::string> items = {
         "Max compression (xz)",
         "Create SquashFS from clone directory",
@@ -572,7 +597,7 @@ void squashfs_menu(const std::string& distro_name = "Arch") {
     int selected = 0;
     int key;
     while (true) {
-        key = show_menu("SquashFS Creator", items, selected, distro_name);
+        key = show_menu("SquashFS Creator", items, selected, distro);
         switch (key) {
             case 'A': // Up arrow
                 if (selected > 0) selected--;
@@ -592,9 +617,9 @@ void squashfs_menu(const std::string& distro_name = "Arch") {
                         if (!dir_exists(clone_dir)) {
                             clone_system(clone_dir);
                         }
-                        if (distro_name == "ubuntu") {
+                        if (distro == UBUNTU) {
                             create_squashfs_image_ubuntu();
-                        } else if (distro_name == "debian") {
+                        } else if (distro == DEBIAN) {
                             create_squashfs_image_debian();
                         } else {
                             create_squashfs_image();
@@ -602,18 +627,18 @@ void squashfs_menu(const std::string& distro_name = "Arch") {
                     }
                     break;
                     case 1:
-                        if (distro_name == "ubuntu") {
+                        if (distro == UBUNTU) {
                             create_squashfs_image_ubuntu();
-                        } else if (distro_name == "debian") {
+                        } else if (distro == DEBIAN) {
                             create_squashfs_image_debian();
                         } else {
                             create_squashfs_image();
                         }
                         break;
                     case 2:
-                        if (distro_name == "ubuntu") {
+                        if (distro == UBUNTU) {
                             delete_clone_system_temp_ubuntu();
-                        } else if (distro_name == "debian") {
+                        } else if (distro == DEBIAN) {
                             delete_clone_system_temp_debian();
                         } else {
                             delete_clone_system_temp();
@@ -629,7 +654,7 @@ void squashfs_menu(const std::string& distro_name = "Arch") {
     }
 }
 
-void create_iso(const std::string& distro_name = "Arch") {
+void create_iso(Distro distro) {
     std::string iso_name = prompt("What do you want to name your .iso? ");
     if (iso_name.empty()) {
         error_box("Input Error", "ISO name cannot be empty.");
@@ -646,9 +671,9 @@ void create_iso(const std::string& distro_name = "Arch") {
     }
 
     std::string build_image_dir;
-    if (distro_name == "ubuntu") {
+    if (distro == UBUNTU) {
         build_image_dir = std::string(application_dir_path) + "/build-image-noble";
-    } else if (distro_name == "debian") {
+    } else if (distro == DEBIAN) {
         build_image_dir = std::string(application_dir_path) + "/build-image-debian";
     } else {
         build_image_dir = std::string(application_dir_path) + "/build-image-arch";
@@ -677,7 +702,7 @@ void create_iso(const std::string& distro_name = "Arch") {
     }
 
     std::string xorriso_command;
-    if (distro_name == "ubuntu" || distro_name == "debian") {
+    if (distro == UBUNTU || distro == DEBIAN) {
         xorriso_command = "sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
         "-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin "
         "-c isolinux/boot.cat -b isolinux/isolinux.bin "
@@ -714,7 +739,7 @@ void run_iso_in_qemu() {
     run_command(command);
 }
 
-void iso_creator_menu(const std::string& distro_name = "Arch") {
+void iso_creator_menu(Distro distro) {
     std::vector<std::string> items = {
         "Create ISO",
         "Run ISO in QEMU",
@@ -723,7 +748,7 @@ void iso_creator_menu(const std::string& distro_name = "Arch") {
     int selected = 0;
     int key;
     while (true) {
-        key = show_menu("ISO Creator Menu", items, selected, distro_name);
+        key = show_menu("ISO Creator Menu", items, selected, distro);
         switch (key) {
             case 'A': // Up arrow
                 if (selected > 0) selected--;
@@ -734,7 +759,7 @@ void iso_creator_menu(const std::string& distro_name = "Arch") {
             case '\n': // Enter key
                 switch (selected) {
                     case 0:
-                        create_iso(distro_name);
+                        create_iso(distro);
                         break;
                     case 1:
                         run_iso_in_qemu();
@@ -845,7 +870,7 @@ void remove_command_files() {
     std::cout << GREEN << "Commands deactivated and removed from system." << RESET << std::endl;
 }
 
-void command_installer_menu(const std::string& distro_name = "Arch") {
+void command_installer_menu(Distro distro) {
     std::vector<std::string> items = {
         "Activate terminal commands",
         "Deactivate terminal commands",
@@ -854,7 +879,7 @@ void command_installer_menu(const std::string& distro_name = "Arch") {
     int selected = 0;
     int key;
     while (true) {
-        key = show_menu("Command Installer Menu", items, selected, distro_name);
+        key = show_menu("Command Installer Menu", items, selected, distro);
         switch (key) {
             case 'A': // Up arrow
                 if (selected > 0) selected--;
@@ -880,14 +905,12 @@ void command_installer_menu(const std::string& distro_name = "Arch") {
     }
 }
 
-void setup_script_menu() {
-    Distro distro = detect_distro();
-    std::string distro_name;
+void setup_script_menu(Distro distro) {
+    std::string distro_name = get_distro_name(distro);
     std::vector<std::string> items;
 
     switch(distro) {
         case ARCH: 
-            distro_name = "Arch";
             items = {
                 "Generate initcpio configuration (arch)",
                 "Edit isolinux.cfg (arch)",
@@ -898,7 +921,6 @@ void setup_script_menu() {
             };
             break;
         case CACHYOS:
-            distro_name = "CachyOS"; 
             items = {
                 "Generate initcpio configuration (cachyos)",
                 "Edit isolinux.cfg (cachyos)",
@@ -909,7 +931,6 @@ void setup_script_menu() {
             };
             break;
         case UBUNTU:
-            distro_name = "Ubuntu";
             items = {
                 "Generate initramfs (ubuntu)",
                 "Edit isolinux.cfg (ubuntu)",
@@ -920,7 +941,6 @@ void setup_script_menu() {
             };
             break;
         case DEBIAN:
-            distro_name = "Debian";
             items = {
                 "Generate initramfs (debian)",
                 "Edit isolinux.cfg (debian)",
@@ -952,7 +972,7 @@ void setup_script_menu() {
         
         for (size_t i = 0; i < items.size(); i++) {
             if (i == static_cast<size_t>(selected)) {
-                std::cout << COLOR_GOLD << "➤ " << items[i] << RESET << std::endl;
+                std::cout << get_highlight_color(distro) << "➤ " << items[i] << RESET << std::endl;
             } else {
                 std::cout << "  " << items[i] << std::endl;
             }
@@ -1007,14 +1027,7 @@ int main() {
     tcgetattr(STDIN_FILENO, &original_term);
     
     Distro distro = detect_distro();
-    std::string distro_name;
-    switch(distro) {
-        case ARCH: distro_name = "Arch"; break;
-        case CACHYOS: distro_name = "CachyOS"; break;
-        case UBUNTU: distro_name = "Ubuntu"; break;
-        case DEBIAN: distro_name = "Debian"; break;
-        default: distro_name = "Unknown";
-    }
+    std::string distro_name = get_distro_name(distro);
 
     std::vector<std::string> items = {
         "SquashFS Creator",
@@ -1026,7 +1039,7 @@ int main() {
     int selected = 0;
     int key;
     while (true) {
-        key = show_menu("Main Menu", items, selected, distro_name);
+        key = show_menu("Main Menu", items, selected, distro);
         switch (key) {
             case 'A': // Up arrow
                 if (selected > 0) selected--;
@@ -1036,10 +1049,10 @@ int main() {
                 break;
             case '\n': // Enter key
                 switch (selected) {
-                    case 0: squashfs_menu(distro_name); break;
-                    case 1: iso_creator_menu(distro_name); break;
-                    case 2: setup_script_menu(); break;
-                    case 3: command_installer_menu(distro_name); break;
+                    case 0: squashfs_menu(distro); break;
+                    case 1: iso_creator_menu(distro); break;
+                    case 2: setup_script_menu(distro); break;
+                    case 3: command_installer_menu(distro); break;
                     case 4:
                         disable_raw_mode();
                         return 0;
