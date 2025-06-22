@@ -124,7 +124,7 @@ void* execute_update_thread(void* /*arg*/) {
 
     silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/ && qmake && make");
     silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
-
+    silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
     // Capture installed version after installation
     try {
         std::string installed_version_output = run_command("cat /home/$USER/.config/cmi/version.txt");
@@ -171,8 +171,6 @@ int main() {
     if (response == 'y' || response == 'Y') {
         system(executable_name);
     }
-
-    silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
 
     return EXIT_SUCCESS;
 }
