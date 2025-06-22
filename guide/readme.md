@@ -2,6 +2,8 @@ claudemods Multi Iso Creator Guide 22-06-2025
 
 edited from guide in  https://github.com/claudemods/ApexArchIsoCreatorScriptAppImage
 
+i will add it in to newer updates as a menu option shortly
+
 Please Follow Guide In Full
 
 1:) use one of the setup commands to install a version of my script
