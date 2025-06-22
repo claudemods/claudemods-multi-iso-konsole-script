@@ -1,5 +1,4 @@
-# ClaudeMods Multi ISO Creator Guide  
-**22-06-2025**  
+# ClaudeMods Multi ISO Creator v2.0 Guide 22-06-2025  
 
 *"This Is For UEFI EXT4 Systems Without Separate Swap Or Home Only Supporting Arch Ubuntu And Debian"*  
 
