@@ -41,8 +41,10 @@
 
 
 <div align="center">
-Hello, welcome to claudemods Multi ISO Creator Written in C, C++ And Rust
+Hello, welcome to claudemods Multi ISO Creator 
 	<div align="center">
+Written in C, C++ And Rust
+  <div align="center">
 Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!
 		<div align="center">
 
