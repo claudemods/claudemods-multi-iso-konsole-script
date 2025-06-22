@@ -32,7 +32,7 @@
 struct termios original_term;
 
 // Distribution detection
-enum Distro { ARCH, UBUNTU, DEBIAN, UNKNOWN };
+enum Distro { ARCH, CACHYOS, UBUNTU, DEBIAN, UNKNOWN };
 
 Distro detect_distro() {
     std::ifstream os_release("/etc/os-release");
@@ -42,6 +42,7 @@ Distro detect_distro() {
     while (std::getline(os_release, line)) {
         if (line.find("ID=") == 0) {
             if (line.find("arch") != std::string::npos) return ARCH;
+            if (line.find("cachyos") != std::string::npos) return CACHYOS;
             if (line.find("ubuntu") != std::string::npos) return UBUNTU;
             if (line.find("debian") != std::string::npos) return DEBIAN;
         }
@@ -861,7 +862,6 @@ void setup_script_menu() {
     std::string distro_name;
     std::vector<std::string> items;
 
-    // Keep original distro detection exactly as you had it
     switch(distro) {
         case ARCH: 
             distro_name = "Arch";
@@ -923,7 +923,7 @@ void setup_script_menu() {
         system("clear");
         print_banner(distro_name);
         
-        // Original menu display code
+        // Display menu
         std::cout << COLOR_CYAN << "  Setup Script Menu" << RESET << std::endl;
         std::cout << COLOR_CYAN << "  -----------------" << RESET << std::endl;
         
@@ -935,16 +935,16 @@ void setup_script_menu() {
             }
         }
 
-        // Fixed input handling
-        char c = getchar();
+        // Handle input
+        int c = getchar();
         if (c == '\033') { // Escape sequence
             getchar(); // Skip '['
             c = getchar();
             
-            if (c == 'A' && selected > 0) selected--; // Up
-            else if (c == 'B' && selected < items.size() - 1) selected++; // Down
+            if (c == 'A' && selected > 0) selected--; // Up arrow
+            else if (c == 'B' && selected < items.size() - 1) selected++; // Down arrow
         } 
-        else if (c == '\n') { // PROPER ENTER KEY HANDLING
+        else if (c == '\n') { // Enter key
             switch(selected) {
                 case 0:
                     if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
@@ -971,13 +971,27 @@ void setup_script_menu() {
                     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
                     return;
             }
-            // Keep your original pause
+            // Pause after action
             std::cout << "\nPress Enter to continue...";
             while (getchar() != '\n');
         }
     }
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 }
+
+int main() {
+    tcgetattr(STDIN_FILENO, &original_term);
+    enable_raw_mode();
+
+    Distro distro = detect_distro();
+    std::string distro_name;
+    switch(distro) {
+        case ARCH: distro_name = "Arch"; break;
+        case CACHYOS: distro_name = "CachyOS"; break;
+        case UBUNTU: distro_name = "Ubuntu"; break;
+        case DEBIAN: distro_name = "Debian"; break;
+        case UNKNOWN: distro_name = "Unknown"; break;
+    }
 
     std::vector<std::string> items = {
         "SquashFS Creator",
