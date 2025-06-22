@@ -2,7 +2,7 @@ claudemods Multi Iso Creator Guide 22-06-2025
 
 edited from guide in  https://github.com/claudemods/ApexArchIsoCreatorScriptAppImage
 
-i will add it in to newer updates as a menu option shortly
+i will add this in to newer updates as a menu option shortly
 
 Please Follow Guide In Full
 
