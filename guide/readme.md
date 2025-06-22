@@ -33,7 +33,8 @@ If Your Going To Copy The Iso To A Usb After Selecting A location To Generate
 Please Wait 4 Minutes After Its Copied Otherwise It Might Fail
 Do the Same If You Directly Generate To A Usb E.g "Wait 4 Minutes"
 
-Optional Things Todo "NOT Integrated Yet"
+Optional Things Todo "First Option NOT Integrated Yet"
 
 1:) Test Your Iso In My Custom Qemu 
 
+2:) Change iso boot artwork in /home/$USER/.config/build-image-distroname/grub and or isolinux/splash.png
