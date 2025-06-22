@@ -16,7 +16,9 @@
   </a>
 
   <div align="center">
-    [![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=FFD700&label=Latest%20Release&style=for-the-badge)](https://github.com/https://github.com/claudemods/claudemods-multi-iso-konsole-script/releases/tag/v2.0-22-06-2025)
+      
+[![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=FFD700&label=Latest%20Release&style=for-the-badge)](https://github.com/https://github.com/claudemods/claudemods-multi-iso-konsole-script/releases/tag/v2.0-22-06-2025)
+ 
   </div>
 
   ## [ Guide ](https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/guide/readme.md)
@@ -26,8 +28,10 @@
 </div>
 
 <div align="center">
+    
   [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&label=claudemods&color=3399FF&Linux&logo=ko-fi&logoColor=white)](https://ko-fi.com/claudemods)
   [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&label=claudemods&color=A836FF&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/claudemods)
+
 </div>
 
 ---
