@@ -856,95 +856,139 @@ void command_installer_menu(const std::string& distro_name = "Arch") {
     }
 }
 
+// Add to your Distro enum at the top
+enum Distro { ARCH, CACHYOS, UBUNTU, DEBIAN, UNKNOWN };
+
+// Update detect_distro() function
+Distro detect_distro() {
+    std::ifstream os_release("/etc/os-release");
+    if (!os_release.is_open()) return UNKNOWN;
+
+    std::string line;
+    while (std::getline(os_release, line)) {
+        if (line.find("ID=") == 0) {
+            if (line.find("cachyos") != std::string::npos) return CACHYOS;
+            if (line.find("arch") != std::string::npos) return ARCH;
+            if (line.find("ubuntu") != std::string::npos) return UBUNTU;
+            if (line.find("debian") != std::string::npos) return DEBIAN;
+        }
+    }
+    return UNKNOWN;
+}
+
+// Update setup_script_menu()
 void setup_script_menu() {
     Distro distro = detect_distro();
     std::string distro_name;
+    std::vector<std::string> items;
 
     switch(distro) {
         case ARCH:
             distro_name = "Arch";
+            items = {
+                "Generate initcpio configuration",
+                "Edit isolinux.cfg",
+                "Edit grub.cfg",
+                "Set clone directory path",
+                "Install One Time Updater",
+                "Back to Main Menu"
+            };
+            break;
+        case CACHYOS:
+            distro_name = "CachyOS";
+            items = {
+                "Generate initcpio configuration",
+                "Edit isolinux.cfg",
+                "Edit grub.cfg",
+                "Set clone directory path",
+                "Install One Time Updater",
+                "Back to Main Menu"
+            };
             break;
         case UBUNTU:
             distro_name = "Ubuntu";
+            items = {
+                "Generate initramfs",
+                "Edit isolinux.cfg",
+                "Edit grub.cfg",
+                "Set clone directory path",
+                "Install One Time Updater",
+                "Back to Main Menu"
+            };
             break;
         case DEBIAN:
             distro_name = "Debian";
+            items = {
+                "Generate initramfs",
+                "Edit isolinux.cfg",
+                "Edit grub.cfg",
+                "Set clone directory path",
+                "Install One Time Updater",
+                "Back to Main Menu"
+            };
             break;
-        default:
-            distro_name = "Linux";
+        case UNKNOWN:
             error_box("Error", "Unsupported Linux distribution");
             return;
     }
 
-    std::vector<std::string> items;
-    if (distro == ARCH) {
-        items = {
-            "Generate initcpio configuration (arch)",
-            "Edit isolinux.cfg (arch)",
-            "Edit grub.cfg (arch)",
-            "Set clone directory path",
-            "Install One Time Updater",
-            "Back to Main Menu"
-        };
-    } else if (distro == UBUNTU) {
-        items = {
-            "Generate initcpio configuration (ubuntu)",
-            "Edit isolinux.cfg (ubuntu)",
-            "Edit grub.cfg (ubuntu)",
-            "Set clone directory path",
-            "Install One Time Updater",
-            "Back to Main Menu"
-        };
-    } else if (distro == DEBIAN) {
-        items = {
-            "Generate initcpio configuration (debian)",
-            "Edit isolinux.cfg (debian)",
-            "Edit grub.cfg (debian)",
-            "Set clone directory path",
-            "Install One Time Updater",
-            "Back to Main Menu"
-        };
-    }
-
     int selected = 0;
     while (true) {
-        int key = show_menu("Setup Script Menu", items, selected, distro_name);
+        system("clear");
+        print_banner(distro_name);
         
-        if (key == 'A') {  // Up arrow
+        // Print menu title
+        std::cout << COLOR_CYAN << "  Setup Script Menu (" << distro_name << ")" << RESET << std::endl;
+        std::cout << COLOR_CYAN << "  ----------------------------" << RESET << std::endl;
+
+        // Print menu items
+        for (int i = 0; i < items.size(); i++) {
+            if (i == selected) {
+                std::cout << COLOR_GOLD << "➤ " << items[i] << RESET << std::endl;
+            } else {
+                std::cout << "  " << items[i] << std::endl;
+            }
+        }
+
+        // Get key input
+        enable_raw_mode();
+        int key = get_key();
+        disable_raw_mode();
+
+        // Handle navigation
+        if (key == 'A') { // Up arrow
             if (selected > 0) selected--;
-        } 
-        else if (key == 'B') {  // Down arrow
+        } else if (key == 'B') { // Down arrow
             if (selected < items.size() - 1) selected++;
-        } 
-        else if (key == '\n') {  // Enter key
-            switch (selected) {
-                case 0:
-                    if (distro == ARCH) generate_initrd_arch();
+        } else if (key == '\n') { // Enter key
+            switch(selected) {
+                case 0: // Generate initcpio/initramfs
+                    if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
                     else if (distro == UBUNTU) generate_initrd_ubuntu();
                     else if (distro == DEBIAN) generate_initrd_debian();
                     break;
-                case 1:
-                    if (distro == ARCH) edit_isolinux_cfg_arch();
+                case 1: // Edit isolinux.cfg
+                    if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
                     else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
                     else if (distro == DEBIAN) edit_isolinux_cfg_debian();
                     break;
-                case 2:
-                    if (distro == ARCH) edit_grub_cfg_arch();
+                case 2: // Edit grub.cfg
+                    if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
                     else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
                     else if (distro == DEBIAN) edit_grub_cfg_debian();
                     break;
-                case 3:
+                case 3: // Set clone directory
                     set_clone_directory();
                     break;
-                case 4:
+                case 4: // Install updater
                     install_one_time_updater();
                     break;
-                case 5:
-                    return;  // Exit to main menu
+                case 5: // Back to main menu
+                    return;
             }
-            // Wait for Enter key after action
+            // Wait for Enter after action
             std::cout << "\nPress Enter to continue...";
-            while (getchar() != '\n');
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
     }
 }
