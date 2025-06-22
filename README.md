@@ -69,7 +69,8 @@
 </div>
 
 ---
-
+<div align="center">
+    
 ### 🚀 New Install Methods
 
 <div align="center">
