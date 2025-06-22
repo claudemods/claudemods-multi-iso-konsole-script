@@ -45,11 +45,11 @@
 
 <div align="center">
 
-  <h5 align="center"> This Is For UEFI EXT4 Arch Ubuntu, Debian Systems Without Separate Swap Or Home </h5>
+  <h6 align="center"> This Is For UEFI EXT4 Arch Ubuntu, Debian Systems Without Separate Swap Or Home </h6>
 
 <div align="center">
 
-<h5 align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix! </h5>
+<h6 align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix! </h6>
 	
 
 
