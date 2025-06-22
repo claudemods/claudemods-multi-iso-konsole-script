@@ -16,29 +16,29 @@
 `launch menu after install or type cmi.bin for c++ script or "distroname"isocreator.bin for c script into terminal`  
 
 ### 3️⃣ Kernel Preparation  
-`Copy Vmlinuz And Generate Initramfs`  
+`Copy Vmlinuz And Generate Initramfs Using Setup Script Menu`  
 **Note:** `If You Reboot You Will Need To This Again`  
 
 ### 4️⃣ ISOLINUX Configuration  
-`Edit IsoLinux Configuration`  
+`Edit IsoLinux Configuration Using Setup Scripts Menu`  
 `You Will Need to Edit Each Line Which Contains /live/vmlinuz-linux-zen`  
 `To Your Current Kernel If Its Not The Default Zen Change To e.g Cachyos, hardened, linux or lts`  
 `Optionally Edit archisolabel from 2025 to Whatever And Add Your Own Boot Text and Kernel Version For Eye Candy`  
 
 ### 5️⃣ GRUB Configuration  
-`Edit Grub Configuration`  
+`Edit Grub Configuration Using Setup Scripts Menu`  
 `You Will Need to Edit Each Line Which Contains /live/vmlinuz-linux-zen`  
 `To Your Current Kernel If Its Not The Default Zen Change To e.g Cachyos, hardened, linux or lts`  
 `Optionally Edit archisolabel from 2025 to Whatever And Add Your Own Boot Text For Eye Candy`  
 
 ### 6️⃣ System Cloning  
-`Clone Your System`  
+`Clone Your System Using Squashfs Creator Menu`  
 `Before Your Proceed Make Sure Everything Is Closed`  
 `goto setup script and select enter directory to store clone`  
 `Clone Your System Into A Squashfs with squashfs creator menu option`  
 
 ### 7️⃣ ISO Creation  
-`Create An Iso Of Your Cloned System`  
+`Create An Iso Of Your Cloned System Using Iso Creator Menu`  
 `If Your Changed The isotag e.g 2025 in the .cfg Please Set It To What Your Changed It To`  
 `Select A Location To Save The Iso To`  
 `If Your Going To Copy The Iso To A Usb After Selecting A location To Generate`  
