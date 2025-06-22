@@ -2,13 +2,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-#include <ctime>
-#include <string>
 #include <pthread.h>
-#include <termios.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
+#include <array>
 #include <memory>
-#include <fstream>
+#include <string>
 
 #define COLOR_GREEN "\033[38;2;0;255;0m"
 #define COLOR_CYAN "\033[38;2;0;255;255m"
@@ -16,244 +15,164 @@
 #define COLOR_YELLOW "\033[38;2;255;255;0m"
 #define COLOR_RESET "\033[0m"
 
-#define MAX_PATH_LENGTH 512
-#define MAX_VERSION_LENGTH 64
-#define LOADING_BAR_WIDTH 50
-
-std::string detected_distro;
-std::string executable_name;
+char detected_distro[64] = "";
+const char* executable_name = "cmi.bin";
 bool commands_completed = false;
-char current_version[MAX_VERSION_LENGTH] = "Not installed";
-char new_version[MAX_VERSION_LENGTH] = "Unknown";
-std::string password;
+bool loading_complete = false;
+char current_version[64] = "unknown";
+char downloaded_version[64] = "unknown";
+char installed_version[64] = "unknown";
 
-// Function prototypes
-std::string get_password();
-std::string get_distro_version_path();
-std::string detect_distro();
-bool read_version_file(const std::string& path, char* version);
-void check_versions();
-void clean_old_installation();
-void* execute_update_thread(void* arg);
-void show_loading_bar();
-void print_installed_version();
-bool prompt_launch_script();
-void launch_script();
-
-std::string get_password() {
-    struct termios old_term, new_term;
-
-    tcgetattr(STDIN_FILENO, &old_term);
-    new_term = old_term;
-    new_term.c_lflag &= ~(ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &new_term);
-
-    std::cout << COLOR_GREEN << "Enter sudo password: " << COLOR_RESET;
-    std::getline(std::cin, password);
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &old_term);
-    std::cout << std::endl;
-
-    char command[1024];
-    const char* home = getenv("HOME");
-    std::cout << COLOR_CYAN << "\nGetting some info...\n" << COLOR_RESET;
-    snprintf(command, sizeof(command), "echo '%s' | git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1", password.c_str(), home);
-    system(command);
-
-    return password;
+// Function to execute a command silently
+void silent_command(const char* cmd) {
+    char full_cmd[512];
+    snprintf(full_cmd, sizeof(full_cmd), "%s >/dev/null 2>&1", cmd);
+    system(full_cmd);
 }
 
-std::string get_distro_version_path() {
-    char path[MAX_PATH_LENGTH];
-    const char* home = getenv("HOME");
-
-    snprintf(path, sizeof(path), "%s/claudemods-multi-iso-konsole-script/advancedc++script/version/version.txt",
-             home, detected_distro.c_str());
-    return path;
+// Function to execute a command and capture its output
+std::string run_command(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    // Remove trailing newline characters
+    if (!result.empty() && result.back() == '\n') {
+        result.pop_back();
+    }
+    return result;
 }
 
-std::string detect_distro() {
-    std::unique_ptr<FILE, int(*)(FILE*)> fp(popen("cat /etc/os-release | grep -E '^ID=' | cut -d'=' -f2", "r"), pclose);
-    if (!fp) {
-        std::cerr << COLOR_RED << "Failed to detect distribution\n" << COLOR_RESET;
-        exit(EXIT_FAILURE);
+void* execute_update_thread(void* /*arg*/) {
+    while (!loading_complete) usleep(10000);
+
+    // 1. GIT CLONE (SILENT)
+    silent_command("git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  /home/$USER/claudemods-multi-iso-konsole-script");
+
+    // 2. CURRENT VERSION (RUN COMMAND - NOT SILENT)
+    try {
+        std::string version_output = run_command("cat /home/$USER/.config/cmi/version.txt");
+        if (version_output.empty()) {
+            strcpy(current_version, "not installed");
+        } else {
+            strncpy(current_version, version_output.c_str(), sizeof(current_version) - 1);
+        }
+    } catch (...) {
+        strcpy(current_version, "not installed");
     }
 
-    char buffer[256];
-    if (fgets(buffer, sizeof(buffer), fp.get())) {
-        buffer[strcspn(buffer, "\n")] = 0;
-        buffer[strcspn(buffer, "\"")] = 0;
+    // 3. DETECT DISTRO (RUN COMMAND - NOT SILENT)
+    try {
+        std::string distro_output = run_command("cat /etc/os-release | grep '^ID=' | cut -d'=' -f2 | tr -d '\"'");
+        if (distro_output == "arch" || distro_output == "cachyos") {
+            strcpy(detected_distro, "arch");
+        } else if (distro_output == "ubuntu") {
+            strcpy(detected_distro, "ubuntu");
+        } else if (distro_output == "debian") {
+            strcpy(detected_distro, "debian");
+        }
+    } catch (...) {
+        strcpy(detected_distro, "unknown");
+    }
 
-        if (strcmp(buffer, "arch") == 0 || strcmp(buffer, "cachyos") == 0) {
-            detected_distro = "arch";
-            executable_name = "cmi.bin";
-        } else if (strcmp(buffer, "ubuntu") == 0) {
-            detected_distro = "ubuntu";
-            executable_name = "cmi.bin";
-        } else if (strcmp(buffer, "debian") == 0) {
-            detected_distro = "debian";
-            executable_name = "cmi.bin";
+    // 4. DOWNLOADED VERSION (RUN COMMANDS - NOT SILENT)
+    if (strcmp(detected_distro, "arch") == 0) {
+        try {
+            std::string version_output = run_command(
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/arch/version.txt");
+            strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
+        } catch (...) {
+            strcpy(downloaded_version, "unknown");
+        }
+    } else if (strcmp(detected_distro, "ubuntu") == 0) {
+        try {
+            std::string version_output = run_command(
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/ubuntu/version.txt");
+            strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
+        } catch (...) {
+            strcpy(downloaded_version, "unknown");
+        }
+    } else if (strcmp(detected_distro, "debian") == 0) {
+        try {
+            std::string version_output = run_command(
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/debian/version.txt");
+            strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
+        } catch (...) {
+            strcpy(downloaded_version, "unknown");
         }
     }
 
-    return detected_distro;
-}
+    // [REST OF YOUR ORIGINAL COMMANDS WITH /dev/null REDIRECTION]
+    silent_command("rm -rf /home/$USER/.config/cmi");
+    silent_command("mkdir -p /home/$USER/.config/cmi");
 
-bool read_version_file(const std::string& path, char* version) {
-    std::ifstream version_file(path);
-    if (!version_file.is_open()) {
-        return false;
+    if (strcmp(detected_distro, "arch") == 0) {
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/arch/version.txt /home/$USER/.config/cmi/");
+        silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-arch.zip -d /home/$USER/.config/cmi/");
+    } else if (strcmp(detected_distro, "ubuntu") == 0) {
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/ubuntu/version.txt /home/$USER/.config/cmi/");
+        silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-ubuntu.zip -d /home/$USER/.config/cmi/");
+    } else if (strcmp(detected_distro, "debian") == 0) {
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/debian/version.txt /home/$USER/.config/cmi/");
+        silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
     }
 
-    version_file.getline(version, MAX_VERSION_LENGTH);
-    version_file.close();
-    return true;
-}
+    silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/ && qmake && make");
+    silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
 
-void check_versions() {
-    const char* home = getenv("HOME");
-    if (!home) {
-        std::cerr << COLOR_RED << "Error: Could not determine home directory\n" << COLOR_RESET;
-        exit(EXIT_FAILURE);
+    // Capture installed version after installation
+    try {
+        std::string installed_version_output = run_command("cat /home/$USER/.config/cmi/version.txt");
+        strncpy(installed_version, installed_version_output.c_str(), sizeof(installed_version) - 1);
+    } catch (...) {
+        strcpy(installed_version, "unknown");
     }
-
-    char current_path[MAX_PATH_LENGTH];
-    std::string new_path = get_distro_version_path();
-
-    snprintf(current_path, sizeof(current_path), "%s/.config/cmi/version.txt", home);
-
-    bool has_current = read_version_file(current_path, current_version);
-    bool has_new = read_version_file(new_path, new_version);
-
-    if (!has_current) strcpy(current_version, "Not installed");
-    if (!has_new) strcpy(new_version, "Unknown");
-
-    std::cout << COLOR_GREEN << "Current version: " << current_version << "\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "Available version: " << new_version << "\n" << COLOR_RESET;
-}
-
-void clean_old_installation() {
-    char command[1024];
-    const char* home = getenv("HOME");
-
-    std::cout << COLOR_CYAN << "\nCleaning old installation...\n" << COLOR_RESET;
-
-    snprintf(command, sizeof(command), "echo '%s' | sudo -S rm -rf \"%s/.config/cmi\" >/dev/null 2>&1",
-             password.c_str(), home);
-    system(command);
-}
-
-void* execute_update_thread(void* arg) {
-    const std::string* password = static_cast<const std::string*>(arg);
-    char command[1024];
-    const char* home = getenv("HOME");
-
-    clean_old_installation();
-
-    std::cout << COLOR_CYAN << "Creating config directory...\n" << COLOR_RESET;
-    snprintf(command, sizeof(command), "echo '%s' | sudo -S mkdir -p \"%s/.config/cmi\" >/dev/null 2>&1", password->c_str(), home);
-    system(command);
-
-    std::cout << COLOR_GREEN << "\nBuilding application...\n" << COLOR_RESET;
-    snprintf(command, sizeof(command),
-             "cd \"%s/claudemods-multi-iso-konsole-script/advancedc++script\" && "
-             "echo '%s' | qmake && make >/dev/null 2>&1", 
-             home, password->c_str(), password->c_str());
-    system(command);
-
-    // Install binary
-    snprintf(command, sizeof(command),
-             "echo '%s' | sudo -S cp -f \"%s/claudemods-multi-iso-konsole-script/advancedc++script/cmi.bin\" /usr/bin/cmi.bin >/dev/null 2>&1",
-             password->c_str(), home);
-    system(command);
-
-    // Install version file
-    std::cout << COLOR_GREEN << "Installing version file...\n" << COLOR_RESET;
-    snprintf(command, sizeof(command),
-             "echo '%s' | sudo -S cp \"%s/claudemods-multi-iso-konsole-script/advancedc++script/version/version.txt\" \"%s/.config/cmi/version.txt\"",
-             password->c_str(), home, detected_distro.c_str(), home);
-    system(command);
-
-    // Clean up repository
-    snprintf(command, sizeof(command),
-             "echo '%s' | sudo -S rm -rf \"%s/claudemods-multi-iso-konsole-script\" >/dev/null 2>&1",
-             password->c_str(), home);
-    system(command);
 
     commands_completed = true;
     return nullptr;
 }
 
 void show_loading_bar() {
-    std::cout << "\n" << COLOR_GREEN << "ClaudeMods Multi ISO Creator Updater\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Progress: [" << COLOR_RESET;
-
-    for (int i = 0; i < LOADING_BAR_WIDTH; i++) {
-        std::cout << COLOR_GREEN << "=" << COLOR_RESET;
+    for (int i = 0; i < 50; i++) {
+        std::cout << COLOR_YELLOW << "=" << COLOR_RESET;
         std::cout.flush();
         usleep(50000);
     }
-    std::cout << COLOR_GREEN << "] 100%\n\n" << COLOR_RESET;
-}
-
-void print_installed_version() {
-    char path[MAX_PATH_LENGTH];
-    char version[MAX_VERSION_LENGTH];
-
-    snprintf(path, sizeof(path), "%s/.config/cmi/version.txt", getenv("HOME"));
-
-    if (read_version_file(path, version)) {
-        std::cout << COLOR_GREEN << "\nInstalled version: " << version << "\n" << COLOR_RESET;
-    } else {
-        std::cout << COLOR_RED << "\nFailed to read installed version\n" << COLOR_RESET;
-    }
-}
-
-bool prompt_launch_script() {
-    std::string response;
-    std::cout << COLOR_YELLOW << "\nDo you want to open the script now? [y/N]: " << COLOR_RESET;
-    std::getline(std::cin, response);
-
-    return (response == "y" || response == "Y" ||
-            response == "yes" || response == "YES");
-}
-
-void launch_script() {
-    std::cout << COLOR_CYAN << "\nLaunching cmi.bin...\n" << COLOR_RESET;
-    system("cmi.bin");
+    std::cout << COLOR_GREEN << "] 100%\n" << COLOR_RESET;
+    loading_complete = true;
 }
 
 int main() {
-    password = get_password();
-
-    if (detect_distro().empty()) {
-        std::cerr << COLOR_RED << "Unsupported distribution!\n" << COLOR_RESET;
-        return EXIT_FAILURE;
-    }
-
-    check_versions();
-
     pthread_t thread;
-    pthread_create(&thread, nullptr, execute_update_thread, &password);
+    pthread_create(&thread, nullptr, execute_update_thread, nullptr);
 
     show_loading_bar();
 
-    while (!commands_completed) {
-        usleep(10000);
-    }
+    while (!commands_completed) usleep(10000);
     pthread_join(thread, nullptr);
 
-    std::cout << COLOR_GREEN << "\nUpdate complete!\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "Successfully updated to version: " << new_version << "\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "The executable has been installed to /usr/bin/cmi.bin\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "Configuration files placed in ~/.config/cmi/\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "Start with command: cmi.bin\n" << COLOR_RESET;
+    // Print installed and downloaded versions
+    std::cout << COLOR_GREEN << "\nInstallation complete!\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "Executable installed to: /usr/bin/cmi.bin\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "Configuration files placed in: /home/$USER/.config/cmi/\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "Installed version: " << installed_version << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Downloaded version: " << downloaded_version << COLOR_RESET << std::endl;
 
-    print_installed_version();
+    std::cout << COLOR_CYAN << "\nLaunch now? (y/n): " << COLOR_RESET;
+    char response;
+    std::cin >> response;
 
-    if (prompt_launch_script()) {
-        launch_script();
+    if (response == 'y' || response == 'Y') {
+        system(executable_name);
     }
+
+    silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
 
     return EXIT_SUCCESS;
 }
