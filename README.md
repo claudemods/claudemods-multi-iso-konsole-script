@@ -49,7 +49,7 @@
 
 <div align="center">
 
-<h6 align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix! </h6>
+Sailing the 7 seas like Penguin's Eggs Remastersys,Refracta,Systemback and father Knoppix!
 	
 
 
