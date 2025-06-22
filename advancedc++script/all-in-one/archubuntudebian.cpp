@@ -32,7 +32,7 @@
 struct termios original_term;
 
 // Distribution detection
-enum Distro { ARCH, CACHYOS, UBUNTU, DEBIAN, UNKNOWN };
+enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, UNKNOWN };
 
 Distro detect_distro() {
     std::ifstream os_release("/etc/os-release");
@@ -42,9 +42,9 @@ Distro detect_distro() {
     while (std::getline(os_release, line)) {
         if (line.find("ID=") == 0) {
             if (line.find("arch") != std::string::npos) return ARCH;
-            if (line.find("cachyos") != std::string::npos) return CACHYOS;
             if (line.find("ubuntu") != std::string::npos) return UBUNTU;
             if (line.find("debian") != std::string::npos) return DEBIAN;
+            if (line.find("cachyos") != std::string::npos) return CACHYOS;
         }
     }
     return UNKNOWN;
@@ -180,14 +180,14 @@ void print_banner(const std::string& distro_name) {
         std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
 
         std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-std::string cmd = "df -h /";
-std::array<char, 128> buffer;
-std::string result;
-std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-if (pipe) {
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        std::cout << GREEN << buffer.data() << RESET; // Added GREEN color here
-    }
+        std::string cmd = "df -h /";
+        std::array<char, 128> buffer;
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (pipe) {
+            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+                std::cout << GREEN << buffer.data() << RESET;
+            }
+        }
 }
 
 int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, const std::string& distro_name = "Arch") {
@@ -927,8 +927,8 @@ void setup_script_menu() {
         std::cout << COLOR_CYAN << "  Setup Script Menu" << RESET << std::endl;
         std::cout << COLOR_CYAN << "  -----------------" << RESET << std::endl;
         
-        for (int i = 0; i < items.size(); i++) {
-            if (i == selected) {
+        for (size_t i = 0; i < items.size(); i++) {
+            if (i == static_cast<size_t>(selected)) {
                 std::cout << COLOR_GOLD << "➤ " << items[i] << RESET << std::endl;
             } else {
                 std::cout << "  " << items[i] << std::endl;
@@ -980,9 +980,9 @@ void setup_script_menu() {
 }
 
 int main() {
+    // Save original terminal settings
     tcgetattr(STDIN_FILENO, &original_term);
-    enable_raw_mode();
-
+    
     Distro distro = detect_distro();
     std::string distro_name;
     switch(distro) {
@@ -990,7 +990,7 @@ int main() {
         case CACHYOS: distro_name = "CachyOS"; break;
         case UBUNTU: distro_name = "Ubuntu"; break;
         case DEBIAN: distro_name = "Debian"; break;
-        case UNKNOWN: distro_name = "Unknown"; break;
+        default: distro_name = "Unknown";
     }
 
     std::vector<std::string> items = {
