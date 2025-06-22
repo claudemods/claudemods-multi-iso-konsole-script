@@ -169,25 +169,25 @@ void print_banner(const std::string& distro_name) {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-    std::cout << RESET;
-    std::cout << RED << "Claudemods " << distro_name << " ISO Creator Advanced C++ Script v1.01 21-06-2025" << RESET << std::endl;
+        std::cout << RESET;
+        std::cout << RED << "Claudemods " << distro_name << " ISO Creator Advanced C++ Script v1.01 21-06-2025" << RESET << std::endl;
 
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    char datetime[50];
-    strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
-    std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char datetime[50];
+        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+        std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
 
-    std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-    std::string cmd = "df -h /";
-    std::array<char, 128> buffer;
-    std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (pipe) {
-        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-            std::cout << buffer.data();
+        std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
+        std::string cmd = "df -h /";
+        std::array<char, 128> buffer;
+        std::string result;
+        std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (pipe) {
+            while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+                std::cout << buffer.data();
+            }
         }
-    }
 }
 
 int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, const std::string& distro_name = "Arch") {
@@ -282,7 +282,8 @@ void install_dependencies_ubuntu() {
     "thin-provisioning-tools "
     "squashfs-tools "
     "xorriso "
-    
+    "ubuntu-defaults-builder";
+
     std::string command = "sudo apt install " + packages;
     run_command(command);
     message_box("Success", "Ubuntu dependencies installed successfully.");
@@ -369,7 +370,8 @@ void install_dependencies_debian() {
     "thin-provisioning-tools "
     "squashfs-tools "
     "xorriso "
-    
+    "debian-goodies";
+
     std::string command = "sudo apt install " + packages;
     run_command(command);
     message_box("Success", "Debian dependencies installed successfully.");
@@ -619,7 +621,7 @@ void create_iso(const std::string& distro_name = "Arch") {
         perror("getcwd");
         return;
     }
-    
+
     std::string build_image_dir;
     if (distro_name == "ubuntu") {
         build_image_dir = std::string(application_dir_path) + "/build-image-noble";
@@ -628,7 +630,7 @@ void create_iso(const std::string& distro_name = "Arch") {
     } else {
         build_image_dir = std::string(application_dir_path) + "/build-image-arch";
     }
-    
+
     if (build_image_dir.length() >= MAX_PATH) {
         error_box("Error", "Path too long for build directory");
         return;
@@ -650,7 +652,7 @@ void create_iso(const std::string& distro_name = "Arch") {
         error_box("Error", "Path too long for ISO filename");
         return;
     }
-    
+
     std::string xorriso_command;
     if (distro_name == "ubuntu" || distro_name == "debian") {
         xorriso_command = "sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
@@ -665,7 +667,7 @@ void create_iso(const std::string& distro_name = "Arch") {
         "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table "
         "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
     }
-    
+
     if (xorriso_command.length() >= MAX_CMD) {
         error_box("Error", "Command too long for buffer");
         return;
@@ -899,94 +901,94 @@ void setup_script_menu() {
             }
             break;
 
-        case UBUNTU:
-            distro_name = "Ubuntu";
-            {
-                std::vector<std::string> items = {
-                    "Generate initcpio configuration (ubuntu)",
-                    "Edit isolinux.cfg (ubuntu)",
-                    "Edit grub.cfg (ubuntu)",
-                    "Set clone directory path",
-                    "Install One Time Updater",
-                    "Back to Main Menu"
-                };
-                int selected = 0;
-                int key;
-                while (true) {
-                    key = show_menu("Setup Script Menu", items, selected, distro_name);
-                    switch (key) {
-                        case 'A':
-                            if (selected > 0) selected--;
-                            break;
-                        case 'B':
-                            if (selected < 5) selected++;
-                            break;
-                        case '\n':
-                            switch (selected) {
-                                case 0: generate_initrd_ubuntu(); break;
-                                case 1: edit_isolinux_cfg_ubuntu(); break;
-                                case 2: edit_grub_cfg_ubuntu(); break;
-                                case 3: set_clone_directory(); break;
-                                case 4: install_one_time_updater(); break;
-                                case 5: return;
-                            }
-                            std::cout << "\nPress Enter to continue...";
-                            while (getchar() != '\n');
-                            break;
-                    }
-                }
-            }
-            break;
+                                case UBUNTU:
+                                    distro_name = "Ubuntu";
+                                    {
+                                        std::vector<std::string> items = {
+                                            "Generate initcpio configuration (ubuntu)",
+                                            "Edit isolinux.cfg (ubuntu)",
+                                            "Edit grub.cfg (ubuntu)",
+                                            "Set clone directory path",
+                                            "Install One Time Updater",
+                                            "Back to Main Menu"
+                                        };
+                                        int selected = 0;
+                                        int key;
+                                        while (true) {
+                                            key = show_menu("Setup Script Menu", items, selected, distro_name);
+                                            switch (key) {
+                                                case 'A':
+                                                    if (selected > 0) selected--;
+                                                    break;
+                                                case 'B':
+                                                    if (selected < 5) selected++;
+                                                    break;
+                                                case '\n':
+                                                    switch (selected) {
+                                                        case 0: generate_initrd_ubuntu(); break;
+                                                        case 1: edit_isolinux_cfg_ubuntu(); break;
+                                                        case 2: edit_grub_cfg_ubuntu(); break;
+                                                        case 3: set_clone_directory(); break;
+                                                        case 4: install_one_time_updater(); break;
+                                                        case 5: return;
+                                                    }
+                                                    std::cout << "\nPress Enter to continue...";
+                                                    while (getchar() != '\n');
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                    break;
 
-        case DEBIAN:
-            distro_name = "Debian";
-            {
-                std::vector<std::string> items = {
-                    "Generate initcpio configuration (debian)",
-                    "Edit isolinux.cfg (debian)",
-                    "Edit grub.cfg (debian)",
-                    "Set clone directory path",
-                    "Install One Time Updater",
-                    "Back to Main Menu"
-                };
-                int selected = 0;
-                int key;
-                while (true) {
-                    key = show_menu("Setup Script Menu", items, selected, distro_name);
-                    switch (key) {
-                        case 'A':
-                            if (selected > 0) selected--;
-                            break;
-                        case 'B':
-                            if (selected < 5) selected++;
-                            break;
-                        case '\n':
-                            switch (selected) {
-                                case 0: generate_initrd_debian(); break;
-                                case 1: edit_isolinux_cfg_debian(); break;
-                                case 2: edit_grub_cfg_debian(); break;
-                                case 3: set_clone_directory(); break;
-                                case 4: install_one_time_updater(); break;
-                                case 5: return;
-                            }
-                            std::cout << "\nPress Enter to continue...";
-                            while (getchar() != '\n');
-                            break;
-                    }
-                }
-            }
-            break;
+                                                        case DEBIAN:
+                                                            distro_name = "Debian";
+                                                            {
+                                                                std::vector<std::string> items = {
+                                                                    "Generate initcpio configuration (debian)",
+                                                                    "Edit isolinux.cfg (debian)",
+                                                                    "Edit grub.cfg (debian)",
+                                                                    "Set clone directory path",
+                                                                    "Install One Time Updater",
+                                                                    "Back to Main Menu"
+                                                                };
+                                                                int selected = 0;
+                                                                int key;
+                                                                while (true) {
+                                                                    key = show_menu("Setup Script Menu", items, selected, distro_name);
+                                                                    switch (key) {
+                                                                        case 'A':
+                                                                            if (selected > 0) selected--;
+                                                                            break;
+                                                                        case 'B':
+                                                                            if (selected < 5) selected++;
+                                                                            break;
+                                                                        case '\n':
+                                                                            switch (selected) {
+                                                                                case 0: generate_initrd_debian(); break;
+                                                                                case 1: edit_isolinux_cfg_debian(); break;
+                                                                                case 2: edit_grub_cfg_debian(); break;
+                                                                                case 3: set_clone_directory(); break;
+                                                                                case 4: install_one_time_updater(); break;
+                                                                                case 5: return;
+                                                                            }
+                                                                            std::cout << "\nPress Enter to continue...";
+                                                                            while (getchar() != '\n');
+                                                                            break;
+                                                                    }
+                                                                }
+                                                            }
+                                                            break;
 
-        case UNKNOWN:
-            error_box("Error", "Unsupported Linux distribution");
-            break;
+                                                                                case UNKNOWN:
+                                                                                    error_box("Error", "Unsupported Linux distribution");
+                                                                                    break;
     }
 }
 
 int main(int argc, char *argv[]) {
     tcgetattr(STDIN_FILENO, &original_term);
     enable_raw_mode();
-    
+
     Distro distro = detect_distro();
     std::string distro_name;
     switch(distro) {
@@ -1041,7 +1043,7 @@ int main(int argc, char *argv[]) {
             return 0;
         }
     }
-    
+
     std::vector<std::string> items = {
         "SquashFS Creator",
         "ISO Creator",
