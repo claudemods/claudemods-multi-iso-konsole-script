@@ -24,6 +24,9 @@
 </div>
 
 
+## [ Guide ](https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/guide/readme.md)
+
+
 ## [ Support Me ](https://www.paypal.com/paypalme/claudemods?country.x=GB&locale)
 
 
