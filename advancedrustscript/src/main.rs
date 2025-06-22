@@ -208,7 +208,7 @@ fn show_menu(title: &str, items: &[String], selected: usize, distro_name: &str) 
 fn generate_initrd_arch() -> io::Result<()> {
     progress_dialog("Generating Initramfs (Arch)...");
     run_command("cd /home/$USER/.config/cmi")?;
-    run_command("sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img")?;
+    run_command("cd /home/$USER/.config/cmi/build-image-arch && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img")?;
     message_box("Success", "Initramfs generated successfully.");
     Ok(())
 }
