@@ -68,8 +68,8 @@ void disable_raw_mode() {
 
 int get_key() {
     int c = getchar();
-    if (c == '\033') {
-        getchar(); // Skip [
+    if (c == '\033') { // Escape sequence
+        getchar(); // Skip '['
         return getchar(); // Return actual key code
     }
     return c;
@@ -202,7 +202,30 @@ int show_menu(const std::string &title, const std::vector<std::string> &items, i
             std::cout << COLOR_CYAN << "  " << items[i] << RESET << "\n";
         }
     }
-    return get_key();
+    
+    // Set terminal to raw mode for single key input
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    
+    int c = getchar();
+    int key = 0;
+    
+    if (c == '\033') { // Escape sequence
+        getchar(); // Skip '['
+        key = getchar(); // Get arrow key code
+    } else if (c == '\n') {
+        key = '\n';
+    } else {
+        key = c;
+    }
+    
+    // Restore terminal settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    
+    return key;
 }
 
 // ============ ARCH FUNCTIONS ============
@@ -551,13 +574,13 @@ void squashfs_menu(const std::string& distro_name = "Arch") {
     while (true) {
         key = show_menu("SquashFS Creator", items, selected, distro_name);
         switch (key) {
-            case 'A':
+            case 'A': // Up arrow
                 if (selected > 0) selected--;
                 break;
-            case 'B':
-                if (selected < 3) selected++;
+            case 'B': // Down arrow
+                if (selected < items.size() - 1) selected++;
                 break;
-            case '\n':
+            case '\n': // Enter key
                 switch (selected) {
                     case 0:
                     {
@@ -702,13 +725,13 @@ void iso_creator_menu(const std::string& distro_name = "Arch") {
     while (true) {
         key = show_menu("ISO Creator Menu", items, selected, distro_name);
         switch (key) {
-            case 'A':
+            case 'A': // Up arrow
                 if (selected > 0) selected--;
                 break;
-            case 'B':
-                if (selected < 2) selected++;
+            case 'B': // Down arrow
+                if (selected < items.size() - 1) selected++;
                 break;
-            case '\n':
+            case '\n': // Enter key
                 switch (selected) {
                     case 0:
                         create_iso(distro_name);
@@ -833,13 +856,13 @@ void command_installer_menu(const std::string& distro_name = "Arch") {
     while (true) {
         key = show_menu("Command Installer Menu", items, selected, distro_name);
         switch (key) {
-            case 'A':
+            case 'A': // Up arrow
                 if (selected > 0) selected--;
                 break;
-            case 'B':
-                if (selected < 2) selected++;
+            case 'B': // Down arrow
+                if (selected < items.size() - 1) selected++;
                 break;
-            case '\n':
+            case '\n': // Enter key
                 switch (selected) {
                     case 0:
                         create_command_files();
@@ -1005,13 +1028,13 @@ int main() {
     while (true) {
         key = show_menu("Main Menu", items, selected, distro_name);
         switch (key) {
-            case 'A':
+            case 'A': // Up arrow
                 if (selected > 0) selected--;
                 break;
-            case 'B':
-                if (selected < 4) selected++;
+            case 'B': // Down arrow
+                if (selected < items.size() - 1) selected++;
                 break;
-            case '\n':
+            case '\n': // Enter key
                 switch (selected) {
                     case 0: squashfs_menu(distro_name); break;
                     case 1: iso_creator_menu(distro_name); break;
