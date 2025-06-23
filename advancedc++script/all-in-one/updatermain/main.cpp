@@ -60,11 +60,11 @@ void* execute_update_thread(void* /*arg*/) {
         strcpy(current_version, "not installed");
     }
 
-    // 3. DETECT DISTRO
+    // 3. DETECT DISTRO (EXPLICIT CACHYOS SUPPORT)
     try {
         std::string distro_output = run_command("cat /etc/os-release | grep '^ID=' | cut -d'=' -f2 | tr -d '\"'");
         if (distro_output == "arch" || distro_output == "cachyos") {
-            strcpy(detected_distro, "arch");
+            strcpy(detected_distro, distro_output.c_str()); // Store actual distro name
         } else if (distro_output == "ubuntu") {
             strcpy(detected_distro, "ubuntu");
         } else if (distro_output == "debian") {
@@ -75,23 +75,26 @@ void* execute_update_thread(void* /*arg*/) {
     }
 
     // 4. DOWNLOADED VERSION
-    if (strcmp(detected_distro, "arch") == 0) {
+    if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         try {
-            std::string version_output = run_command("cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/arch/version.txt");
+            std::string version_output = run_command(
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/arch/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
         }
     } else if (strcmp(detected_distro, "ubuntu") == 0) {
         try {
-            std::string version_output = run_command("cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/ubuntu/version.txt");
+            std::string version_output = run_command(
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/ubuntu/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
         }
     } else if (strcmp(detected_distro, "debian") == 0) {
         try {
-            std::string version_output = run_command("cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/debian/version.txt");
+            std::string version_output = run_command(
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/debian/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -102,27 +105,19 @@ void* execute_update_thread(void* /*arg*/) {
     silent_command("rm -rf /home/$USER/.config/cmi");
     silent_command("mkdir -p /home/$USER/.config/cmi");
 
-    if (strcmp(detected_distro, "arch") == 0) {
+    // EXPLICIT HANDLING FOR CACHYOS (USES ARCH FILES)
+    if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/arch/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-arch.zip -d /home/$USER/.config/cmi/");
-        // Copy calamares-per-distro for Arch/CachyOS
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && "
-                      "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro "
-                      "/home/$USER/.config/cmi/");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi/");
     } else if (strcmp(detected_distro, "ubuntu") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/ubuntu/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-ubuntu.zip -d /home/$USER/.config/cmi/");
-        // Copy calamares-per-distro for Ubuntu
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && "
-                      "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro "
-                      "/home/$USER/.config/cmi/");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi/");
     } else if (strcmp(detected_distro, "debian") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/version/debian/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
-        // Copy calamares-per-distro for Debian
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && "
-                      "cp calamares-per-distro "
-                      "/home/$USER/.config/cmi/");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi/");
     }
 
     // FINAL STEPS
@@ -165,6 +160,7 @@ int main() {
     std::cout << COLOR_GREEN << "\nInstallation complete!\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Executable installed to: /usr/bin/cmi.bin\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Configuration files placed in: /home/$USER/.config/cmi/\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "Detected distro: " << detected_distro << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Current version: " << current_version << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Downloaded version: " << downloaded_version << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Installed version: " << installed_version << COLOR_RESET << std::endl;
