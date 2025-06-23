@@ -54,6 +54,7 @@ void create_squashfs_image(void);
 void delete_clone_system_temp(void);
 void set_clone_directory();
 void install_one_time_updater();
+void install_calamares();
 void squashfs_menu();
 void create_iso();
 void run_iso_in_qemu();
@@ -113,7 +114,7 @@ void print_banner() {
         "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n"
     );
     printf("%s", RESET);
-    printf("%sClaudemods Arch ISO Creator Advanced C Script v1.01 22-06-2025%s\n", RED, RESET);
+    printf("%sClaudemods Arch ISO Creator Advanced C Script v1.01 24-06-2025%s\n", RED, RESET);
 
     // Display current date/time in UK format
     time_t now = time(NULL);
@@ -161,7 +162,8 @@ void run_sudo_command(const char *command, const char *password) {
         dup2(pipefd[0], STDIN_FILENO);
         close(pipefd[0]);
         char full_command[1024];
-        snprintf(full_command, sizeof(full_command), "sudo -S %s", command);
+        strcpy(full_command, "sudo -S ");
+        strcat(full_command, command);
         execl("/bin/sh", "sh", "-c", full_command, (char *)NULL);
         perror("execl");
         exit(EXIT_FAILURE);
@@ -242,7 +244,8 @@ void install_dependencies_arch() {
     "xorriso";
 
     char command[512];
-    snprintf(command, sizeof(command), "sudo pacman -S --needed --noconfirm %s", packages);
+    strcpy(command, "sudo pacman -S --needed --noconfirm ");
+    strcat(command, packages);
     run_command(command);
     message_box("Success", "Dependencies installed successfully.");
 }
@@ -258,9 +261,9 @@ void copy_vmlinuz_arch() {
     }
 
     char command[512];
-    snprintf(command, sizeof(command),
-             "sudo cp /boot/vmlinuz-%s /home/$USER/.config/cmi/build-image-arch/live/",
-             kernel_version);
+    strcpy(command, "sudo cp /boot/vmlinuz-");
+    strcat(command, kernel_version);
+    strcat(command, " /home/$USER/.config/cmi/build-image-arch/live/");
     run_command(command);
     message_box("Success", "Vmlinuz copied successfully.");
 }
@@ -286,16 +289,18 @@ void edit_isolinux_cfg_arch() {
 
 void save_clone_dir(const char* dir_path) {
     char config_dir[MAX_PATH];
-    snprintf(config_dir, sizeof(config_dir), "/home/%s/.config/cmi", getenv("USER"));
+    strcpy(config_dir, "/home/$USER/.config/cmi");
 
     if (!dir_exists(config_dir)) {
         char mkdir_cmd[MAX_PATH + 10];
-        snprintf(mkdir_cmd, sizeof(mkdir_cmd), "mkdir -p %s", config_dir);
+        strcpy(mkdir_cmd, "mkdir -p ");
+        strcat(mkdir_cmd, config_dir);
         run_command(mkdir_cmd);
     }
 
     char file_path[MAX_PATH];
-    snprintf(file_path, sizeof(file_path), "%s/clonedir.txt", config_dir);
+    strcpy(file_path, config_dir);
+    strcat(file_path, "/clonedir.txt");
 
     FILE* f = fopen(file_path, "w");
     if (!f) {
@@ -311,7 +316,7 @@ void save_clone_dir(const char* dir_path) {
 char* read_clone_dir() {
     static char dir_path[MAX_PATH] = "";
     char file_path[MAX_PATH];
-    snprintf(file_path, sizeof(file_path), "/home/%s/.config/cmi/clonedir.txt", getenv("USER"));
+    strcpy(file_path, "/home/$USER/.config/cmi/clonedir.txt");
 
     FILE* f = fopen(file_path, "r");
     if (!f) {
@@ -334,13 +339,14 @@ void clone_system(const char* clone_dir) {
     }
 
     char command[MAX_CMD];
-    snprintf(command, sizeof(command),
-             "sudo rsync -aHAxSr --numeric-ids --info=progress2 "
-             "--include=dev --include=usr --include=proc --include=tmp --include=sys "
-             "--include=run --include=media "
-             "--exclude=dev/* --exclude=proc/* --exclude=tmp/* --exclude=sys/* "
-             "--exclude=run/* --exclude=media/* --exclude=%s "
-             "/ %s", clone_dir, clone_dir);
+    strcpy(command, "sudo rsync -aHAxSr --numeric-ids --info=progress2 ");
+    strcat(command, "--include=dev --include=usr --include=proc --include=tmp --include=sys ");
+    strcat(command, "--include=run --include=media ");
+    strcat(command, "--exclude=dev/* --exclude=proc/* --exclude=tmp/* --exclude=sys/* ");
+    strcat(command, "--exclude=run/* --exclude=media/* --exclude=");
+    strcat(command, clone_dir);
+    strcat(command, " / ");
+    strcat(command, clone_dir);
 
     printf("Cloning system directory to: %s\n", clone_dir);
     run_command(command);
@@ -354,10 +360,11 @@ void create_squashfs_image(void) {
     }
 
     char command[MAX_CMD];
-    snprintf(command, sizeof(command),
-             "sudo mksquashfs %s /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs "
-             "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
-             "-always-use-fragments -wildcards -xattrs", clone_dir);
+    strcpy(command, "sudo mksquashfs ");
+    strcat(command, clone_dir);
+    strcat(command, " /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs ");
+    strcat(command, "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery ");
+    strcat(command, "-always-use-fragments -wildcards -xattrs");
 
     printf("Creating SquashFS image from: %s\n", clone_dir);
     run_command(command);
@@ -371,7 +378,8 @@ void delete_clone_system_temp(void) {
     }
 
     char command[MAX_CMD];
-    snprintf(command, sizeof(command), "sudo rm -rf %s", clone_dir);
+    strcpy(command, "sudo rm -rf ");
+    strcat(command, clone_dir);
     printf("Deleting temporary clone directory: %s\n", clone_dir);
     run_command(command);
 
@@ -416,6 +424,12 @@ void install_one_time_updater() {
     }
 
     message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
+}
+
+void install_calamares() {
+    progress_dialog("Installing Calamares...");
+    run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    message_box("Success", "Calamares installed successfully.");
 }
 
 void squashfs_menu() {
@@ -494,13 +508,8 @@ void create_iso() {
     }
 
     char build_image_dir[MAX_PATH];
-    int needed = snprintf(build_image_dir, sizeof(build_image_dir), "%s/build-image-arch", application_dir_path);
-    if (needed >= (int)sizeof(build_image_dir)) {
-        error_box("Error", "Path too long for build directory");
-        free(iso_name);
-        free(output_dir);
-        return;
-    }
+    strcpy(build_image_dir, application_dir_path);
+    strcat(build_image_dir, "/build-image-arch");
 
     struct stat st;
     if (stat(output_dir, &st) == -1) {
@@ -519,28 +528,22 @@ void create_iso() {
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H%M", t);
 
     char iso_file_name[MAX_PATH];
-    needed = snprintf(iso_file_name, sizeof(iso_file_name), "%s/%s_amd64_%s.iso",
-                      output_dir, iso_name, timestamp);
-    if (needed >= (int)sizeof(iso_file_name)) {
-        error_box("Error", "Path too long for ISO filename");
-        free(iso_name);
-        free(output_dir);
-        return;
-    }
+    strcpy(iso_file_name, output_dir);
+    strcat(iso_file_name, "/");
+    strcat(iso_file_name, iso_name);
+    strcat(iso_file_name, "_amd64_");
+    strcat(iso_file_name, timestamp);
+    strcat(iso_file_name, ".iso");
 
     char xorriso_command[MAX_CMD];
-    needed = snprintf(xorriso_command, sizeof(xorriso_command),
-                      "sudo xorriso -as mkisofs -o \"%s\" -V 2025 -iso-level 3 "
-                      "-isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat "
-                      "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table "
-                      "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"%s\"",
-                      iso_file_name, build_image_dir);
-    if (needed >= (int)sizeof(xorriso_command)) {
-        error_box("Error", "Command too long for buffer");
-        free(iso_name);
-        free(output_dir);
-        return;
-    }
+    strcpy(xorriso_command, "sudo xorriso -as mkisofs -o \"");
+    strcat(xorriso_command, iso_file_name);
+    strcat(xorriso_command, "\" -V 2025 -iso-level 3 ");
+    strcat(xorriso_command, "-isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat ");
+    strcat(xorriso_command, "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table ");
+    strcat(xorriso_command, "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"");
+    strcat(xorriso_command, build_image_dir);
+    strcat(xorriso_command, "\"");
 
     char *sudo_password = prompt("Enter your sudo password: ");
     if (!sudo_password || strlen(sudo_password) == 0) {
@@ -565,7 +568,8 @@ void create_iso() {
 void run_iso_in_qemu() {
     const char *qemu_script = "/opt/claudemods-iso-konsole-script/Supported-Distros/qemu.rb";
     char command[1024];
-    snprintf(command, sizeof(command), "ruby %s", qemu_script);
+    strcpy(command, "ruby ");
+    strcat(command, qemu_script);
     run_command(command);
 }
 
@@ -622,87 +626,93 @@ void create_command_files() {
 
     // gen-init
     char command[MAX_CMD];
-    snprintf(command, sizeof(command),
-             "sudo bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
-             "#!/bin/sh\n"
-             "if [ \"$1\" = \"--help\" ]; then\n"
-             "  echo \"Usage: gen-init\"\n"
-             "  echo \"Generate initcpio configuration\"\n"
-             "  exit 0\n"
-             "fi\n"
-             "exec %s 5\n"
-             "EOF\n"
-             "chmod 755 /usr/bin/gen-init'", exe_path);
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: gen-init\"\n");
+    strcat(command, "  echo \"Generate initcpio configuration\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 5\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/gen-init'");
     run_sudo_command(command, sudo_password);
 
     // edit-isocfg
-    snprintf(command, sizeof(command),
-             "sudo bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
-             "#!/bin/sh\n"
-             "if [ \"$1\" = \"--help\" ]; then\n"
-             "  echo \"Usage: edit-isocfg\"\n"
-             "  echo \"Edit isolinux.cfg file\"\n"
-             "  exit 0\n"
-             "fi\n"
-             "exec %s 6\n"
-             "EOF\n"
-             "chmod 755 /usr/bin/edit-isocfg'", exe_path);
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: edit-isocfg\"\n");
+    strcat(command, "  echo \"Edit isolinux.cfg file\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 6\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/edit-isocfg'");
     run_sudo_command(command, sudo_password);
 
     // edit-grubcfg
-    snprintf(command, sizeof(command),
-             "sudo bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
-             "#!/bin/sh\n"
-             "if [ \"$1\" = \"--help\" ]; then\n"
-             "  echo \"Usage: edit-grubcfg\"\n"
-             "  echo \"Edit grub.cfg file\"\n"
-             "  exit 0\n"
-             "fi\n"
-             "exec %s 7\n"
-             "EOF\n"
-             "chmod 755 /usr/bin/edit-grubcfg'", exe_path);
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: edit-grubcfg\"\n");
+    strcat(command, "  echo \"Edit grub.cfg file\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 7\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/edit-grubcfg'");
     run_sudo_command(command, sudo_password);
 
     // setup-script
-    snprintf(command, sizeof(command),
-             "sudo bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
-             "#!/bin/sh\n"
-             "if [ \"$1\" = \"--help\" ]; then\n"
-             "  echo \"Usage: setup-script\"\n"
-             "  echo \"Open setup script menu\"\n"
-             "  exit 0\n"
-             "fi\n"
-             "exec %s 8\n"
-             "EOF\n"
-             "chmod 755 /usr/bin/setup-script'", exe_path);
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: setup-script\"\n");
+    strcat(command, "  echo \"Open setup script menu\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 8\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/setup-script'");
     run_sudo_command(command, sudo_password);
 
     // make-iso
-    snprintf(command, sizeof(command),
-             "sudo bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
-             "#!/bin/sh\n"
-             "if [ \"$1\" = \"--help\" ]; then\n"
-             "  echo \"Usage: make-iso\"\n"
-             "  echo \"Launches the ISO creation menu\"\n"
-             "  exit 0\n"
-             "fi\n"
-             "exec %s 3\n"
-             "EOF\n"
-             "chmod 755 /usr/bin/make-iso'", exe_path);
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: make-iso\"\n");
+    strcat(command, "  echo \"Launches the ISO creation menu\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 3\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/make-iso'");
     run_sudo_command(command, sudo_password);
 
     // make-squashfs
-    snprintf(command, sizeof(command),
-             "sudo bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
-             "#!/bin/sh\n"
-             "if [ \"$1\" = \"--help\" ]; then\n"
-             "  echo \"Usage: make-squashfs\"\n"
-             "  echo \"Launches the SquashFS creation menu\"\n"
-             "  exit 0\n"
-             "fi\n"
-             "exec %s 4\n"
-             "EOF\n"
-             "chmod 755 /usr/bin/make-squashfs'", exe_path);
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: make-squashfs\"\n");
+    strcat(command, "  echo \"Launches the SquashFS creation menu\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 4\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/make-squashfs'");
     run_sudo_command(command, sudo_password);
 
     printf("%sActivated! You can now use all commands in your terminal.%s\n", GREEN, RESET);
@@ -761,31 +771,33 @@ void setup_script_menu() {
         "Generate initcpio configuration (arch)",
         "Edit isolinux.cfg (arch)",
         "Edit grub.cfg (arch)",
-        "Set clone directory path",
         "Install One Time Updater",
+        "Install Calamares",
+        "Set clone directory path",
         "Back to Main Menu"
     };
     int selected = 0;
     int key;
 
     while (1) {
-        key = show_menu("Setup Script Menu", items, 6, selected);
+        key = show_menu("Setup Script Menu", items, 7, selected);
 
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
                 break;
             case 'B':
-                if (selected < 5) selected++;
+                if (selected < 6) selected++;
                 break;
             case '\n':
                 switch (selected) {
                     case 0: generate_initrd_arch(); break;
                     case 1: edit_isolinux_cfg_arch(); break;
                     case 2: edit_grub_cfg_arch(); break;
-                    case 3: set_clone_directory(); break;
-                    case 4: install_one_time_updater(); break;
-                    case 5: return;
+                    case 3: install_one_time_updater(); break;
+                    case 4: install_calamares(); break;
+                    case 5: set_clone_directory(); break;
+                    case 6: return;
                 }
                 printf("\nPress Enter to continue...");
                 while (getchar() != '\n');
