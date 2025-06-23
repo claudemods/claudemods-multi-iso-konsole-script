@@ -55,6 +55,7 @@ void delete_clone_system_temp(void);
 void set_clone_directory();
 void install_one_time_updater();
 void install_calamares();
+void generate_calamares(); // New function declaration
 void squashfs_menu();
 void create_iso();
 void run_iso_in_qemu();
@@ -84,16 +85,23 @@ int get_key() {
     return c;
 }
 
-void print_blue(const char *text) { printf("%s%s%s\n", BLUE, text, RESET); }
+void print_blue(const char *text) {
+    printf("%s%s%s\n", BLUE, text, RESET);
+}
+
 void message_box(const char *title, const char *message) {
     printf("%s%s%s\n", GREEN, title, RESET);
     printf("%s%s%s\n", GREEN, message, RESET);
 }
+
 void error_box(const char *title, const char *message) {
     printf("%s%s%s\n", RED, title, RESET);
     printf("%s%s%s\n", RED, message, RESET);
 }
-void progress_dialog(const char *message) { printf("%s%s%s\n", BLUE, message, RESET); }
+
+void progress_dialog(const char *message) {
+    printf("%s%s%s\n", BLUE, message, RESET);
+}
 
 void run_command(const char *command) {
     printf("%sRunning command: %s%s\n", BLUE, command, RESET);
@@ -150,13 +158,11 @@ void run_sudo_command(const char *command, const char *password) {
         perror("pipe");
         exit(EXIT_FAILURE);
     }
-
     pid_t pid = fork();
     if (pid == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
     }
-
     if (pid == 0) {
         close(pipefd[1]);
         dup2(pipefd[0], STDIN_FILENO);
@@ -205,18 +211,15 @@ char* get_kernel_version() {
 int show_menu(const char *title, const char *items[], int count, int selected) {
     system("clear");
     print_banner();
-
     printf("%s  %s%s\n", COLOR_CYAN, title, RESET);
     printf("%s  %.*s%s\n", COLOR_CYAN, (int)strlen(title), "----------------", RESET);
-
     for (int i = 0; i < count; i++) {
         if (i == selected) {
-            printf("%s➤ %s%s\n\n", COLOR_GOLD, items[i], RESET);
+            printf("%s➤ %s%s\n", COLOR_GOLD, items[i], RESET);
         } else {
-            printf("%s  %s%s\n\n", COLOR_CYAN, items[i], RESET);
+            printf("%s  %s%s\n", COLOR_CYAN, items[i], RESET);
         }
     }
-
     return get_key();
 }
 
@@ -242,7 +245,6 @@ void install_dependencies_arch() {
     "thin-provisioning-tools "
     "squashfs-tools "
     "xorriso";
-
     char command[512];
     strcpy(command, "sudo pacman -S --needed --noconfirm ");
     strcat(command, packages);
@@ -259,7 +261,6 @@ void copy_vmlinuz_arch() {
         }
         pclose(fp);
     }
-
     char command[512];
     strcpy(command, "sudo cp /boot/vmlinuz-");
     strcat(command, kernel_version);
@@ -290,24 +291,20 @@ void edit_isolinux_cfg_arch() {
 void save_clone_dir(const char* dir_path) {
     char config_dir[MAX_PATH];
     strcpy(config_dir, "/home/$USER/.config/cmi");
-
     if (!dir_exists(config_dir)) {
         char mkdir_cmd[MAX_PATH + 10];
         strcpy(mkdir_cmd, "mkdir -p ");
         strcat(mkdir_cmd, config_dir);
         run_command(mkdir_cmd);
     }
-
     char file_path[MAX_PATH];
     strcpy(file_path, config_dir);
     strcat(file_path, "/clonedir.txt");
-
     FILE* f = fopen(file_path, "w");
     if (!f) {
         perror("Failed to open clonedir.txt");
         return;
     }
-
     fprintf(f, "%s", dir_path);
     fclose(f);
     message_box("Success", "Clone directory path saved successfully.");
@@ -317,17 +314,14 @@ char* read_clone_dir() {
     static char dir_path[MAX_PATH] = "";
     char file_path[MAX_PATH];
     strcpy(file_path, "/home/$USER/.config/cmi/clonedir.txt");
-
     FILE* f = fopen(file_path, "r");
     if (!f) {
         return NULL;
     }
-
     if (fgets(dir_path, sizeof(dir_path), f)) {
         dir_path[strcspn(dir_path, "\n")] = '\0';
     }
     fclose(f);
-
     return dir_path;
 }
 
@@ -337,7 +331,6 @@ void clone_system(const char* clone_dir) {
     } else {
         mkdir(clone_dir, 0755);
     }
-
     char command[MAX_CMD];
     strcpy(command, "sudo rsync -aHAxSr --numeric-ids --info=progress2 ");
     strcat(command, "--include=dev --include=usr --include=proc --include=tmp --include=sys ");
@@ -347,7 +340,6 @@ void clone_system(const char* clone_dir) {
     strcat(command, clone_dir);
     strcat(command, " / ");
     strcat(command, clone_dir);
-
     printf("Cloning system directory to: %s\n", clone_dir);
     run_command(command);
 }
@@ -358,14 +350,12 @@ void create_squashfs_image(void) {
         error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
         return;
     }
-
     char command[MAX_CMD];
     strcpy(command, "sudo mksquashfs ");
     strcat(command, clone_dir);
     strcat(command, " /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs ");
     strcat(command, "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery ");
     strcat(command, "-always-use-fragments -wildcards -xattrs");
-
     printf("Creating SquashFS image from: %s\n", clone_dir);
     run_command(command);
 }
@@ -376,13 +366,11 @@ void delete_clone_system_temp(void) {
         error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
         return;
     }
-
     char command[MAX_CMD];
     strcpy(command, "sudo rm -rf ");
     strcat(command, clone_dir);
     printf("Deleting temporary clone directory: %s\n", clone_dir);
     run_command(command);
-
     struct stat st;
     if (stat("filesystem.squashfs", &st) == 0) {
         strcpy(command, "sudo rm -f /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs");
@@ -399,17 +387,15 @@ void set_clone_directory() {
         error_box("Error", "Directory path cannot be empty");
         return;
     }
-
     save_clone_dir(dir_path);
     free(dir_path);
 }
 
 void install_one_time_updater() {
     progress_dialog("Installing one-time updater...");
-
     const char* commands[] = {
         "cd /home/$USER",
-        "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git >/dev/null 2>&1",
+        "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1",
         "mkdir -p /home/$USER/.config/cmi >/dev/null 2>&1",
         "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/updatermain/advancedcscriptupdater /home/$USER/.config/cmi >/dev/null 2>&1",
         "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1",
@@ -418,15 +404,19 @@ void install_one_time_updater() {
         "rm -rf /home/$USER/claudemods-multi-iso-konsole-script >/dev/null 2>&1",
         NULL
     };
-
     for (int i = 0; commands[i] != NULL; i++) {
         run_command(commands[i]);
     }
-
     message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
 }
 
 void install_calamares() {
+    progress_dialog("Installing Calamares...");
+    run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    message_box("Success", "Calamares installed successfully.");
+}
+
+void generate_calamares() {
     progress_dialog("Installing Calamares...");
     run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully.");
@@ -441,10 +431,8 @@ void squashfs_menu() {
     };
     int selected = 0;
     int key;
-
     while (1) {
         key = show_menu("SquashFS Creator", items, 4, selected);
-
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
@@ -490,7 +478,6 @@ void create_iso() {
         free(iso_name);
         return;
     }
-
     char *output_dir = prompt("Enter the output directory path (or press Enter for current directory): ");
     if (!output_dir) {
         output_dir = strdup(".");
@@ -498,7 +485,6 @@ void create_iso() {
         free(output_dir);
         output_dir = strdup(".");
     }
-
     char application_dir_path[MAX_PATH];
     if (getcwd(application_dir_path, sizeof(application_dir_path)) == NULL) {
         perror("getcwd");
@@ -506,11 +492,9 @@ void create_iso() {
         free(output_dir);
         return;
     }
-
     char build_image_dir[MAX_PATH];
     strcpy(build_image_dir, application_dir_path);
     strcat(build_image_dir, "/build-image-arch");
-
     struct stat st;
     if (stat(output_dir, &st) == -1) {
         if (mkdir(output_dir, 0755) == -1) {
@@ -520,13 +504,11 @@ void create_iso() {
             return;
         }
     }
-
     progress_dialog("Creating ISO...");
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
     char timestamp[20];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H%M", t);
-
     char iso_file_name[MAX_PATH];
     strcpy(iso_file_name, output_dir);
     strcat(iso_file_name, "/");
@@ -534,7 +516,6 @@ void create_iso() {
     strcat(iso_file_name, "_amd64_");
     strcat(iso_file_name, timestamp);
     strcat(iso_file_name, ".iso");
-
     char xorriso_command[MAX_CMD];
     strcpy(xorriso_command, "sudo xorriso -as mkisofs -o \"");
     strcat(xorriso_command, iso_file_name);
@@ -544,7 +525,6 @@ void create_iso() {
     strcat(xorriso_command, "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"");
     strcat(xorriso_command, build_image_dir);
     strcat(xorriso_command, "\"");
-
     char *sudo_password = prompt("Enter your sudo password: ");
     if (!sudo_password || strlen(sudo_password) == 0) {
         error_box("Input Error", "Sudo password cannot be empty.");
@@ -581,10 +561,8 @@ void iso_creator_menu() {
     };
     int selected = 0;
     int key;
-
     while (1) {
         key = show_menu("ISO Creator Menu", items, 3, selected);
-
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
@@ -617,7 +595,6 @@ void create_command_files() {
     }
     exe_path[len] = '\0';
 
-    // Create files directly in /usr/bin with sudo
     char *sudo_password = prompt("Enter sudo password to create command files: ");
     if (!sudo_password || strlen(sudo_password) == 0) {
         error_box("Error", "Sudo password cannot be empty");
@@ -715,6 +692,21 @@ void create_command_files() {
     strcat(command, "chmod 755 /usr/bin/make-squashfs'");
     run_sudo_command(command, sudo_password);
 
+    // gen-calamares
+    strcpy(command, "sudo bash -c 'cat > /usr/bin/gen-calamares << \"EOF\"\n");
+    strcat(command, "#!/bin/sh\n");
+    strcat(command, "if [ \"$1\" = \"--help\" ]; then\n");
+    strcat(command, "  echo \"Usage: gen-calamares\"\n");
+    strcat(command, "  echo \"Install Calamares installer framework\"\n");
+    strcat(command, "  exit 0\n");
+    strcat(command, "fi\n");
+    strcat(command, "exec ");
+    strcat(command, exe_path);
+    strcat(command, " 9\n");
+    strcat(command, "EOF\n");
+    strcat(command, "chmod 755 /usr/bin/gen-calamares'");
+    run_sudo_command(command, sudo_password);
+
     printf("%sActivated! You can now use all commands in your terminal.%s\n", GREEN, RESET);
     free(sudo_password);
 }
@@ -726,6 +718,7 @@ void remove_command_files() {
     run_command("sudo rm -f /usr/bin/setup-script");
     run_command("sudo rm -f /usr/bin/make-iso");
     run_command("sudo rm -f /usr/bin/make-squashfs");
+    run_command("sudo rm -f /usr/bin/gen-calamares");
     printf("%sCommands deactivated and removed from system.%s\n", GREEN, RESET);
 }
 
@@ -737,10 +730,8 @@ void command_installer_menu() {
     };
     int selected = 0;
     int key;
-
     while (1) {
         key = show_menu("Command Installer Menu", items, 3, selected);
-
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
@@ -778,10 +769,8 @@ void setup_script_menu() {
     };
     int selected = 0;
     int key;
-
     while (1) {
         key = show_menu("Setup Script Menu", items, 7, selected);
-
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
@@ -835,6 +824,10 @@ int main(int argc, char *argv[]) {
             setup_script_menu();
             disable_raw_mode();
             return 0;
+        } else if (strcmp(argv[1], "9") == 0) {
+            generate_calamares();
+            disable_raw_mode();
+            return 0;
         }
     }
 
@@ -850,7 +843,6 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         key = show_menu("Main Menu", items, 5, selected);
-
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
