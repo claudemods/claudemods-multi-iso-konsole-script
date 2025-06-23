@@ -51,7 +51,7 @@ Launch the menu after installation or type:
 
 ### 8️⃣ Configure Calamares *(C++ and C Arch Only For Now)*  
 - From the Setup Scripts Menu, select **Install Calamares**, or  
-- Run: `gen-calamares` if you've installed the helper commands
+- Run: `gen-calamares` if you've installed the custom commands
 
 ---
 
