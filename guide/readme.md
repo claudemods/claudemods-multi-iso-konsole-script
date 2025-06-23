@@ -51,7 +51,7 @@ Launch the menu after installation or type:
 
 ### 8️⃣ Configure Calamares *(C++ and C Arch Only For Now)*  
 - From the Setup Scripts Menu, select **Install Calamares**, or  
-- Run: `gen-calamares` if you've installed the custom commands
+- Execute: `gen-calamares` if you've installed the custom commands
 
 ---
 
@@ -62,4 +62,6 @@ Launch the menu after installation or type:
 1. **Test Your ISO in Custom QEMU**
 
 2. **Change ISO Boot Artwork**  
-   Location: /home/$USER/.config/build-image-distroname/grub and or isolinux/splash.png  
+   Location: /home/$USER/.config/build-image-distroname/grub and or isolinux/splash.png
+
+3. **Install Custom Commands For Setup Scripts Menu**
