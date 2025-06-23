@@ -122,6 +122,7 @@ void* execute_update_thread(void* /*arg*/) {
     silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && qmake && make >/dev/null 2>&1");
     silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
     silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
+    silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
     silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
 
     // GET INSTALLED VERSION
