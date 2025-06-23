@@ -74,7 +74,7 @@ std::string get_distro_name(Distro distro) {
 // Forward declarations
 std::string read_clone_dir();
 void save_clone_dir(const std::string &dir_path);
-void print_banner(const std::string& distro_name = "Arch");
+void print_banner();
 
 void enable_raw_mode() {
     struct termios term;
@@ -182,7 +182,7 @@ std::string get_kernel_version() {
     return version;
 }
 
-void print_banner(const std::string& distro_name) {
+void print_banner() {
     std::cout << RED;
     std::cout <<
     "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
@@ -191,35 +191,35 @@ void print_banner(const std::string& distro_name) {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-    std::cout << RESET;
-    std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 22-06-2025" << RESET << std::endl;
+        std::cout << RESET;
+        std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 22-06-2025" << RESET << std::endl;
 
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    char datetime[50];
-    strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
-    std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char datetime[50];
+        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+        std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
 
-    std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-    std::string cmd = "df -h /";
-    std::array<char, 128> buffer;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (pipe) {
-        while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-            std::cout << GREEN << buffer.data() << RESET;
+        std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
+        std::string cmd = "df -h /";
+        std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (pipe) {
+            char buffer[128];
+            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+                std::cout << GREEN << buffer << RESET;
+            }
         }
-    }
 }
 
 int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, Distro distro = ARCH) {
     system("clear");
-    print_banner(get_distro_name(distro));
-    
+    print_banner();
+
     std::string highlight_color = get_highlight_color(distro);
-    
+
     std::cout << COLOR_CYAN << "  " << title << RESET << std::endl;
     std::cout << COLOR_CYAN << "  " << std::string(title.length(), '-') << RESET << std::endl;
-    
+
     for (size_t i = 0; i < items.size(); i++) {
         if (i == static_cast<size_t>(selected)) {
             std::cout << highlight_color << "➤ " << items[i] << RESET << "\n";
@@ -227,17 +227,17 @@ int show_menu(const std::string &title, const std::vector<std::string> &items, i
             std::cout << COLOR_CYAN << "  " << items[i] << RESET << "\n";
         }
     }
-    
+
     // Set terminal to raw mode for single key input
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
     newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    
+
     int c = getchar();
     int key = 0;
-    
+
     if (c == '\033') { // Escape sequence
         getchar(); // Skip '['
         key = getchar(); // Get arrow key code
@@ -246,10 +246,10 @@ int show_menu(const std::string &title, const std::vector<std::string> &items, i
     } else {
         key = c;
     }
-    
+
     // Restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    
+
     return key;
 }
 
@@ -305,6 +305,19 @@ void edit_isolinux_cfg_arch() {
     progress_dialog("Opening isolinux.cfg (arch)...");
     run_command("nano /home/$USER/.config/cmi/build-image-arch/isolinux/isolinux.cfg");
     message_box("Success", "isolinux.cfg opened for editing.");
+}
+
+void install_calamares_arch() {
+    progress_dialog("Installing Calamares for Arch Linux...");
+    run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    message_box("Success", "Calamares installed successfully for Arch Linux.");
+}
+
+// ============ CACHYOS FUNCTIONS ============
+void install_calamares_cachyos() {
+    progress_dialog("Installing Calamares for CachyOS...");
+    run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    message_box("Success", "Calamares installed successfully for CachyOS.");
 }
 
 // ============ UBUNTU FUNCTIONS ============
@@ -363,36 +376,10 @@ void edit_isolinux_cfg_ubuntu() {
     message_box("Success", "Ubuntu isolinux.cfg opened for editing.");
 }
 
-void create_squashfs_image_ubuntu() {
-    std::string clone_dir = read_clone_dir();
-    if (clone_dir.empty()) {
-        error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
-        return;
-    }
-    std::string command = "sudo mksquashfs " + clone_dir + " /home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs "
-    "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
-    "-always-use-fragments -wildcards -xattrs";
-    std::cout << "Creating Ubuntu SquashFS image from: " << clone_dir << std::endl;
-    run_command(command);
-}
-
-void delete_clone_system_temp_ubuntu() {
-    std::string clone_dir = read_clone_dir();
-    if (clone_dir.empty()) {
-        error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
-        return;
-    }
-    std::string command = "sudo rm -rf " + clone_dir;
-    std::cout << "Deleting temporary clone directory: " << clone_dir << std::endl;
-    run_command(command);
-    struct stat st;
-    if (stat("filesystem.squashfs", &st) == 0) {
-        command = "sudo rm -f /home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs";
-        std::cout << "Deleting SquashFS image: filesystem.squashfs" << std::endl;
-        run_command(command);
-    } else {
-        std::cout << "SquashFS image does not exist: filesystem.squashfs" << std::endl;
-    }
+void install_calamares_ubuntu() {
+    progress_dialog("Installing Calamares for Ubuntu...");
+    run_command("sudo apt install -y calamares-settings-ubuntu calamares");
+    message_box("Success", "Calamares installed successfully for Ubuntu.");
 }
 
 // ============ DEBIAN FUNCTIONS ============
@@ -451,36 +438,10 @@ void edit_isolinux_cfg_debian() {
     message_box("Success", "Debian isolinux.cfg opened for editing.");
 }
 
-void create_squashfs_image_debian() {
-    std::string clone_dir = read_clone_dir();
-    if (clone_dir.empty()) {
-        error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
-        return;
-    }
-    std::string command = "sudo mksquashfs " + clone_dir + " /home/$USER/.config/cmi/build-image-debian/live/filesystem.sfs "
-    "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
-    "-always-use-fragments -wildcards -xattrs";
-    std::cout << "Creating Debian SquashFS image from: " << clone_dir << std::endl;
-    run_command(command);
-}
-
-void delete_clone_system_temp_debian() {
-    std::string clone_dir = read_clone_dir();
-    if (clone_dir.empty()) {
-        error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
-        return;
-    }
-    std::string command = "sudo rm -rf " + clone_dir;
-    std::cout << "Deleting temporary clone directory: " << clone_dir << std::endl;
-    run_command(command);
-    struct stat st;
-    if (stat("filesystem.squashfs", &st) == 0) {
-        command = "sudo rm -f /home/$USER/.config/cmi/build-image-debian/live/filesystem.sfs";
-        std::cout << "Deleting SquashFS image: filesystem.squashfs" << std::endl;
-        run_command(command);
-    } else {
-        std::cout << "SquashFS image does not exist: filesystem.squashfs" << std::endl;
-    }
+void install_calamares_debian() {
+    progress_dialog("Installing Calamares for Debian...");
+    run_command("sudo apt install -y calamares-settings-debian calamares");
+    message_box("Success", "Calamares installed successfully for Debian.");
 }
 
 // ============ COMMON FUNCTIONS ============
@@ -528,20 +489,30 @@ void clone_system(const std::string &clone_dir) {
     run_command(command);
 }
 
-void create_squashfs_image() {
+void create_squashfs_image(Distro distro) {
     std::string clone_dir = read_clone_dir();
     if (clone_dir.empty()) {
         error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
         return;
     }
-    std::string command = "sudo mksquashfs " + clone_dir + " /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs "
+
+    std::string output_path;
+    if (distro == UBUNTU) {
+        output_path = "/home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs";
+    } else if (distro == DEBIAN) {
+        output_path = "/home/$USER/.config/cmi/build-image-debian/live/filesystem.sfs";
+    } else {
+        output_path = "/home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs";
+    }
+
+    std::string command = "sudo mksquashfs " + clone_dir + " " + output_path + " "
     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
     "-always-use-fragments -wildcards -xattrs";
     std::cout << "Creating SquashFS image from: " << clone_dir << std::endl;
     run_command(command);
 }
 
-void delete_clone_system_temp() {
+void delete_clone_system_temp(Distro distro) {
     std::string clone_dir = read_clone_dir();
     if (clone_dir.empty()) {
         error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
@@ -550,13 +521,23 @@ void delete_clone_system_temp() {
     std::string command = "sudo rm -rf " + clone_dir;
     std::cout << "Deleting temporary clone directory: " << clone_dir << std::endl;
     run_command(command);
+
+    std::string squashfs_path;
+    if (distro == UBUNTU) {
+        squashfs_path = "/home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs";
+    } else if (distro == DEBIAN) {
+        squashfs_path = "/home/$USER/.config/cmi/build-image-debian/live/filesystem.sfs";
+    } else {
+        squashfs_path = "/home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs";
+    }
+
     struct stat st;
-    if (stat("filesystem.squashfs", &st) == 0) {
-        command = "sudo rm -f /home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs";
-        std::cout << "Deleting SquashFS image: filesystem.squashfs" << std::endl;
+    if (stat(squashfs_path.c_str(), &st) == 0) {
+        command = "sudo rm -f " + squashfs_path;
+        std::cout << "Deleting SquashFS image: " << squashfs_path << std::endl;
         run_command(command);
     } else {
-        std::cout << "SquashFS image does not exist: filesystem.squashfs" << std::endl;
+        std::cout << "SquashFS image does not exist: " << squashfs_path << std::endl;
     }
 }
 
@@ -603,7 +584,7 @@ void squashfs_menu(Distro distro) {
                 if (selected > 0) selected--;
                 break;
             case 'B': // Down arrow
-                if (selected < items.size() - 1) selected++;
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
                 break;
             case '\n': // Enter key
                 switch (selected) {
@@ -617,32 +598,14 @@ void squashfs_menu(Distro distro) {
                         if (!dir_exists(clone_dir)) {
                             clone_system(clone_dir);
                         }
-                        if (distro == UBUNTU) {
-                            create_squashfs_image_ubuntu();
-                        } else if (distro == DEBIAN) {
-                            create_squashfs_image_debian();
-                        } else {
-                            create_squashfs_image();
-                        }
+                        create_squashfs_image(distro);
                     }
                     break;
                     case 1:
-                        if (distro == UBUNTU) {
-                            create_squashfs_image_ubuntu();
-                        } else if (distro == DEBIAN) {
-                            create_squashfs_image_debian();
-                        } else {
-                            create_squashfs_image();
-                        }
+                        create_squashfs_image(distro);
                         break;
                     case 2:
-                        if (distro == UBUNTU) {
-                            delete_clone_system_temp_ubuntu();
-                        } else if (distro == DEBIAN) {
-                            delete_clone_system_temp_debian();
-                        } else {
-                            delete_clone_system_temp();
-                        }
+                        delete_clone_system_temp(distro);
                         break;
                     case 3:
                         return;
@@ -754,7 +717,7 @@ void iso_creator_menu(Distro distro) {
                 if (selected > 0) selected--;
                 break;
             case 'B': // Down arrow
-                if (selected < items.size() - 1) selected++;
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
                 break;
             case '\n': // Enter key
                 switch (selected) {
@@ -857,6 +820,18 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/make-squashfs'";
     run_sudo_command(command, sudo_password);
+    // gen-calamares
+    command = "sudo bash -c 'cat > /usr/bin/gen-calamares << \"EOF\"\n"
+    "#!/bin/sh\n"
+    "if [ \"$1\" = \"--help\" ]; then\n"
+    "  echo \"Usage: gen-calamares\"\n"
+    "  echo \"Install Calamares installer\"\n"
+    "  exit 0\n"
+    "fi\n"
+    "exec " + std::string(exe_path) + " 9\n"
+    "EOF\n"
+    "chmod 755 /usr/bin/gen-calamares'";
+    run_sudo_command(command, sudo_password);
     std::cout << GREEN << "Activated! You can now use all commands in your terminal." << RESET << std::endl;
 }
 
@@ -867,6 +842,7 @@ void remove_command_files() {
     run_command("sudo rm -f /usr/bin/setup-script");
     run_command("sudo rm -f /usr/bin/make-iso");
     run_command("sudo rm -f /usr/bin/make-squashfs");
+    run_command("sudo rm -f /usr/bin/gen-calamares");
     std::cout << GREEN << "Commands deactivated and removed from system." << RESET << std::endl;
 }
 
@@ -885,7 +861,7 @@ void command_installer_menu(Distro distro) {
                 if (selected > 0) selected--;
                 break;
             case 'B': // Down arrow
-                if (selected < items.size() - 1) selected++;
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
                 break;
             case '\n': // Enter key
                 switch (selected) {
@@ -910,12 +886,13 @@ void setup_script_menu(Distro distro) {
     std::vector<std::string> items;
 
     switch(distro) {
-        case ARCH: 
+        case ARCH:
             items = {
                 "Generate initcpio configuration (arch)",
                 "Edit isolinux.cfg (arch)",
                 "Edit grub.cfg (arch)",
                 "Set clone directory path",
+                "Install Calamares",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -926,6 +903,7 @@ void setup_script_menu(Distro distro) {
                 "Edit isolinux.cfg (cachyos)",
                 "Edit grub.cfg (cachyos)",
                 "Set clone directory path",
+                "Install Calamares",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -936,6 +914,7 @@ void setup_script_menu(Distro distro) {
                 "Edit isolinux.cfg (ubuntu)",
                 "Edit grub.cfg (ubuntu)",
                 "Set clone directory path",
+                "Install Calamares",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -946,6 +925,7 @@ void setup_script_menu(Distro distro) {
                 "Edit isolinux.cfg (debian)",
                 "Edit grub.cfg (debian)",
                 "Set clone directory path",
+                "Install Calamares",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -964,12 +944,12 @@ void setup_script_menu(Distro distro) {
 
     while (true) {
         system("clear");
-        print_banner(distro_name);
-        
+        print_banner();
+
         // Display menu
         std::cout << COLOR_CYAN << "  Setup Script Menu" << RESET << std::endl;
         std::cout << COLOR_CYAN << "  -----------------" << RESET << std::endl;
-        
+
         for (size_t i = 0; i < items.size(); i++) {
             if (i == static_cast<size_t>(selected)) {
                 std::cout << get_highlight_color(distro) << "➤ " << items[i] << RESET << std::endl;
@@ -983,10 +963,10 @@ void setup_script_menu(Distro distro) {
         if (c == '\033') { // Escape sequence
             getchar(); // Skip '['
             c = getchar();
-            
+
             if (c == 'A' && selected > 0) selected--; // Up arrow
-            else if (c == 'B' && selected < items.size() - 1) selected++; // Down arrow
-        } 
+            else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++; // Down arrow
+        }
         else if (c == '\n') { // Enter key
             switch(selected) {
                 case 0:
@@ -1008,9 +988,15 @@ void setup_script_menu(Distro distro) {
                     set_clone_directory();
                     break;
                 case 4:
-                    install_one_time_updater();
+                    if (distro == ARCH) install_calamares_arch();
+                    else if (distro == CACHYOS) install_calamares_cachyos();
+                    else if (distro == UBUNTU) install_calamares_ubuntu();
+                    else if (distro == DEBIAN) install_calamares_debian();
                     break;
                 case 5:
+                    install_one_time_updater();
+                    break;
+                case 6:
                     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
                     return;
             }
@@ -1022,13 +1008,57 @@ void setup_script_menu(Distro distro) {
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     // Save original terminal settings
     tcgetattr(STDIN_FILENO, &original_term);
-    
-    Distro distro = detect_distro();
-    std::string distro_name = get_distro_name(distro);
 
+    if (argc > 1) {
+        // Handle command line arguments for the installed commands
+        int option = atoi(argv[1]);
+        Distro distro = UNKNOWN;
+
+        switch(option) {
+            case 5: // gen-init
+                distro = detect_distro();
+                if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
+                else if (distro == UBUNTU) generate_initrd_ubuntu();
+                else if (distro == DEBIAN) generate_initrd_debian();
+                break;
+            case 6: // edit-isocfg
+                distro = detect_distro();
+                if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
+                else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
+                else if (distro == DEBIAN) edit_isolinux_cfg_debian();
+                break;
+            case 7: // edit-grubcfg
+                distro = detect_distro();
+                if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
+                else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
+                else if (distro == DEBIAN) edit_grub_cfg_debian();
+                break;
+            case 8: // setup-script
+                setup_script_menu(detect_distro());
+                break;
+            case 3: // make-iso
+                iso_creator_menu(detect_distro());
+                break;
+            case 4: // make-squashfs
+                squashfs_menu(detect_distro());
+                break;
+            case 9: // gen-calamares
+                distro = detect_distro();
+                if (distro == ARCH) install_calamares_arch();
+                else if (distro == CACHYOS) install_calamares_cachyos();
+                else if (distro == UBUNTU) install_calamares_ubuntu();
+                else if (distro == DEBIAN) install_calamares_debian();
+                break;
+            default:
+                std::cout << "Invalid option" << std::endl;
+        }
+        return 0;
+    }
+
+    Distro distro = detect_distro();
     std::vector<std::string> items = {
         "SquashFS Creator",
         "ISO Creator",
@@ -1045,7 +1075,7 @@ int main() {
                 if (selected > 0) selected--;
                 break;
             case 'B': // Down arrow
-                if (selected < items.size() - 1) selected++;
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
                 break;
             case '\n': // Enter key
                 switch (selected) {
