@@ -13,3 +13,8 @@ current ubuntu ui
 custom commands 
 
 ![Screenshot_20250621_021040](https://github.com/user-attachments/assets/9076bfed-8f5f-4863-b420-d3179c8c95f8)
+
+
+new calamares menu option and gen-calamares command currently in c++ version and for arch 
+
+![Screenshot_20250623_235111](https://github.com/user-attachments/assets/d2d4e1d2-2c3a-4da7-802e-d75ed04ddb4c)
