@@ -121,7 +121,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
         // Copy calamares-per-distro for Debian
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && "
-                      "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro "
+                      "cp calamares-per-distro "
                       "/home/$USER/.config/cmi/");
     }
 
