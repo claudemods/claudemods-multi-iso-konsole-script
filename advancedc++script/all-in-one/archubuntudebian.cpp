@@ -1065,6 +1065,7 @@ int main(int argc, char* argv[]) {
         "SquashFS Creator",
         "ISO Creator",
         "Command Installer",
+        "Changelog",
         "Exit"
     };
     int selected = 0;
@@ -1096,6 +1097,9 @@ int main(int argc, char* argv[]) {
                         command_installer_menu(distro);
                         break;
                     case 5:
+                        run_command("nano /home/$USER/.config/cmi/changes.txt");
+                        break;
+                    case 6:
                         disable_raw_mode();
                         return 0;
                 }
