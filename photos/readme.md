@@ -15,7 +15,7 @@ custom commands
 ![Screenshot_20250621_021040](https://github.com/user-attachments/assets/9076bfed-8f5f-4863-b420-d3179c8c95f8)
 
 
-new time updtes guide menu option and ui rearrangement currently only in c++ only
+new time updates guide menu option and ui rearrangement currently only in c++ only
 
 ![Screenshot_20250624_222046](https://github.com/user-attachments/assets/c3b7665a-6aae-46f1-bc54-4ab15a625c5d)
 
