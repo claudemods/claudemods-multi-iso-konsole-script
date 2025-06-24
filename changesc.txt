@@ -1,1 +1,23 @@
+new install method for advanced c script beta v2.0 use below command
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
 
+
+changelog cmi advanced c sctipt beta v2.0 24-06-2025
+new guide menu option more coming on 25-06-2025
+
+changelog cmi advanced c sctipt beta v2.0 23-06-2025
+new calamares option currently only for arch and cachyos install calamares from setup scripts 
+
+
+changelog cmi advanced c sctipt beta v2.0 22-06-2025
+
+new tui using arrow keys and enter instead of numbers
+
+support for ubuntu added back
+
+new menu colours based on distros
+
+all mechanisms updated lots to test more fixes coming
+
+cmi v2.0 c script known issues and info
+this is beta lots to test though its all works fine my side so far
