@@ -1060,9 +1060,10 @@ int main(int argc, char* argv[]) {
 
     Distro distro = detect_distro();
     std::vector<std::string> items = {
+        "Guide",
+        "Setup Script",
         "SquashFS Creator",
         "ISO Creator",
-        "Setup Script",
         "Command Installer",
         "Exit"
     };
@@ -1079,11 +1080,22 @@ int main(int argc, char* argv[]) {
                 break;
             case '\n': // Enter key
                 switch (selected) {
-                    case 0: squashfs_menu(distro); break;
-                    case 1: iso_creator_menu(distro); break;
-                    case 2: setup_script_menu(distro); break;
-                    case 3: command_installer_menu(distro); break;
+                    case 0:
+                        run_command("nano /home/$USER/.config/cmi/readme.txt");
+                        break;
+                    case 1:
+                        setup_script_menu(distro);
+                        break;
+                    case 2:
+                        squashfs_menu(distro);
+                        break;
+                    case 3:
+                        iso_creator_menu(distro);
+                        break;
                     case 4:
+                        command_installer_menu(distro);
+                        break;
+                    case 5:
                         disable_raw_mode();
                         return 0;
                 }
