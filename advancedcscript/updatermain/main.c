@@ -243,7 +243,7 @@ void* execute_update_thread(void* arg) {
        system(command);
     // Copy readme guide
        printf(COLOR_GREEN "Copying documentation...\n" COLOR_RESET);
-       snprintf(command, sizeof(command), "cp -r \"%s/claudemods-multi-iso-konsole-script/changes.txt\" \"%s/.config/cmi\" >/dev/null 2>&1",
+       snprintf(command, sizeof(command), "cp -r \"%s/claudemods-multi-iso-konsole-script/changesc.txt\" \"%s/.config/cmi\" >/dev/null 2>&1",
          home, home);
        system(command);
     // Clean up repository
