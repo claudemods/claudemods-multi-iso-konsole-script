@@ -9,6 +9,7 @@ this is beta lots to test though its all works fine my side so far apart from up
 
 changelog cmi advanced c++ script beta v2.0 24-06-2025
 new menu options guide and changelog also ive rearranged the menu options
+more coming on 25-06-2025
 
 changelog cmi advanced c++ script beta v2.0 23-06-2025
 new calamares option currently only for arch and cachyos install calamares from setup scripts 
