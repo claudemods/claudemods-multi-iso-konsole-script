@@ -1,1 +1,25 @@
+cmi advanced c++ script beta v2.0 24-06-2025
+
+new install method for all-in-one advanced c++ script beta v2.0 use below command
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"
+
+changelog cmi advanced c++ script beta v2.0 24-06-2025
+new menu options guide and changelog also ive rearranged the menu options
+
+changelog cmi advanced c++ script beta v2.0 23-06-2025
+new calamares option currently only for arch and cachyos install calamares from setup scripts 
+
+
+changelog cmi advanced c++ script beta v2.0 22-06-2025
+
+built from c script but changed to be a all-in-one 1000+ line script
+
+new tui using arrow keys and enter instead of numbers
+
+support for ubuntu added back
+
+new menu colours based on distros
+
+all mechanisms updated lots to test more fixes coming
+
 
