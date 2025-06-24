@@ -64,4 +64,4 @@ Launch the menu after installation or type:
 2. **Change ISO Boot Artwork**  
    Location: /home/$USER/.config/build-image-distroname/grub and or isolinux/splash.png
 
-3. **Install Custom Commands For Setup Scripts Menu**
+3. **Install Custom Commands From Setup Scripts Menu**
