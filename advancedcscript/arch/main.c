@@ -832,9 +832,10 @@ int main(int argc, char *argv[]) {
     }
 
     const char *items[] = {
+        "Guide",
+        "Setup Script",
         "SquashFS Creator",
         "ISO Creator",
-        "Setup Script",
         "Command Installer",
         "Exit"
     };
@@ -842,21 +843,32 @@ int main(int argc, char *argv[]) {
     int key;
 
     while (1) {
-        key = show_menu("Main Menu", items, 5, selected);
+        key = show_menu("Main Menu", items, 6, selected);
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
                 break;
             case 'B':
-                if (selected < 4) selected++;
+                if (selected < 5) selected++;
                 break;
             case '\n':
                 switch (selected) {
-                    case 0: squashfs_menu(); break;
-                    case 1: iso_creator_menu(); break;
-                    case 2: setup_script_menu(); break;
-                    case 3: command_installer_menu(); break;
-                    case 4:
+                    case 0:
+                        run_command("nano /home/$USER/.config/cmi/readme.txt");
+                        break;
+                    case 1: 
+                        setup_script_menu(); 
+                        break;
+                    case 2: 
+                        squashfs_menu(); 
+                        break;
+                    case 3: 
+                        iso_creator_menu(); 
+                        break;
+                    case 4: 
+                        command_installer_menu(); 
+                        break;
+                    case 5:
                         disable_raw_mode();
                         return 0;
                 }
