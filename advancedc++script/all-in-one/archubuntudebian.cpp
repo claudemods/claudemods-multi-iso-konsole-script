@@ -144,19 +144,19 @@ std::string get_input(const std::string &prompt_text, bool echo = true) {
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    
+
     if (echo) {
         newt.c_lflag |= (ICANON | ECHO); // Enable echo and canonical mode
     } else {
         newt.c_lflag &= ~(ECHO); // Disable echo but keep canonical mode
     }
-    
+
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
     std::cout << BLUE << prompt_text << RESET;
     std::string input;
     std::getline(std::cin, input);
-    
+
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return input;
 }
@@ -588,18 +588,26 @@ std::string read_clone_dir() {
 }
 
 void clone_system(const std::string &clone_dir) {
-    if (dir_exists(clone_dir)) {
-        std::cout << "Skipping removal of existing clone directory: " << clone_dir << std::endl;
-    } else {
-        mkdir(clone_dir.c_str(), 0755);
+    // Ensure the target directory exists
+    if (!dir_exists(clone_dir)) {
+        std::string mkdir_cmd = "sudo mkdir -p " + clone_dir;
+        run_command(mkdir_cmd);
     }
-    std::string command = "sudo rsync -aHAxSr --numeric-ids --info=progress2 "
-    "--include=dev --include=usr --include=proc --include=tmp --include=sys "
-    "--include=run --include=media "
-    "--exclude=dev/* --exclude=proc/* --exclude=tmp/* --exclude=sys/* "
-    "--exclude=run/* --exclude=media/* --exclude=" + clone_dir + " "
+
+    // Clone the entire system into the specified directory
+    std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+    "--exclude=/dev/* "
+    "--exclude=/proc/* "
+    "--exclude=/sys/* "
+    "--exclude=/tmp/* "
+    "--exclude=/run/* "
+    "--exclude=/mnt/* "
+    "--exclude=/media/* "
+    "--exclude=/lost+found "
+    "--exclude=" + clone_dir + " "
     "/ " + clone_dir;
-    std::cout << "Cloning system directory to: " << clone_dir << std::endl;
+
+    std::cout << "Cloning system into directory: " << clone_dir << std::endl;
     run_command(command);
 }
 
@@ -622,6 +630,7 @@ void create_squashfs_image(Distro distro) {
     std::string command = "sudo mksquashfs " + clone_dir + " " + output_path + " "
     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
     "-always-use-fragments -wildcards -xattrs";
+
     std::cout << "Creating SquashFS image from: " << clone_dir << std::endl;
     run_command(command);
 }
@@ -632,8 +641,9 @@ void delete_clone_system_temp(Distro distro) {
         error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
         return;
     }
+
     std::string command = "sudo rm -rf " + clone_dir;
-    std::cout << "Deleting temporary clone directory: " << clone_dir << std::endl;
+    std::cout << "Deleting clone directory: " << clone_dir << std::endl;
     run_command(command);
 
     std::string squashfs_path;
@@ -656,11 +666,17 @@ void delete_clone_system_temp(Distro distro) {
 }
 
 void set_clone_directory() {
-    std::string dir_path = prompt("Enter full path for clone_system_temp directory: ");
+    std::string dir_path = prompt("Enter full path for clone directory and a folder to Create and use (e.g., /path/to/clone_system_temp): ");
     if (dir_path.empty()) {
         error_box("Error", "Directory path cannot be empty");
         return;
     }
+
+    // Ensure the path ends with a trailing slash
+    if (dir_path.back() != '/') {
+        dir_path += '/';
+    }
+
     save_clone_dir(dir_path);
 }
 
