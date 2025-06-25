@@ -232,7 +232,7 @@ void print_banner() {
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
     std::cout << RESET;
-    std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 24-06-2025" << RESET << std::endl;
+    std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(time_mutex);
