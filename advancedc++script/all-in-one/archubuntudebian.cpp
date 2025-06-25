@@ -360,17 +360,11 @@ void install_dependencies_arch() {
     message_box("Success", "Dependencies installed successfully.");
 }
 
-void copy_vmlinuz_arch() {
-    std::string kernel_version = get_kernel_version();
-    std::string command = "sudo cp /boot/vmlinuz-" + kernel_version + " /home/$USER/.config/cmi/build-image-arch/live/";
-    run_command(command);
-    message_box("Success", "Vmlinuz copied successfully.");
-}
-
 void generate_initrd_arch() {
-    progress_dialog("Generating Initramfs (Arch)...");
+    progress_dialog("Generating Initramfs And Copying Vmlinuz (Arch)...");
     run_command("cd /home/$USER/.config/cmi");
     run_command("cd /home/$USER/.config/cmi/build-image-arch && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
+    run_command("sudo cp /boot/vmlinuz-linux* /home/$USER/.config/cmi/build-image-arch/live/ 2>/dev/null");
     message_box("Success", "Initramfs generated successfully.");
 }
 
