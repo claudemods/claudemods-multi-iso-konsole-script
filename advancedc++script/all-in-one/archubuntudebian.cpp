@@ -140,11 +140,33 @@ void run_command(const std::string &command) {
     }
 }
 
-std::string prompt(const std::string &prompt_text) {
+std::string get_input(const std::string &prompt_text, bool echo = true) {
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    
+    if (echo) {
+        newt.c_lflag |= (ICANON | ECHO); // Enable echo and canonical mode
+    } else {
+        newt.c_lflag &= ~(ECHO); // Disable echo but keep canonical mode
+    }
+    
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
     std::cout << BLUE << prompt_text << RESET;
     std::string input;
     std::getline(std::cin, input);
+    
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return input;
+}
+
+std::string prompt(const std::string &prompt_text) {
+    return get_input(prompt_text, true);
+}
+
+std::string password_prompt(const std::string &prompt_text) {
+    return get_input(prompt_text, false);
 }
 
 void run_sudo_command(const std::string &command, const std::string &password) {
@@ -775,7 +797,7 @@ void create_iso(Distro distro) {
         error_box("Error", "Command too long for buffer");
         return;
     }
-    std::string sudo_password = prompt("Enter your sudo password: ");
+    std::string sudo_password = password_prompt("Enter your sudo password: ");
     if (sudo_password.empty()) {
         error_box("Input Error", "Sudo password cannot be empty.");
         return;
@@ -835,7 +857,7 @@ void create_command_files() {
         return;
     }
     exe_path[len] = '\0';
-    std::string sudo_password = prompt("Enter sudo password to create command files: ");
+    std::string sudo_password = password_prompt("Enter sudo password to create command files: ");
     if (sudo_password.empty()) {
         error_box("Error", "Sudo password cannot be empty");
         return;
