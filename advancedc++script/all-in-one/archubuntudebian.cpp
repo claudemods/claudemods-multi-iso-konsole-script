@@ -150,6 +150,13 @@ void save_clone_dir(const string &dir_path) {
         string mkdir_cmd = "mkdir -p " + config_dir;
         execute_command(mkdir_cmd);
     }
+    
+    // Create the clone directory if it doesn't exist
+    if (!dir_exists(dir_path)) {
+        string mkdir_cmd = "mkdir -p " + dir_path;
+        execute_command(mkdir_cmd);
+    }
+    
     string file_path = config_dir + "/clonedir.txt";
     ofstream f(file_path, ios::out | ios::trunc);
     if (!f) {
@@ -158,7 +165,7 @@ void save_clone_dir(const string &dir_path) {
     }
     f << dir_path;
     f.close();
-    message_box("Success", "Clone directory path saved successfully.");
+    message_box("Success", "Clone directory created and path saved successfully.");
 }
 
 void print_banner() {
@@ -595,11 +602,6 @@ void install_calamares_debian() {
 }
 
 void clone_system(const string &clone_dir) {
-    if (!dir_exists(clone_dir)) {
-        string mkdir_cmd = "sudo mkdir -p " + clone_dir;
-        execute_command(mkdir_cmd);
-    }
-
     string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
@@ -671,7 +673,7 @@ void delete_clone_system_temp(Distro distro) {
 }
 
 void set_clone_directory() {
-    string dir_path = prompt("Enter full path for clone directory and a folder to Create and use (e.g., /path/to/clone_system_temp): ");
+    string dir_path = prompt("Enter full path for clone directory (folder will be created if it doesn't exist): ");
     if (dir_path.empty()) {
         error_box("Error", "Directory path cannot be empty");
         return;
