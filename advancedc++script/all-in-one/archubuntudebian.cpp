@@ -17,6 +17,10 @@
 #include <fstream>
 #include <memory>
 #include <array>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 
 #define MAX_PATH 4096
 #define MAX_CMD 16384
@@ -34,6 +38,12 @@ struct termios original_term;
 // Distribution detection
 enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, UNKNOWN };
 
+// Global variables for time update
+std::atomic<bool> time_thread_running(true);
+std::mutex time_mutex;
+std::condition_variable time_cv;
+std::string current_time_str;
+
 Distro detect_distro() {
     std::ifstream os_release("/etc/os-release");
     if (!os_release.is_open()) return UNKNOWN;
@@ -50,14 +60,13 @@ Distro detect_distro() {
     return UNKNOWN;
 }
 
-// Color schemes based on distro
 std::string get_highlight_color(Distro distro) {
     switch(distro) {
-        case ARCH: return "\033[38;2;36;255;255m"; // 24FFFF (cyan/blue)
-        case UBUNTU: return "\033[38;2;255;165;0m"; // orange
-        case DEBIAN: return "\033[31m"; // red
-        case CACHYOS: return "\033[38;2;36;255;255m"; // same as Arch
-        default: return "\033[36m"; // cyan as default
+        case ARCH: return "\033[38;2;36;255;255m";
+        case UBUNTU: return "\033[38;2;255;165;0m";
+        case DEBIAN: return "\033[31m";
+        case CACHYOS: return "\033[38;2;36;255;255m";
+        default: return "\033[36m";
     }
 }
 
@@ -71,7 +80,6 @@ std::string get_distro_name(Distro distro) {
     }
 }
 
-// Forward declarations
 std::string read_clone_dir();
 void save_clone_dir(const std::string &dir_path);
 void print_banner();
@@ -88,12 +96,27 @@ void disable_raw_mode() {
 }
 
 int get_key() {
-    int c = getchar();
-    if (c == '\033') { // Escape sequence
-        getchar(); // Skip '['
-        return getchar(); // Return actual key code
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 10000; // 10ms timeout
+
+    int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+    
+    if (retval == -1) {
+        perror("select()");
+        return 0;
+    } else if (retval) {
+        int c = getchar();
+        if (c == '\033') { // Escape sequence
+            getchar(); // Skip '['
+            return getchar(); // Return actual key code
+        }
+        return c;
     }
-    return c;
+    return 0;
 }
 
 void print_blue(const std::string &text) { std::cout << BLUE << text << RESET << std::endl; }
@@ -182,6 +205,23 @@ std::string get_kernel_version() {
     return version;
 }
 
+void update_time_thread() {
+    while (time_thread_running) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char datetime[50];
+        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+        
+        {
+            std::lock_guard<std::mutex> lock(time_mutex);
+            current_time_str = datetime;
+        }
+        
+        time_cv.notify_one();
+        sleep(1);
+    }
+}
+
 void print_banner() {
     std::cout << RED;
     std::cout <<
@@ -191,24 +231,23 @@ void print_banner() {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        std::cout << RESET;
-        std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 24-06-2025" << RESET << std::endl;
+    std::cout << RESET;
+    std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 24-06-2025" << RESET << std::endl;
 
-        time_t now = time(NULL);
-        struct tm *t = localtime(&now);
-        char datetime[50];
-        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
-        std::cout << GREEN << "Current UK Time: " << datetime << RESET << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(time_mutex);
+        std::cout << GREEN << "Current UK Time: " << current_time_str << RESET << std::endl;
+    }
 
-        std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-        std::string cmd = "df -h /";
-        std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            char buffer[128];
-            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-                std::cout << GREEN << buffer << RESET;
-            }
+    std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
+    std::string cmd = "df -h /";
+    std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (pipe) {
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+            std::cout << GREEN << buffer << RESET;
         }
+    }
 }
 
 int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, Distro distro = ARCH) {
@@ -228,26 +267,36 @@ int show_menu(const std::string &title, const std::vector<std::string> &items, i
         }
     }
 
-    // Set terminal to raw mode for single key input
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
     newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-    int c = getchar();
-    int key = 0;
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000; // 100ms timeout
 
-    if (c == '\033') { // Escape sequence
-        getchar(); // Skip '['
-        key = getchar(); // Get arrow key code
-    } else if (c == '\n') {
-        key = '\n';
-    } else {
-        key = c;
+    int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+    
+    int key = 0;
+    if (retval == -1) {
+        perror("select()");
+    } else if (retval) {
+        int c = getchar();
+        if (c == '\033') { // Escape sequence
+            getchar(); // Skip '['
+            key = getchar(); // Get arrow key code
+        } else if (c == '\n') {
+            key = '\n';
+        } else {
+            key = c;
+        }
     }
 
-    // Restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 
     return key;
@@ -946,7 +995,6 @@ void setup_script_menu(Distro distro) {
         system("clear");
         print_banner();
 
-        // Display menu
         std::cout << COLOR_CYAN << "  Setup Script Menu" << RESET << std::endl;
         std::cout << COLOR_CYAN << "  -----------------" << RESET << std::endl;
 
@@ -958,51 +1006,62 @@ void setup_script_menu(Distro distro) {
             }
         }
 
-        // Handle input
-        int c = getchar();
-        if (c == '\033') { // Escape sequence
-            getchar(); // Skip '['
-            c = getchar();
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(STDIN_FILENO, &fds);
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000; // 100ms timeout
 
-            if (c == 'A' && selected > 0) selected--; // Up arrow
-            else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++; // Down arrow
-        }
-        else if (c == '\n') { // Enter key
-            switch(selected) {
-                case 0:
-                    if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
-                    else if (distro == UBUNTU) generate_initrd_ubuntu();
-                    else if (distro == DEBIAN) generate_initrd_debian();
-                    break;
-                case 1:
-                    if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
-                    else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
-                    else if (distro == DEBIAN) edit_isolinux_cfg_debian();
-                    break;
-                case 2:
-                    if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
-                    else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
-                    else if (distro == DEBIAN) edit_grub_cfg_debian();
-                    break;
-                case 3:
-                    set_clone_directory();
-                    break;
-                case 4:
-                    if (distro == ARCH) install_calamares_arch();
-                    else if (distro == CACHYOS) install_calamares_cachyos();
-                    else if (distro == UBUNTU) install_calamares_ubuntu();
-                    else if (distro == DEBIAN) install_calamares_debian();
-                    break;
-                case 5:
-                    install_one_time_updater();
-                    break;
-                case 6:
-                    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-                    return;
+        int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+        
+        if (retval == -1) {
+            perror("select()");
+        } else if (retval) {
+            int c = getchar();
+            if (c == '\033') { // Escape sequence
+                getchar(); // Skip '['
+                c = getchar();
+
+                if (c == 'A' && selected > 0) selected--; // Up arrow
+                else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++; // Down arrow
             }
-            // Pause after action
-            std::cout << "\nPress Enter to continue...";
-            while (getchar() != '\n');
+            else if (c == '\n') { // Enter key
+                switch(selected) {
+                    case 0:
+                        if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
+                        else if (distro == UBUNTU) generate_initrd_ubuntu();
+                        else if (distro == DEBIAN) generate_initrd_debian();
+                        break;
+                    case 1:
+                        if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
+                        else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
+                        else if (distro == DEBIAN) edit_isolinux_cfg_debian();
+                        break;
+                    case 2:
+                        if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
+                        else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
+                        else if (distro == DEBIAN) edit_grub_cfg_debian();
+                        break;
+                    case 3:
+                        set_clone_directory();
+                        break;
+                    case 4:
+                        if (distro == ARCH) install_calamares_arch();
+                        else if (distro == CACHYOS) install_calamares_cachyos();
+                        else if (distro == UBUNTU) install_calamares_ubuntu();
+                        else if (distro == DEBIAN) install_calamares_debian();
+                        break;
+                    case 5:
+                        install_one_time_updater();
+                        break;
+                    case 6:
+                        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+                        return;
+                }
+                std::cout << "\nPress Enter to continue...";
+                while (getchar() != '\n');
+            }
         }
     }
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
@@ -1011,6 +1070,9 @@ void setup_script_menu(Distro distro) {
 int main(int argc, char* argv[]) {
     // Save original terminal settings
     tcgetattr(STDIN_FILENO, &original_term);
+
+    // Start time update thread
+    std::thread time_thread(update_time_thread);
 
     if (argc > 1) {
         // Handle command line arguments for the installed commands
@@ -1055,6 +1117,9 @@ int main(int argc, char* argv[]) {
             default:
                 std::cout << "Invalid option" << std::endl;
         }
+        
+        time_thread_running = false;
+        time_thread.join();
         return 0;
     }
 
@@ -1100,6 +1165,8 @@ int main(int argc, char* argv[]) {
                         run_command("nano /home/$USER/.config/cmi/changes.txt");
                         break;
                     case 6:
+                        time_thread_running = false;
+                        time_thread.join();
                         disable_raw_mode();
                         return 0;
                 }
