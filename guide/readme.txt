@@ -55,6 +55,8 @@
 │ Please Wait 4 Minutes After It's Copied Otherwise It Might Fail              │
 │ Do the Same If You Directly Generate To A Usb E.g "Wait 4 Minutes"           │
 │                                                                              │
+│ 8️⃣ Configure Calamares (C++ and C Arch Only For Now)                         │ 
+│    From the Setup Scripts Menu, select Install Calamares, or                 │                                            │     Execute: gen-calamares if you've installed the custom commands           │                                            │                                                                              │ 
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │ 🌟 Optional Things To Do                                                     │
@@ -65,5 +67,6 @@
 │ 2️⃣ Change iso boot artwork in                                                │
 │ /home/$USER/.config/build-image-distroname/grub and or                       │
 │ isolinux/splash.png                                                          │
+│ 3️⃣ Install Custom Commands From Setup Scripts Menu                           │
 │                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
