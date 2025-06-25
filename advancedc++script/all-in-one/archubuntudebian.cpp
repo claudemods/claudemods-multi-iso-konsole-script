@@ -410,7 +410,7 @@ void install_dependencies_cachyos() {
 
 void install_calamares_cachyos() {
     progress_dialog("Installing Calamares for CachyOS...");
-    run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U --noconfirm calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully for CachyOS.");
 }
 
@@ -436,8 +436,7 @@ void install_dependencies_ubuntu() {
     "syslinux-common "
     "thin-provisioning-tools "
     "squashfs-tools "
-    "xorriso "
-    "ubuntu-defaults-builder";
+    "xorriso ";
 
     std::string command = "sudo apt install " + packages;
     run_command(command);
@@ -498,8 +497,7 @@ void install_dependencies_debian() {
     "syslinux-common "
     "thin-provisioning-tools "
     "squashfs-tools "
-    "xorriso "
-    "debian-goodies";
+    "xorriso ";
 
     std::string command = "sudo apt install " + packages;
     run_command(command);
