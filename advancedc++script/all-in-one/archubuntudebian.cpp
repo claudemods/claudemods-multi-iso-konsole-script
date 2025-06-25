@@ -21,6 +21,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <pwd.h>
 
 #define MAX_PATH 4096
 #define MAX_CMD 16384
@@ -35,16 +36,41 @@
 
 using namespace std;
 
-// Terminal control
 struct termios original_term;
-
-// Distribution detection
 enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, UNKNOWN };
-
-// Global variables for time update
 atomic<bool> time_thread_running(true);
 mutex time_mutex;
 string current_time_str;
+
+bool dir_exists(const string &path) {
+    struct stat st;
+    return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+void message_box(const string &title, const string &message) {
+    cout << GREEN << title << RESET << endl;
+    cout << GREEN << message << RESET << endl;
+}
+
+void error_box(const string &title, const string &message) {
+    cout << RED << title << RESET << endl;
+    cout << RED << message << RESET << endl;
+}
+
+void progress_dialog(const string &message) {
+    cout << GREEN << message << RESET << endl;
+}
+
+void enable_raw_mode() {
+    struct termios term;
+    tcgetattr(STDIN_FILENO, &term);
+    term.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+}
+
+void disable_raw_mode() {
+    tcsetattr(STDIN_FILENO, TCSANOW, &original_term);
+}
 
 void execute_command(const string& cmd) {
     cout << COLOR_CYAN;
@@ -94,19 +120,73 @@ string get_distro_name(Distro distro) {
     }
 }
 
-string read_clone_dir();
-void save_clone_dir(const string &dir_path);
-void print_banner();
+string read_clone_dir() {
+    string file_path = "/home/" + string(getenv("USER")) + "/.config/cmi/clonedir.txt";
+    ifstream f(file_path, ios::in | ios::binary);
+    if (!f) return "";
 
-void enable_raw_mode() {
-    struct termios term;
-    tcgetattr(STDIN_FILENO, &term);
-    term.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+    f.seekg(0, ios::end);
+    size_t size = f.tellg();
+    f.seekg(0, ios::beg);
+
+    if (size == 0) return "";
+
+    string dir_path(size, '\0');
+    f.read(&dir_path[0], size);
+
+    if (!dir_path.empty() && dir_path.back() == '\n') {
+        dir_path.pop_back();
+    }
+    if (!dir_path.empty() && dir_path.back() != '/') {
+        dir_path += '/';
+    }
+
+    return dir_path;
 }
 
-void disable_raw_mode() {
-    tcsetattr(STDIN_FILENO, TCSANOW, &original_term);
+void save_clone_dir(const string &dir_path) {
+    string config_dir = "/home/" + string(getenv("USER")) + "/.config/cmi";
+    if (!dir_exists(config_dir)) {
+        string mkdir_cmd = "mkdir -p " + config_dir;
+        execute_command(mkdir_cmd);
+    }
+    string file_path = config_dir + "/clonedir.txt";
+    ofstream f(file_path, ios::out | ios::trunc);
+    if (!f) {
+        perror("Failed to open clonedir.txt");
+        return;
+    }
+    f << dir_path;
+    f.close();
+    message_box("Success", "Clone directory path saved successfully.");
+}
+
+void print_banner() {
+    cout << RED;
+    cout <<
+    "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
+    "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
+    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+    "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
+    "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
+    cout << RESET;
+    cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
+
+    {
+        lock_guard<mutex> lock(time_mutex);
+        cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
+    }
+
+    cout << GREEN << "Disk Usage:" << RESET << endl;
+    string cmd = "df -h /";
+    unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (pipe) {
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+            cout << GREEN << buffer << RESET;
+        }
+    }
 }
 
 int get_key() {
@@ -115,7 +195,7 @@ int get_key() {
     FD_SET(STDIN_FILENO, &fds);
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = 10000; // 10ms timeout
+    tv.tv_usec = 10000;
 
     int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
 
@@ -124,28 +204,18 @@ int get_key() {
         return 0;
     } else if (retval) {
         int c = getchar();
-        if (c == '\033') { // Escape sequence
-            getchar(); // Skip '['
-            return getchar(); // Return actual key code
+        if (c == '\033') {
+            getchar();
+            return getchar();
         }
         return c;
     }
     return 0;
 }
 
-void print_blue(const string &text) { cout << BLUE << text << RESET << endl; }
-
-void message_box(const string &title, const string &message) {
-    cout << GREEN << title << RESET << endl;
-    cout << GREEN << message << RESET << endl;
+void print_blue(const string &text) {
+    cout << BLUE << text << RESET << endl;
 }
-
-void error_box(const string &title, const string &message) {
-    cout << RED << title << RESET << endl;
-    cout << RED << message << RESET << endl;
-}
-
-void progress_dialog(const string &message) { cout << GREEN << message << RESET << endl; }
 
 void run_command(const string &command) {
     cout << COLOR_CYAN << "Running command: " << command << RESET << endl;
@@ -220,11 +290,6 @@ void run_sudo_command(const string &command, const string &password) {
     }
 }
 
-bool dir_exists(const string &path) {
-    struct stat st;
-    return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-}
-
 string get_kernel_version() {
     string version = "unknown";
     FILE* fp = popen("uname -r", "r");
@@ -257,34 +322,6 @@ void update_time_thread() {
     }
 }
 
-void print_banner() {
-    cout << RED;
-    cout <<
-    "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
-    "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
-    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
-    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
-    "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
-    "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
-
-        {
-            lock_guard<mutex> lock(time_mutex);
-            cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
-        }
-
-        cout << GREEN << "Disk Usage:" << RESET << endl;
-        string cmd = "df -h /";
-        unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            char buffer[128];
-            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-                cout << GREEN << buffer << RESET;
-            }
-        }
-}
-
 int show_menu(const string &title, const vector<string> &items, int selected, Distro distro = ARCH) {
     system("clear");
     print_banner();
@@ -313,7 +350,7 @@ int show_menu(const string &title, const vector<string> &items, int selected, Di
     FD_SET(STDIN_FILENO, &fds);
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = 100000; // 100ms timeout
+    tv.tv_usec = 100000;
 
     int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
 
@@ -322,9 +359,9 @@ int show_menu(const string &title, const vector<string> &items, int selected, Di
         perror("select()");
     } else if (retval) {
         int c = getchar();
-        if (c == '\033') { // Escape sequence
-            getchar(); // Skip '['
-            key = getchar(); // Get arrow key code
+        if (c == '\033') {
+            getchar();
+            key = getchar();
         } else if (c == '\n') {
             key = '\n';
         } else {
@@ -337,7 +374,6 @@ int show_menu(const string &title, const vector<string> &items, int selected, Di
     return key;
 }
 
-// ============ ARCH FUNCTIONS ============
 void install_dependencies_arch() {
     progress_dialog("Installing dependencies...");
     const string packages =
@@ -400,7 +436,6 @@ void install_calamares_arch() {
     message_box("Success", "Calamares installed successfully for Arch Linux.");
 }
 
-// ============ CACHYOS FUNCTIONS ============
 void install_dependencies_cachyos() {
     progress_dialog("Installing dependencies...");
     const string packages =
@@ -443,7 +478,6 @@ void install_calamares_cachyos() {
     message_box("Success", "Calamares installed successfully for CachyOS.");
 }
 
-// ============ UBUNTU FUNCTIONS ============
 void install_dependencies_ubuntu() {
     progress_dialog("Installing Ubuntu dependencies...");
     const string packages =
@@ -502,7 +536,6 @@ void install_calamares_ubuntu() {
     message_box("Success", "Calamares installed successfully for Ubuntu.");
 }
 
-// ============ DEBIAN FUNCTIONS ============
 void install_dependencies_debian() {
     progress_dialog("Installing Debian dependencies...");
     const string packages =
@@ -561,43 +594,12 @@ void install_calamares_debian() {
     message_box("Success", "Calamares installed successfully for Debian.");
 }
 
-// ============ COMMON FUNCTIONS ============
-void save_clone_dir(const string &dir_path) {
-    string config_dir = "/home/" + string(getenv("USER")) + "/.config/cmi";
-    if (!dir_exists(config_dir)) {
-        string mkdir_cmd = "mkdir -p " + config_dir;
-        execute_command(mkdir_cmd);
-    }
-    string file_path = config_dir + "/clonedir.txt";
-    ofstream f(file_path);
-    if (!f) {
-        perror("Failed to open clonedir.txt");
-        return;
-    }
-    f << dir_path;
-    f.close();
-    message_box("Success", "Clone directory path saved successfully.");
-}
-
-string read_clone_dir() {
-    string file_path = "/home/" + string(getenv("USER")) + "/.config/cmi/clonedir.txt";
-    ifstream f(file_path);
-    if (!f) {
-        return "";
-    }
-    string dir_path;
-    getline(f, dir_path);
-    return dir_path;
-}
-
 void clone_system(const string &clone_dir) {
-    // Ensure the target directory exists
     if (!dir_exists(clone_dir)) {
-        string mkdir_cmd = "mkdir -p " + clone_dir;
+        string mkdir_cmd = "sudo mkdir -p " + clone_dir;
         execute_command(mkdir_cmd);
     }
 
-    // Clone the entire system into the specified directory
     string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
@@ -660,7 +662,7 @@ void delete_clone_system_temp(Distro distro) {
 
     struct stat st;
     if (stat(squashfs_path.c_str(), &st) == 0) {
-        command = "rm -f " + squashfs_path;
+        command = "sudo rm -f " + squashfs_path;
         cout << GREEN << "Deleting SquashFS image: " << squashfs_path << RESET << endl;
         execute_command(command);
     } else {
@@ -675,7 +677,6 @@ void set_clone_directory() {
         return;
     }
 
-    // Ensure the path ends with a trailing slash
     if (dir_path.back() != '/') {
         dir_path += '/';
     }
@@ -881,7 +882,6 @@ void create_command_files() {
         error_box("Error", "Sudo password cannot be empty");
         return;
     }
-    // gen-init
     string command = "bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -893,7 +893,6 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/gen-init'";
     run_sudo_command(command, sudo_password);
-    // edit-isocfg
     command = "bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -905,7 +904,6 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/edit-isocfg'";
     run_sudo_command(command, sudo_password);
-    // edit-grubcfg
     command = "bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -917,7 +915,6 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/edit-grubcfg'";
     run_sudo_command(command, sudo_password);
-    // setup-script
     command = "bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -929,7 +926,6 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/setup-script'";
     run_sudo_command(command, sudo_password);
-    // make-iso
     command = "bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -941,7 +937,6 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/make-iso'";
     run_sudo_command(command, sudo_password);
-    // make-squashfs
     command = "bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -953,7 +948,6 @@ void create_command_files() {
     "EOF\n"
     "chmod 755 /usr/bin/make-squashfs'";
     run_sudo_command(command, sudo_password);
-    // gen-calamares
     command = "bash -c 'cat > /usr/bin/gen-calamares << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1162,46 +1156,42 @@ void setup_script_menu(Distro distro) {
 }
 
 int main(int argc, char* argv[]) {
-    // Save original terminal settings
     tcgetattr(STDIN_FILENO, &original_term);
-
-    // Start time update thread
     thread time_thread(update_time_thread);
 
     if (argc > 1) {
-        // Handle command line arguments for the installed commands
         int option = atoi(argv[1]);
         Distro distro = UNKNOWN;
 
         switch(option) {
-            case 5: // gen-init
+            case 5:
                 distro = detect_distro();
                 if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
                 else if (distro == UBUNTU) generate_initrd_ubuntu();
                 else if (distro == DEBIAN) generate_initrd_debian();
                 break;
-            case 6: // edit-isocfg
+            case 6:
                 distro = detect_distro();
                 if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
                 else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
                 else if (distro == DEBIAN) edit_isolinux_cfg_debian();
                 break;
-            case 7: // edit-grubcfg
+            case 7:
                 distro = detect_distro();
                 if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
                 else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
                 else if (distro == DEBIAN) edit_grub_cfg_debian();
                 break;
-            case 8: // setup-script
+            case 8:
                 setup_script_menu(detect_distro());
                 break;
-            case 3: // make-iso
+            case 3:
                 iso_creator_menu(detect_distro());
                 break;
-            case 4: // make-squashfs
+            case 4:
                 squashfs_menu(detect_distro());
                 break;
-            case 9: // gen-calamares
+            case 9:
                 distro = detect_distro();
                 if (distro == ARCH) install_calamares_arch();
                 else if (distro == CACHYOS) install_calamares_cachyos();
@@ -1232,13 +1222,13 @@ int main(int argc, char* argv[]) {
     while (true) {
         key = show_menu("Main Menu", items, selected, distro);
         switch (key) {
-            case 'A': // Up arrow
+            case 'A':
                 if (selected > 0) selected--;
                 break;
-            case 'B': // Down arrow
+            case 'B':
                 if (selected < static_cast<int>(items.size()) - 1) selected++;
                 break;
-            case '\n': // Enter key
+            case '\n':
                 switch (selected) {
                     case 0:
                         execute_command("nano /home/$USER/.config/cmi/readme.txt");
