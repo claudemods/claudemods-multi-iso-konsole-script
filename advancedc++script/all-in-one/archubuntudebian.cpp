@@ -151,7 +151,6 @@ void save_clone_dir(const string &dir_path) {
         execute_command(mkdir_cmd);
     }
     
-    // Create the clone directory if it doesn't exist
     if (!dir_exists(dir_path)) {
         string mkdir_cmd = "mkdir -p " + dir_path;
         execute_command(mkdir_cmd);
@@ -166,6 +165,13 @@ void save_clone_dir(const string &dir_path) {
     f << dir_path;
     f.close();
     message_box("Success", "Clone directory created and path saved successfully.");
+
+    // 5-second countdown
+    cout << "Returning to menu in..." << endl;
+    for (int i = 5; i > 0; --i) {
+        cout << i << "..." << endl;
+        sleep(1);
+    }
 }
 
 void print_banner() {
@@ -640,6 +646,11 @@ void create_squashfs_image(Distro distro) {
 
     cout << GREEN << "Creating SquashFS image from: " << clone_dir << RESET << endl;
     execute_command(command);
+
+    // Automatically delete the clone directory after SquashFS creation
+    cout << "Deleting clone directory: " << clone_dir << endl;
+    execute_command("sudo rm -rf " + clone_dir);
+    message_box("Success", "SquashFS created and clone directory deleted.");
 }
 
 void delete_clone_system_temp(Distro distro) {
