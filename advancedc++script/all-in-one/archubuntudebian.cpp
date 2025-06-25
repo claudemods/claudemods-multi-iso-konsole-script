@@ -41,7 +41,6 @@ enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, UNKNOWN };
 // Global variables for time update
 std::atomic<bool> time_thread_running(true);
 std::mutex time_mutex;
-std::condition_variable time_cv;
 std::string current_time_str;
 
 Distro detect_distro() {
@@ -104,7 +103,7 @@ int get_key() {
     tv.tv_usec = 10000; // 10ms timeout
 
     int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
-    
+
     if (retval == -1) {
         perror("select()");
         return 0;
@@ -211,13 +210,12 @@ void update_time_thread() {
         struct tm *t = localtime(&now);
         char datetime[50];
         strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
-        
+
         {
             std::lock_guard<std::mutex> lock(time_mutex);
             current_time_str = datetime;
         }
-        
-        time_cv.notify_one();
+
         sleep(1);
     }
 }
@@ -231,23 +229,23 @@ void print_banner() {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-    std::cout << RESET;
-    std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << std::endl;
+        std::cout << RESET;
+        std::cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << std::endl;
 
-    {
-        std::lock_guard<std::mutex> lock(time_mutex);
-        std::cout << GREEN << "Current UK Time: " << current_time_str << RESET << std::endl;
-    }
-
-    std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
-    std::string cmd = "df -h /";
-    std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (pipe) {
-        char buffer[128];
-        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-            std::cout << GREEN << buffer << RESET;
+        {
+            std::lock_guard<std::mutex> lock(time_mutex);
+            std::cout << GREEN << "Current UK Time: " << current_time_str << RESET << std::endl;
         }
-    }
+
+        std::cout << GREEN << "Disk Usage:" << RESET << std::endl;
+        std::string cmd = "df -h /";
+        std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (pipe) {
+            char buffer[128];
+            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+                std::cout << GREEN << buffer << RESET;
+            }
+        }
 }
 
 int show_menu(const std::string &title, const std::vector<std::string> &items, int selected, Distro distro = ARCH) {
@@ -281,7 +279,7 @@ int show_menu(const std::string &title, const std::vector<std::string> &items, i
     tv.tv_usec = 100000; // 100ms timeout
 
     int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
-    
+
     int key = 0;
     if (retval == -1) {
         perror("select()");
@@ -363,6 +361,33 @@ void install_calamares_arch() {
 }
 
 // ============ CACHYOS FUNCTIONS ============
+void install_dependencies_cachyos() {
+    progress_dialog("Installing dependencies...");
+    const std::string packages =
+    "cryptsetup "
+    "dmeventd "
+    "isolinux "
+    "libaio-dev "
+    "libcares2 "
+    "libdevmapper-event1.02.1 "
+    "liblvm2cmd2.03 "
+    "live-boot "
+    "live-boot-doc "
+    "live-boot-initramfs-tools "
+    "live-config-systemd "
+    "live-tools "
+    "lvm2 "
+    "pxelinux "
+    "syslinux "
+    "syslinux-common "
+    "thin-provisioning-tools "
+    "squashfs-tools "
+    "xorriso";
+    std::string command = "sudo pacman -S --needed --noconfirm " + packages;
+    run_command(command);
+    message_box("Success", "Dependencies installed successfully.");
+}
+
 void install_calamares_cachyos() {
     progress_dialog("Installing Calamares for CachyOS...");
     run_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
@@ -937,6 +962,7 @@ void setup_script_menu(Distro distro) {
     switch(distro) {
         case ARCH:
             items = {
+                "Install Dependencies (Arch)",
                 "Generate initcpio configuration (arch)",
                 "Edit isolinux.cfg (arch)",
                 "Edit grub.cfg (arch)",
@@ -948,6 +974,7 @@ void setup_script_menu(Distro distro) {
             break;
         case CACHYOS:
             items = {
+                "Install Dependencies (CachyOS)",
                 "Generate initcpio configuration (cachyos)",
                 "Edit isolinux.cfg (cachyos)",
                 "Edit grub.cfg (cachyos)",
@@ -959,6 +986,7 @@ void setup_script_menu(Distro distro) {
             break;
         case UBUNTU:
             items = {
+                "Install Dependencies (Ubuntu)",
                 "Generate initramfs (ubuntu)",
                 "Edit isolinux.cfg (ubuntu)",
                 "Edit grub.cfg (ubuntu)",
@@ -970,6 +998,7 @@ void setup_script_menu(Distro distro) {
             break;
         case DEBIAN:
             items = {
+                "Install Dependencies (Debian)",
                 "Generate initramfs (debian)",
                 "Edit isolinux.cfg (debian)",
                 "Edit grub.cfg (debian)",
@@ -1014,7 +1043,7 @@ void setup_script_menu(Distro distro) {
         tv.tv_usec = 100000; // 100ms timeout
 
         int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
-        
+
         if (retval == -1) {
             perror("select()");
         } else if (retval) {
@@ -1029,33 +1058,39 @@ void setup_script_menu(Distro distro) {
             else if (c == '\n') { // Enter key
                 switch(selected) {
                     case 0:
+                        if (distro == ARCH) install_dependencies_arch();
+                        else if (distro == CACHYOS) install_dependencies_cachyos();
+                        else if (distro == UBUNTU) install_dependencies_ubuntu();
+                        else if (distro == DEBIAN) install_dependencies_debian();
+                        break;
+                    case 1:
                         if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
                         else if (distro == UBUNTU) generate_initrd_ubuntu();
                         else if (distro == DEBIAN) generate_initrd_debian();
                         break;
-                    case 1:
+                    case 2:
                         if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
                         else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
                         else if (distro == DEBIAN) edit_isolinux_cfg_debian();
                         break;
-                    case 2:
+                    case 3:
                         if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
                         else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
                         else if (distro == DEBIAN) edit_grub_cfg_debian();
                         break;
-                    case 3:
+                    case 4:
                         set_clone_directory();
                         break;
-                    case 4:
+                    case 5:
                         if (distro == ARCH) install_calamares_arch();
                         else if (distro == CACHYOS) install_calamares_cachyos();
                         else if (distro == UBUNTU) install_calamares_ubuntu();
                         else if (distro == DEBIAN) install_calamares_debian();
                         break;
-                    case 5:
+                    case 6:
                         install_one_time_updater();
                         break;
-                    case 6:
+                    case 7:
                         tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
                         return;
                 }
@@ -1117,7 +1152,7 @@ int main(int argc, char* argv[]) {
             default:
                 std::cout << "Invalid option" << std::endl;
         }
-        
+
         time_thread_running = false;
         time_thread.join();
         return 0;
