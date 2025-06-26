@@ -1,4 +1,11 @@
 
+xorriso command updated to support debian and fully working from tests
+
+![Screenshot_archlinux-clone_2025-06-26_16:41:05](https://github.com/user-attachments/assets/49fbc449-faae-4a52-afe5-fb9791ba1e42)
+
+
+
+
 well im now making a squashfs next is xorriso command
 
 ![Screenshot_archlinux-clone_2025-06-26_15:30:40](https://github.com/user-attachments/assets/df44677e-fb0c-45eb-9930-e8537ebb7781)
