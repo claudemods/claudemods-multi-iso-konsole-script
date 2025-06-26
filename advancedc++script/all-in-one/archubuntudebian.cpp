@@ -41,6 +41,7 @@ enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, UNKNOWN };
 atomic<bool> time_thread_running(true);
 mutex time_mutex;
 string current_time_str;
+bool should_reset = false;
 
 bool dir_exists(const string &path) {
     struct stat st;
@@ -150,12 +151,12 @@ void save_clone_dir(const string &dir_path) {
         string mkdir_cmd = "mkdir -p " + config_dir;
         execute_command(mkdir_cmd);
     }
-    
+
     if (!dir_exists(dir_path)) {
         string mkdir_cmd = "mkdir -p " + dir_path;
         execute_command(mkdir_cmd);
     }
-    
+
     string file_path = config_dir + "/clonedir.txt";
     ofstream f(file_path, ios::out | ios::trunc);
     if (!f) {
@@ -166,12 +167,10 @@ void save_clone_dir(const string &dir_path) {
     f.close();
     message_box("Success", "Clone directory created and path saved successfully.");
 
-    // 5-second countdown
-    cout << "Returning to menu in..." << endl;
-    for (int i = 5; i > 0; --i) {
-        cout << i << "..." << endl;
+    for (int i = 5; i > 0; i--) {
         sleep(1);
     }
+    should_reset = true;
 }
 
 void print_banner() {
@@ -183,23 +182,23 @@ void print_banner() {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-    cout << RESET;
-    cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
+        cout << RESET;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
 
-    {
-        lock_guard<mutex> lock(time_mutex);
-        cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
-    }
-
-    cout << GREEN << "Disk Usage:" << RESET << endl;
-    string cmd = "df -h /";
-    unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (pipe) {
-        char buffer[128];
-        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-            cout << GREEN << buffer << RESET;
+        {
+            lock_guard<mutex> lock(time_mutex);
+            cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
         }
-    }
+
+        cout << GREEN << "Disk Usage:" << RESET << endl;
+        string cmd = "df -h /";
+        unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (pipe) {
+            char buffer[128];
+            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+                cout << GREEN << buffer << RESET;
+            }
+        }
 }
 
 int get_key() {
@@ -647,10 +646,8 @@ void create_squashfs_image(Distro distro) {
     cout << GREEN << "Creating SquashFS image from: " << clone_dir << RESET << endl;
     execute_command(command);
 
-    // Automatically delete the clone directory after SquashFS creation
-    cout << "Deleting clone directory: " << clone_dir << endl;
-    execute_command("sudo rm -rf " + clone_dir);
-    message_box("Success", "SquashFS created and clone directory deleted.");
+    string del_cmd = "sudo rm -rf " + clone_dir;
+    execute_command(del_cmd);
 }
 
 void delete_clone_system_temp(Distro distro) {
@@ -1233,6 +1230,13 @@ int main(int argc, char* argv[]) {
     int selected = 0;
     int key;
     while (true) {
+        if (should_reset) {
+            should_reset = false;
+            selected = 0;
+            system("clear");
+            continue;
+        }
+
         key = show_menu("Main Menu", items, selected, distro);
         switch (key) {
             case 'A':
