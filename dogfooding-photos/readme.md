@@ -1,3 +1,13 @@
+
+after fixing and updating the dependencies for debian im now cloning debian first time with the v2.0 script
+
+![Screenshot_archlinux-clone_2025-06-26_15:02:44](https://github.com/user-attachments/assets/dc14a65f-7f22-48e5-be22-fc3559110e4d)
+
+
+
+
+
+
 kde neon being tested currently before debian and then ill do some simple fixes to ui and outputs
 
 ![Screenshot_archlinux-clone_2025-06-26_11:43:13](https://github.com/user-attachments/assets/c7475083-ce52-48d3-80cf-4253b935da32)
