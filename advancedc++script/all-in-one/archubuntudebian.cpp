@@ -192,7 +192,7 @@ void print_banner() {
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
         cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 26-06-2025" << RESET << endl;
 
         {
             lock_guard<mutex> lock(time_mutex);
@@ -722,7 +722,7 @@ void delete_clone_system_temp(Distro distro) {
 }
 
 void set_clone_directory() {
-    string dir_path = prompt("Enter full path for clone directory (folder will be created if it doesn't exist): ");
+    string dir_path = prompt("Enter full path for clone directory e.g /home/$USER/Pictures ");
     if (dir_path.empty()) {
         error_box("Error", "Directory path cannot be empty");
         return;
