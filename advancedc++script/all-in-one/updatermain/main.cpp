@@ -49,7 +49,7 @@ void* execute_update_thread(void* /*arg*/) {
     while (!loading_complete) usleep(10000);
 
     // 1. GIT CLONE
-    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git");
+    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git   ");
 
     // 2. CURRENT VERSION
     try {
@@ -118,12 +118,28 @@ void* execute_update_thread(void* /*arg*/) {
         
     }
 
-    // FINAL STEPS
-    silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && qmake && make >/dev/null 2>&1");
-    silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
-    silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
-    silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
-    silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
+    // FINAL STEPS WITH DISTRO DETECTION
+    if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
+        // Arch/CachyOS-specific commands
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && qmake && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
+    } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "debian") == 0) {
+        // Ubuntu/Debian-specific commands
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/cmi.bin /usr/bin/cmi.bin");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
+    } else {
+        std::cout << COLOR_RED << "Unsupported distribution: " << detected_distro << COLOR_RESET << std::endl;
+        commands_completed = true;
+        return nullptr;
+    }
+
+    // Cleanup
     silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
 
     // GET INSTALLED VERSION
