@@ -561,25 +561,25 @@ void install_calamares_ubuntu() {
 void install_dependencies_debian() {
     progress_dialog("Installing Debian dependencies...");
     const string packages =
-        "cryptsetup "
-        "dmeventd "
-        "isolinux "
-        "libaio1 "
-        "libc-ares2 "
-        "libdevmapper-event1.02.1 "
-        "liblvm2cmd2.03 "
-        "live-boot "
-        "live-boot-doc "
-        "live-boot-initramfs-tools "
-        "live-config-systemd "
-        "live-tools "
-        "lvm2 "
-        "pxelinux "
-        "syslinux "
-        "syslinux-common "
-        "thin-provisioning-tools "
-        "squashfs-tools "
-        "xorriso ";
+    "cryptsetup "
+    "dmeventd "
+    "isolinux "
+    "libaio1 "
+    "libc-ares2 "
+    "libdevmapper-event1.02.1 "
+    "liblvm2cmd2.03 "
+    "live-boot "
+    "live-boot-doc "
+    "live-boot-initramfs-tools "
+    "live-config-systemd "
+    "live-tools "
+    "lvm2 "
+    "pxelinux "
+    "syslinux "
+    "syslinux-common "
+    "thin-provisioning-tools "
+    "squashfs-tools "
+    "xorriso ";
     execute_command("sudo apt install -y " + packages);
     message_box("Success", "Debian dependencies installed successfully.");
 }
@@ -842,11 +842,17 @@ void create_iso(Distro distro) {
     oss << "sudo xorriso -as mkisofs -o " << iso_file_name
     << " -V 2025 -iso-level 3";
 
-    if (distro == UBUNTU || distro == DEBIAN) {
+    if (distro == UBUNTU) {
         oss << " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
         << " -c isolinux/boot.cat"
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
         << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
+    } else if (distro == DEBIAN) {
+        // Custom xorriso command for Debian
+        oss << " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
+        << " -c isolinux/boot.cat"
+        << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+        << " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
     } else {
         oss << " -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin"
         << " -c isolinux/boot.cat"
