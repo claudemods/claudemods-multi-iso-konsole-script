@@ -39,7 +39,7 @@
 using namespace std;
 
 struct termios original_term;
-enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, UNKNOWN };
+enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, NEON, UNKNOWN };
 atomic<bool> time_thread_running(true);
 mutex time_mutex;
 string current_time_str;
@@ -98,6 +98,7 @@ Distro detect_distro() {
             if (line.find("ubuntu") != string::npos) return UBUNTU;
             if (line.find("debian") != string::npos) return DEBIAN;
             if (line.find("cachyos") != string::npos) return CACHYOS;
+            if (line.find("neon") != string::npos) return UBUNTU;
         }
     }
     return UNKNOWN;
@@ -119,6 +120,7 @@ string get_distro_name(Distro distro) {
         case UBUNTU: return "Ubuntu";
         case DEBIAN: return "Debian";
         case CACHYOS: return "CachyOS";
+        case NEON: return "Ubuntu";
         default: return "Unknown";
     }
 }
