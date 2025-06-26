@@ -27,7 +27,7 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
 elif [[ "$DISTRO" == "ubuntu" || "$DISTRO" == "debian" ]]; then
     # Commands for Ubuntu/Debian (same as Arch/CachyOS for now)
     git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1
-    cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/updatermain && qmake && make >/dev/null 2>&1
+    cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/updatermain && qmake6 && make >/dev/null 2>&1
     ./advancedcscriptupdater.bin && rm -rf /home/$USER/claudemods-multi-iso-konsole-script
 else
     echo "Unsupported distribution: $DISTRO"
