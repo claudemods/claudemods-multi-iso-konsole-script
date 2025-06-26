@@ -166,7 +166,6 @@ void save_clone_dir(const string &dir_path) {
     f << full_clone_path;
     f.close();
 
-    // Create clone_system_temp folder
     string clone_folder = full_clone_path + "clone_system_temp";
     if (!dir_exists(clone_folder)) {
         string mkdir_cmd = "mkdir -p " + clone_folder;
@@ -805,10 +804,12 @@ void create_iso(Distro distro) {
         error_box("Input Error", "ISO name cannot be empty.");
         return;
     }
-    string output_dir = prompt("Enter the output directory path (or press Enter for current directory): ");
+    string output_dir = prompt("Enter the output directory path: ");
     if (output_dir.empty()) {
-        output_dir = ".";
+        error_box("Input Error", "Output directory cannot be empty.");
+        return;
     }
+
     char application_dir_path[MAX_PATH];
     if (getcwd(application_dir_path, sizeof(application_dir_path)) == NULL) {
         perror("getcwd");
@@ -848,23 +849,17 @@ void create_iso(Distro distro) {
 
     string xorriso_command;
     if (distro == UBUNTU || distro == DEBIAN) {
-        xorriso_command = "cd / && sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
-        "-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin "
-        "-c isolinux/boot.cat -b isolinux/isolinux.bin "
-        "-no-emul-boot -boot-load-size 4 -boot-info-table "
-        "-eltorito-alt-boot -e boot/grub/efi.img "
-        "-no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
+        xorriso_command = string("cd / && sudo xorriso -as mkisofs -o ") + iso_file_name +
+            " -V 2025 -iso-level 3 -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin -c isolinux/boot.cat "
+            "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot "
+            "-e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat " + build_image_dir;
     } else {
-        xorriso_command = "cd / && sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
-        "-isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat "
-        "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table "
-        "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
+        xorriso_command = string("cd / && sudo xorriso -as mkisofs -o ") + iso_file_name +
+            " -V 2025 -iso-level 3 -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat "
+            "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot "
+            "-e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat " + build_image_dir;
     }
 
-    if (xorriso_command.length() >= MAX_CMD) {
-        error_box("Error", "Command too long for buffer");
-        return;
-    }
     string sudo_password = password_prompt("Enter your sudo password: ");
     if (sudo_password.empty()) {
         error_box("Input Error", "Sudo password cannot be empty.");
