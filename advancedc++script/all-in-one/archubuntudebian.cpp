@@ -151,12 +151,12 @@ void save_clone_dir(const string &dir_path) {
         string mkdir_cmd = "mkdir -p " + config_dir;
         execute_command(mkdir_cmd);
     }
-
+    
     if (!dir_exists(dir_path)) {
         string mkdir_cmd = "mkdir -p " + dir_path;
         execute_command(mkdir_cmd);
     }
-
+    
     string file_path = config_dir + "/clonedir.txt";
     ofstream f(file_path, ios::out | ios::trunc);
     if (!f) {
@@ -165,7 +165,6 @@ void save_clone_dir(const string &dir_path) {
     }
     f << dir_path;
     f.close();
-    message_box("Success", "Clone directory created and path saved successfully.");
 
     for (int i = 5; i > 0; i--) {
         sleep(1);
@@ -182,23 +181,23 @@ void print_banner() {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
+    cout << RESET;
+    cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
 
-        {
-            lock_guard<mutex> lock(time_mutex);
-            cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
-        }
+    {
+        lock_guard<mutex> lock(time_mutex);
+        cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
+    }
 
-        cout << GREEN << "Disk Usage:" << RESET << endl;
-        string cmd = "df -h /";
-        unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            char buffer[128];
-            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-                cout << GREEN << buffer << RESET;
-            }
+    cout << GREEN << "Disk Usage:" << RESET << endl;
+    string cmd = "df -h /";
+    unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (pipe) {
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+            cout << GREEN << buffer << RESET;
         }
+    }
 }
 
 int get_key() {
@@ -607,6 +606,18 @@ void install_calamares_debian() {
 }
 
 void clone_system(const string &clone_dir) {
+    if (!dir_exists(clone_dir)) {
+        string mkdir_cmd = "mkdir -p " + clone_dir;
+        execute_command(mkdir_cmd);
+    }
+
+    // Extract just the folder name from the path
+    string folder_name = clone_dir;
+    size_t last_slash = folder_name.find_last_of('/');
+    if (last_slash != string::npos) {
+        folder_name = folder_name.substr(last_slash + 1);
+    }
+
     string command = "cd / && sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
@@ -616,7 +627,7 @@ void clone_system(const string &clone_dir) {
     "--exclude=/mnt/* "
     "--exclude=/media/* "
     "--exclude=/lost+found "
-    "--exclude=" + clone_dir + " "
+    "--exclude=/" + folder_name + " "
     "/ " + clone_dir;
 
     cout << GREEN << "Cloning system into directory: " << clone_dir << RESET << endl;
@@ -817,7 +828,7 @@ void create_iso(Distro distro) {
         "-eltorito-alt-boot -e boot/grub/efi.img "
         "-no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
     } else {
-        xorriso_command = "sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
+        xorriso_command = "cd / && sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
         "-isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat "
         "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table "
         "-eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat \"" + build_image_dir + "\"";
@@ -1236,7 +1247,7 @@ int main(int argc, char* argv[]) {
             system("clear");
             continue;
         }
-
+        
         key = show_menu("Main Menu", items, selected, distro);
         switch (key) {
             case 'A':
