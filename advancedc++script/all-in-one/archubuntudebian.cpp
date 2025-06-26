@@ -561,26 +561,25 @@ void install_calamares_ubuntu() {
 void install_dependencies_debian() {
     progress_dialog("Installing Debian dependencies...");
     const string packages =
-    "cryptsetup "
-    "dmeventd "
-    "isolinux "
-    "libaio-dev "
-    "libcares2 "
-    "libdevmapper-event1.02.1 "
-    "liblvm2cmd2.03 "
-    "live-boot "
-    "live-boot-doc "
-    "live-boot-initramfs-tools "
-    "live-config-systemd "
-    "live-tools "
-    "lvm2 "
-    "pxelinux "
-    "syslinux "
-    "syslinux-common "
-    "thin-provisioning-tools "
-    "squashfs-tools "
-    "xorriso ";
-
+        "cryptsetup "
+        "dmeventd "
+        "isolinux "
+        "libaio1 "
+        "libc-ares2 "
+        "libdevmapper-event1.02.1 "
+        "liblvm2cmd2.03 "
+        "live-boot "
+        "live-boot-doc "
+        "live-boot-initramfs-tools "
+        "live-config-systemd "
+        "live-tools "
+        "lvm2 "
+        "pxelinux "
+        "syslinux "
+        "syslinux-common "
+        "thin-provisioning-tools "
+        "squashfs-tools "
+        "xorriso ";
     execute_command("sudo apt install -y " + packages);
     message_box("Success", "Debian dependencies installed successfully.");
 }
