@@ -22,6 +22,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <pwd.h>
+#include <sstream>    // For std::ostringstream
+#include <filesystem> // For std::filesystem
 
 #define MAX_PATH 4096
 #define MAX_CMD 16384
@@ -799,74 +801,71 @@ void squashfs_menu(Distro distro) {
 }
 
 void create_iso(Distro distro) {
+    // Prompt for ISO name and output directory
     string iso_name = prompt("What do you want to name your .iso? ");
     if (iso_name.empty()) {
         error_box("Input Error", "ISO name cannot be empty.");
         return;
     }
+
     string output_dir = prompt("Enter the output directory path: ");
     if (output_dir.empty()) {
         error_box("Input Error", "Output directory cannot be empty.");
         return;
     }
 
-    char application_dir_path[MAX_PATH];
-    if (getcwd(application_dir_path, sizeof(application_dir_path)) == NULL) {
-        perror("getcwd");
-        return;
-    }
-
-    string build_image_dir;
-    if (distro == UBUNTU) {
-        build_image_dir = string(application_dir_path) + "/build-image-noble";
-    } else if (distro == DEBIAN) {
-        build_image_dir = string(application_dir_path) + "/build-image-debian";
-    } else {
-        build_image_dir = string(application_dir_path) + "/build-image-arch";
-    }
-
-    if (build_image_dir.length() >= MAX_PATH) {
-        error_box("Error", "Path too long for build directory");
-        return;
-    }
-    struct stat st;
-    if (stat(output_dir.c_str(), &st) == -1) {
-        if (mkdir(output_dir.c_str(), 0755) == -1) {
-            perror("mkdir");
-            return;
-        }
-    }
-    progress_dialog("Creating ISO...");
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
+    // Generate timestamp
+    time_t now = time(nullptr);
+    struct tm* t = localtime(&now);
     char timestamp[20];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H%M", t);
-    string iso_file_name = output_dir + "/" + iso_name + "_amd64_" + timestamp + ".iso";
-    if (iso_file_name.length() >= MAX_PATH) {
-        error_box("Error", "Path too long for ISO filename");
-        return;
-    }
 
-    string xorriso_command;
-    if (distro == UBUNTU || distro == DEBIAN) {
-        xorriso_command = string("cd / && sudo xorriso -as mkisofs -o ") + iso_file_name +
-            " -V 2025 -iso-level 3 -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin -c isolinux/boot.cat "
-            "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot "
-            "-e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat " + build_image_dir;
+    // Construct ISO file name without using + or /
+    std::ostringstream oss;
+    oss << output_dir << std::filesystem::path::preferred_separator
+    << iso_name << "_amd64_" << timestamp << ".iso";
+    string iso_file_name = oss.str();
+
+    // Build image directory based on distro
+    string build_image_dir;
+    if (distro == UBUNTU) {
+        build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-ubuntu";
+    } else if (distro == DEBIAN) {
+        build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-debian";
     } else {
-        xorriso_command = string("cd / && sudo xorriso -as mkisofs -o ") + iso_file_name +
-            " -V 2025 -iso-level 3 -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin -c isolinux/boot.cat "
-            "-b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table -eltorito-alt-boot "
-            "-e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat " + build_image_dir;
+        build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch";
     }
 
+    // Create output directory if it doesn't exist
+    if (!dir_exists(output_dir)) {
+        execute_command("mkdir -p " + output_dir);
+    }
+
+    // Construct xorriso command without using + or /
+    oss.str(""); // Clear the stringstream
+    oss << "sudo xorriso -as mkisofs -o " << iso_file_name
+    << " -V 2025 -iso-level 3 -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
+    << " -c isolinux/boot.cat"
+    << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+    << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
+    << " " << build_image_dir;
+
+    string xorriso_command = oss.str();
+
+    // Prompt for sudo password
     string sudo_password = password_prompt("Enter your sudo password: ");
     if (sudo_password.empty()) {
         error_box("Input Error", "Sudo password cannot be empty.");
         return;
     }
+
+    // Run the xorriso command
     run_sudo_command(xorriso_command, sudo_password);
+
+    // Success message
     message_box("Success", "ISO creation completed.");
+
+    // Prompt to go back to the main menu
     string choice = prompt("Press 'm' to go back to main menu or Enter to exit: ");
     if (!choice.empty() && (choice[0] == 'm' || choice[0] == 'M')) {
         run_command("ruby /opt/claudemods-iso-konsole-script/demo.rb");
