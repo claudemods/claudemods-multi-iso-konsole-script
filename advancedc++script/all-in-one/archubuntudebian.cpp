@@ -810,7 +810,7 @@ void create_iso(Distro distro) {
 
     string xorriso_command;
     if (distro == UBUNTU || distro == DEBIAN) {
-        xorriso_command = "sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
+        xorriso_command = "cd / && sudo xorriso -as mkisofs -o \"" + iso_file_name + "\" -V 2025 -iso-level 3 "
         "-isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin "
         "-c isolinux/boot.cat -b isolinux/isolinux.bin "
         "-no-emul-boot -boot-load-size 4 -boot-info-table "
