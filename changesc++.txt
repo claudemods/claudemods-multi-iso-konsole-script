@@ -4,8 +4,18 @@ new install method for all-in-one advanced c++ script beta v2.0 use below comman
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"
 
 cmi v2.0 c++ script known issues and info
-this is beta lots to test though its all works fine my side so far apart from update menu option
+arch side all updated and working now for ubuntu and debian
 
+changelog cmi advanced c++ script beta v2.0 26-06-2025
+my old scripts all work so why dont the new updates?
+this is because i planned to open source it and add features i didnt have in the other
+i also wanted to try new languages and just have fun you can use the old scripts for now
+or wait for a release to say everything works
+for now the arch side is fully working for those who want to use the script on arch
+
+
+changelog cmi advanced c++ script beta v2.0 25-06-2025
+i had a wild day attempting to fix the arch side to the script
 
 changelog cmi advanced c++ script beta v2.0 24-06-2025
 new menu options guide and changelog also ive rearranged the menu options
