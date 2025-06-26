@@ -151,20 +151,27 @@ void save_clone_dir(const string &dir_path) {
         string mkdir_cmd = "mkdir -p " + config_dir;
         execute_command(mkdir_cmd);
     }
-    
-    if (!dir_exists(dir_path)) {
-        string mkdir_cmd = "mkdir -p " + dir_path;
-        execute_command(mkdir_cmd);
+
+    string full_clone_path = dir_path;
+    if (full_clone_path.back() != '/') {
+        full_clone_path += '/';
     }
-    
+
     string file_path = config_dir + "/clonedir.txt";
     ofstream f(file_path, ios::out | ios::trunc);
     if (!f) {
         perror("Failed to open clonedir.txt");
         return;
     }
-    f << dir_path;
+    f << full_clone_path;
     f.close();
+
+    // Create clone_system_temp folder
+    string clone_folder = full_clone_path + "clone_system_temp";
+    if (!dir_exists(clone_folder)) {
+        string mkdir_cmd = "mkdir -p " + clone_folder;
+        execute_command(mkdir_cmd);
+    }
 
     for (int i = 5; i > 0; i--) {
         sleep(1);
@@ -181,23 +188,23 @@ void print_banner() {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-    cout << RESET;
-    cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
+        cout << RESET;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 25-06-2025" << RESET << endl;
 
-    {
-        lock_guard<mutex> lock(time_mutex);
-        cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
-    }
-
-    cout << GREEN << "Disk Usage:" << RESET << endl;
-    string cmd = "df -h /";
-    unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-    if (pipe) {
-        char buffer[128];
-        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-            cout << GREEN << buffer << RESET;
+        {
+            lock_guard<mutex> lock(time_mutex);
+            cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
         }
-    }
+
+        cout << GREEN << "Disk Usage:" << RESET << endl;
+        string cmd = "df -h /";
+        unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+        if (pipe) {
+            char buffer[128];
+            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+                cout << GREEN << buffer << RESET;
+            }
+        }
 }
 
 int get_key() {
@@ -606,16 +613,24 @@ void install_calamares_debian() {
 }
 
 void clone_system(const string &clone_dir) {
-    if (!dir_exists(clone_dir)) {
-        string mkdir_cmd = "mkdir -p " + clone_dir;
+    string full_clone_path = clone_dir;
+    if (full_clone_path.back() != '/') {
+        full_clone_path += '/';
+    }
+    full_clone_path += "clone_system_temp";
+
+    if (!dir_exists(full_clone_path)) {
+        string mkdir_cmd = "mkdir -p " + full_clone_path;
         execute_command(mkdir_cmd);
     }
 
-    // Extract just the folder name from the path
-    string folder_name = clone_dir;
-    size_t last_slash = folder_name.find_last_of('/');
+    string parent_dir = clone_dir;
+    if (parent_dir.back() == '/') {
+        parent_dir.pop_back();
+    }
+    size_t last_slash = parent_dir.find_last_of('/');
     if (last_slash != string::npos) {
-        folder_name = folder_name.substr(last_slash + 1);
+        parent_dir = parent_dir.substr(last_slash + 1);
     }
 
     string command = "cd / && sudo rsync -aHAXSr --numeric-ids --info=progress2 "
@@ -627,10 +642,10 @@ void clone_system(const string &clone_dir) {
     "--exclude=/mnt/* "
     "--exclude=/media/* "
     "--exclude=/lost+found "
-    "--exclude=/" + folder_name + " "
-    "/ " + clone_dir;
+    "--exclude=/clone_system_temp "
+    "/ " + full_clone_path;
 
-    cout << GREEN << "Cloning system into directory: " << clone_dir << RESET << endl;
+    cout << GREEN << "Cloning system into directory: " << full_clone_path << RESET << endl;
     execute_command(command);
 }
 
@@ -641,6 +656,12 @@ void create_squashfs_image(Distro distro) {
         return;
     }
 
+    string full_clone_path = clone_dir;
+    if (full_clone_path.back() != '/') {
+        full_clone_path += '/';
+    }
+    full_clone_path += "clone_system_temp";
+
     string output_path;
     if (distro == UBUNTU) {
         output_path = "/home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs";
@@ -650,14 +671,14 @@ void create_squashfs_image(Distro distro) {
         output_path = "/home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs";
     }
 
-    string command = "sudo mksquashfs " + clone_dir + " " + output_path + " "
+    string command = "sudo mksquashfs " + full_clone_path + " " + output_path + " "
     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery "
     "-always-use-fragments -wildcards -xattrs";
 
-    cout << GREEN << "Creating SquashFS image from: " << clone_dir << RESET << endl;
+    cout << GREEN << "Creating SquashFS image from: " << full_clone_path << RESET << endl;
     execute_command(command);
 
-    string del_cmd = "sudo rm -rf " + clone_dir;
+    string del_cmd = "sudo rm -rf " + full_clone_path;
     execute_command(del_cmd);
 }
 
@@ -668,8 +689,14 @@ void delete_clone_system_temp(Distro distro) {
         return;
     }
 
-    string command = "sudo rm -rf " + clone_dir;
-    cout << GREEN << "Deleting clone directory: " << clone_dir << RESET << endl;
+    string full_clone_path = clone_dir;
+    if (full_clone_path.back() != '/') {
+        full_clone_path += '/';
+    }
+    full_clone_path += "clone_system_temp";
+
+    string command = "sudo rm -rf " + full_clone_path;
+    cout << GREEN << "Deleting clone directory: " << full_clone_path << RESET << endl;
     execute_command(command);
 
     string squashfs_path;
@@ -750,7 +777,7 @@ void squashfs_menu(Distro distro) {
                             error_box("Error", "No clone directory specified. Please set it in Setup Script menu.");
                             break;
                         }
-                        if (!dir_exists(clone_dir)) {
+                        if (!dir_exists(clone_dir + "/clone_system_temp")) {
                             clone_system(clone_dir);
                         }
                         create_squashfs_image(distro);
@@ -1247,7 +1274,7 @@ int main(int argc, char* argv[]) {
             system("clear");
             continue;
         }
-        
+
         key = show_menu("Main Menu", items, selected, distro);
         switch (key) {
             case 'A':
