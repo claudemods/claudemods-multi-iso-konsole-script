@@ -24,8 +24,8 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1
     cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/updatermain && qmake && make >/dev/null 2>&1
     ./advancedcscriptupdater.bin && rm -rf /home/$USER/claudemods-multi-iso-konsole-script
-elif [[ "$DISTRO" == "ubuntu" || "$DISTRO" == "debian" ]]; then
-    # Commands for Ubuntu/Debian (same as Arch/CachyOS for now)
+elif [[ "$DISTRO" == "ubuntu" || "$DISTRO" == "debian" || "$DISTRO" == "neon" ]]; then
+    # Commands for Ubuntu/Debian/KDE Neon
     git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1
     cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/updatermain && qmake6 && make >/dev/null 2>&1
     ./advancedcscriptupdater.bin && rm -rf /home/$USER/claudemods-multi-iso-konsole-script
