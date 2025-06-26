@@ -1,4 +1,4 @@
-
+currently dogfooding debian
 after fixing and updating the dependencies for debian im now cloning debian first time with the v2.0 script
 
 ![Screenshot_archlinux-clone_2025-06-26_15:02:44](https://github.com/user-attachments/assets/dc14a65f-7f22-48e5-be22-fc3559110e4d)
