@@ -553,7 +553,7 @@ void edit_isolinux_cfg_ubuntu() {
 
 void install_calamares_ubuntu() {
     progress_dialog("Installing Calamares for Ubuntu...");
-    execute_command("sudo apt install -y calamares-settings-ubuntu calamares");
+    execute_command("sudo apt install -y calamares-settings-ubuntu-common calamares");
     message_box("Success", "Calamares installed successfully for Ubuntu.");
 }
 
