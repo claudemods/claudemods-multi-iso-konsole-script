@@ -844,11 +844,21 @@ void create_iso(Distro distro) {
     // Construct xorriso command without using + or /
     oss.str(""); // Clear the stringstream
     oss << "sudo xorriso -as mkisofs -o " << iso_file_name
-    << " -V 2025 -iso-level 3 -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
-    << " -c isolinux/boot.cat"
-    << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
-    << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
-    << " " << build_image_dir;
+    << " -V 2025 -iso-level 3";
+
+    if (distro == UBUNTU || distro == DEBIAN) {
+        oss << " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
+        << " -c isolinux/boot.cat"
+        << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+        << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
+    } else {
+        oss << " -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin"
+        << " -c isolinux/boot.cat"
+        << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+        << " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
+    }
+
+    oss << " " << build_image_dir;
 
     string xorriso_command = oss.str();
 
