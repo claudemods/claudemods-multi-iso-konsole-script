@@ -536,6 +536,7 @@ void generate_initrd_ubuntu() {
     progress_dialog("Generating Initramfs for Ubuntu...");
     execute_command("cd /home/$USER/.config/cmi");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-noble/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
+    execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-noble/live/ 2>/dev/null");
     message_box("Success", "Ubuntu initramfs generated successfully.");
 }
 
@@ -594,6 +595,7 @@ void generate_initrd_debian() {
     progress_dialog("Generating Initramfs for Debian...");
     execute_command("cd /home/$USER/.config/cmi");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-debian/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
+    execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-debian/live/ 2>/dev/null");
     message_box("Success", "Debian initramfs generated successfully.");
 }
 
