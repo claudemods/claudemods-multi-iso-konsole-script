@@ -607,7 +607,7 @@ void install_calamares_debian() {
 }
 
 void clone_system(const string &clone_dir) {
-    string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+    string command = "cdsudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
     "--exclude=/sys/* "
