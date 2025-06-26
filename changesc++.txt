@@ -12,7 +12,7 @@ this is because i planned to open source it and add features i didnt have in the
 i also wanted to try new languages and just have fun you can use the old scripts for now
 or wait for a release to say everything works
 for now the arch side is fully working for those who want to use the script on arch
-my new update 27th hopefully will be based on the ubuntu side of the script 
+my new update later or 27th hopefully, will be based on the ubuntu side of the script 
 i will attempt todo debian after but they are similar so i will be working on debian things also 
 
 
