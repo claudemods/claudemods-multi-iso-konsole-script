@@ -60,11 +60,7 @@
 </div>
 
 <div align="center">
-  <h3 align="center">Urgent News! Currently v2.0 betas are mostly broken though im mainly testing arch</h3>
-<h3 align="center">from tests i just need to fix reading files as rsync fails until app reload after input to .txt</h3>
-<h3 align="center">deepseek is being a pain im just waiting on the fix and ill also test xorriso</h3>
-    <h3 align="center">i will then move onto ubuntu then debian and fix them to work 100% based on old scripts</h3>
-</div>
+  <h3 align="center">Urgent News! v2.0 betas are being frequently updated with fixes to be like 1.06.1 and better</h3>
 
 ---
 
