@@ -824,7 +824,7 @@ void create_iso(Distro distro) {
     // Build image directory based on distro
     string build_image_dir;
     if (distro == UBUNTU) {
-        build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-ubuntu";
+        build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-noble";
     } else if (distro == DEBIAN) {
         build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-debian";
     } else {
