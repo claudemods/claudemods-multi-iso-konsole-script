@@ -127,6 +127,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
         // Ubuntu/KDE Neon-specific commands
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && qmake6 && make >/dev/null 2>&1");
@@ -134,6 +135,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
     } else if (strcmp(detected_distro, "debian") == 0) {
         // Debian-specific commands
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one && qmake6 && make >/dev/null 2>&1");
@@ -141,6 +143,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
     } else {
         std::cout << COLOR_RED << "Unsupported distribution: " << detected_distro << COLOR_RESET << std::endl;
         commands_completed = true;
