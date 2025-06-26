@@ -738,14 +738,7 @@ void set_clone_directory() {
 void install_one_time_updater() {
     progress_dialog("Installing one-time updater...");
     const vector<string> commands = {
-        "cd /home/$USER",
-        "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1",
-        "mkdir -p /home/$USER/.config/cmi >/dev/null 2>&1",
-        "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/updatermain/advancedcscriptupdater /home/$USER/.config/cmi >/dev/null 2>&1",
-        "cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1",
-        "chmod +x /home/$USER/.config/cmi/patch.sh >/dev/null 2>&1",
-        "chmod +x /home/$USER/.config/cmi/advancedcscriptupdater >/dev/null 2>&1",
-        "rm -rf /home/$USER/claudemods-multi-iso-konsole-script >/dev/null 2>&1"
+        "./home/$USER/.config/cmi/patch.sh",
     };
     for (const auto &cmd : commands) {
         execute_command(cmd);
