@@ -1,3 +1,10 @@
+
+well im now making a squashfs next is xorriso command
+
+![Screenshot_archlinux-clone_2025-06-26_15:30:40](https://github.com/user-attachments/assets/df44677e-fb0c-45eb-9930-e8537ebb7781)
+
+
+
 currently dogfooding debian
 after fixing and updating the dependencies for debian im now cloning debian first time with the v2.0 script
 
