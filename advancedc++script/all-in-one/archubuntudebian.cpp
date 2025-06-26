@@ -642,7 +642,7 @@ void clone_system(const string &clone_dir) {
     "--exclude=/mnt/* "
     "--exclude=/media/* "
     "--exclude=/lost+found "
-    "--exclude=/clone_system_temp "
+    "--exclude=clone_system_temp "
     "/ " + full_clone_path;
 
     cout << GREEN << "Cloning system into directory: " << full_clone_path << RESET << endl;
