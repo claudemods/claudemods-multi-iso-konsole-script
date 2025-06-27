@@ -60,11 +60,15 @@
 </div>
 
 <div align="center">
+
+---
+
+    
   <h3 align="center">Urgent News! V2.0</h3>
 
   <h3 align="center">Arch Cloning Works In My C++ Script 27-06-2025</h3>
     
-  <h3 align="center">Debian And Its Derivatives Have Kernel Issues Which Ive Know About A While Now</h3>
+  <h3 align="center">Debian And Its Derivatives Have Kernel Issues Which Ive Known About A While Now</h3>
     
   <h3 align="center">Hopefully The Journal Issue Gets Resolved Soon</h3>
 
