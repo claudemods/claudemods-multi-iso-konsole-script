@@ -389,9 +389,9 @@ void install_dependencies_arch() {
 
 void generate_initrd_arch() {
     progress_dialog("Generating Initramfs And Copying Vmlinuz (Arch)...");
-    execute_command("cd /home/$USER/.config/cmi/build-image-arch && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
+    execute_command("cd /home/$USER/.config/cmi/build-image-arch >/dev/null 2>&1 && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
     execute_command("sudo cp /boot/vmlinuz-linux* /home/$USER/.config/cmi/build-image-arch/live/ 2>/dev/null");
-    message_box("Success", "Initramfs generated successfully.");
+    message_box("Success", "Initramfs And Vmlinuz generated successfully.");
 }
 
 void edit_grub_cfg_arch() {
@@ -408,7 +408,7 @@ void edit_isolinux_cfg_arch() {
 
 void install_calamares_arch() {
     progress_dialog("Installing Calamares for Arch Linux...");
-    execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch >/dev/null 2>&1 && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully for Arch Linux.");
 }
 
@@ -491,7 +491,7 @@ void generate_initrd_ubuntu() {
     progress_dialog("Generating Initramfs for Ubuntu...");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-noble/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-noble/live/ 2>/dev/null");
-    message_box("Success", "Ubuntu initramfs generated successfully.");
+    message_box("Success", "Ubuntu initramfs And Vmlinuz generated successfully.");
 }
 
 void edit_grub_cfg_ubuntu() {
@@ -548,7 +548,7 @@ void generate_initrd_debian() {
     progress_dialog("Generating Initramfs for Debian...");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-debian/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-debian/live/ 2>/dev/null");
-    message_box("Success", "Debian initramfs generated successfully.");
+    message_box("Success", "Debian initramfs And Vmlinuz generated successfully.");
 }
 
 void edit_grub_cfg_debian() {
