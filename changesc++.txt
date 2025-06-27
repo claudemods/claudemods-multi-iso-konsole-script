@@ -16,6 +16,13 @@ my new update later or 27th hopefully, will be based on the ubuntu side of the s
 i will attempt todo debian after but they are similar so i will be working on debian things also 
 
 
+changelog cmi advanced c++ script beta v2.0 27-06-2025
+new colour fixes to arch/cachyos and setup scripts menu
+new ui to show if init generated and also if clone dir is set
+after doing multiple test it atleast works well on arch for now
+
+
+
 changelog cmi advanced c++ script beta v2.0 25-06-2025
 i had a wild day attempting to fix the arch side to the script
 
