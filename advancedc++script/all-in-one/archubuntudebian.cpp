@@ -22,8 +22,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <pwd.h>
-#include <sstream>    // For std::ostringstream
-#include <filesystem> // For std::filesystem
+#include <sstream>
+#include <filesystem>
 
 #define MAX_PATH 4096
 #define MAX_CMD 16384
@@ -44,6 +44,44 @@ atomic<bool> time_thread_running(true);
 mutex time_mutex;
 string current_time_str;
 bool should_reset = false;
+
+// Forward declarations
+string get_kernel_version();
+string read_clone_dir();
+bool dir_exists(const string &path);
+void execute_command(const string& cmd);
+Distro detect_distro();
+string get_distro_name(Distro distro);
+
+// Status check functions - moved after required function declarations
+bool is_init_generated(Distro distro) {
+    string init_path;
+    if (distro == UBUNTU || distro == DEBIAN) {
+        init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-" +
+        (distro == UBUNTU ? "noble" : "debian") + "/live/initrd.img-" + get_kernel_version();
+    } else {
+        init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch/live/initramfs-linux.img";
+    }
+    struct stat st;
+    return stat(init_path.c_str(), &st) == 0;
+}
+
+string get_clone_dir_status() {
+    string clone_dir = read_clone_dir();
+    if (clone_dir.empty()) {
+        return RED + string("✗ Clone directory not set (Use Option 4 in Setup Script Menu)") + RESET;
+    } else {
+        return GREEN + string("✓ Clone directory: ") + clone_dir + RESET;
+    }
+}
+
+string get_init_status(Distro distro) {
+    if (is_init_generated(distro)) {
+        return GREEN + string("✓ Initramfs generated") + RESET;
+    } else {
+        return RED + string("✗ Initramfs not generated (Use Option 1 in Setup Script Menu)") + RESET;
+    }
+}
 
 bool dir_exists(const string &path) {
     struct stat st;
@@ -106,10 +144,10 @@ Distro detect_distro() {
 
 string get_highlight_color(Distro distro) {
     switch(distro) {
-        case ARCH: return "\033[38;2;36;255;255m";
+        case ARCH: return "\033[34m";
         case UBUNTU: return "\033[38;2;255;165;0m";
         case DEBIAN: return "\033[31m";
-        case CACHYOS: return "\033[38;2;36;255;255m";
+        case CACHYOS: return "\033[34m";
         default: return "\033[36m";
     }
 }
@@ -123,6 +161,22 @@ string get_distro_name(Distro distro) {
         case NEON: return "Ubuntu";
         default: return "Unknown";
     }
+}
+
+string get_kernel_version() {
+    string version = "unknown";
+    FILE* fp = popen("uname -r", "r");
+    if (!fp) {
+        perror("Failed to get kernel version");
+        return version;
+    }
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), fp)) {
+        version = buffer;
+        version.erase(version.find_last_not_of("\n") + 1);
+    }
+    pclose(fp);
+    return version;
 }
 
 string read_clone_dir() {
@@ -182,7 +236,7 @@ void save_clone_dir(const string &dir_path) {
     should_reset = true;
 }
 
-void print_banner() {
+void print_banner(Distro distro) {
     cout << RED;
     cout <<
     "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
@@ -192,12 +246,16 @@ void print_banner() {
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
         cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 26-06-2025" << RESET << endl;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 MainBranch 27-06-2025" << RESET << endl;
 
         {
             lock_guard<mutex> lock(time_mutex);
             cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
         }
+
+        // Display status information
+        cout << get_clone_dir_status() << endl;
+        cout << get_init_status(distro) << endl;
 
         cout << GREEN << "Disk Usage:" << RESET << endl;
         string cmd = "df -h /";
@@ -238,14 +296,6 @@ void print_blue(const string &text) {
     cout << BLUE << text << RESET << endl;
 }
 
-void run_command(const string &command) {
-    cout << COLOR_CYAN << "Running command: " << command << RESET << endl;
-    int status = system(command.c_str());
-    if (status != 0) {
-        cout << RED << "Command failed with exit code: " << WEXITSTATUS(status) << RESET << endl;
-    }
-}
-
 string get_input(const string &prompt_text, bool echo = true) {
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
@@ -275,58 +325,6 @@ string password_prompt(const string &prompt_text) {
     return get_input(prompt_text, false);
 }
 
-void run_sudo_command(const string &command, const string &password) {
-    cout << COLOR_CYAN << "Running command: " << command << RESET << endl;
-    int pipefd[2];
-    if (pipe(pipefd)) {
-        perror("pipe");
-        exit(EXIT_FAILURE);
-    }
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("fork");
-        exit(EXIT_FAILURE);
-    }
-    if (pid == 0) {
-        close(pipefd[1]);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-        string full_command = "sudo -S " + command;
-        execl("/bin/sh", "sh", "-c", full_command.c_str(), (char *)NULL);
-        perror("execl");
-        exit(EXIT_FAILURE);
-    } else {
-        close(pipefd[0]);
-        write(pipefd[1], password.c_str(), password.length());
-        write(pipefd[1], "\n", 1);
-        close(pipefd[1]);
-        int status;
-        waitpid(pid, &status, 0);
-        if (WIFEXITED(status)) {
-            int exit_code = WEXITSTATUS(status);
-            if (exit_code != 0) {
-                cout << RED << "Command failed with exit code " << exit_code << "." << RESET << endl;
-            }
-        }
-    }
-}
-
-string get_kernel_version() {
-    string version = "unknown";
-    FILE* fp = popen("uname -r", "r");
-    if (!fp) {
-        perror("Failed to get kernel version");
-        return version;
-    }
-    char buffer[256];
-    if (fgets(buffer, sizeof(buffer), fp)) {
-        version = buffer;
-        version.erase(version.find_last_not_of("\n") + 1);
-    }
-    pclose(fp);
-    return version;
-}
-
 void update_time_thread() {
     while (time_thread_running) {
         time_t now = time(NULL);
@@ -345,7 +343,7 @@ void update_time_thread() {
 
 int show_menu(const string &title, const vector<string> &items, int selected, Distro distro = ARCH) {
     system("clear");
-    print_banner();
+    print_banner(distro);
 
     string highlight_color = get_highlight_color(distro);
 
@@ -433,10 +431,9 @@ void install_dependencies_arch() {
 
 void generate_initrd_arch() {
     progress_dialog("Generating Initramfs And Copying Vmlinuz (Arch)...");
-    execute_command("cd /home/$USER/.config/cmi");
-    execute_command("cd /home/$USER/.config/cmi/build-image-arch && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
+    execute_command("cd /home/$USER/.config/cmi/build-image-arch >/dev/null 2>&1 && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
     execute_command("sudo cp /boot/vmlinuz-linux* /home/$USER/.config/cmi/build-image-arch/live/ 2>/dev/null");
-    message_box("Success", "Initramfs generated successfully.");
+    message_box("Success", "Initramfs And Vmlinuz generated successfully.");
 }
 
 void edit_grub_cfg_arch() {
@@ -453,7 +450,7 @@ void edit_isolinux_cfg_arch() {
 
 void install_calamares_arch() {
     progress_dialog("Installing Calamares for Arch Linux...");
-    execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch >/dev/null 2>&1 && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully for Arch Linux.");
 }
 
@@ -495,7 +492,7 @@ void install_dependencies_cachyos() {
 
 void install_calamares_cachyos() {
     progress_dialog("Installing Calamares for CachyOS...");
-    execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U --noconfirm calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    execute_command("sudo pacman -U --noconfirm calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully for CachyOS.");
 }
 
@@ -534,10 +531,9 @@ void copy_vmlinuz_ubuntu() {
 
 void generate_initrd_ubuntu() {
     progress_dialog("Generating Initramfs for Ubuntu...");
-    execute_command("cd /home/$USER/.config/cmi");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-noble/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-noble/live/ 2>/dev/null");
-    message_box("Success", "Ubuntu initramfs generated successfully.");
+    message_box("Success", "Ubuntu initramfs And Vmlinuz generated successfully.");
 }
 
 void edit_grub_cfg_ubuntu() {
@@ -592,10 +588,9 @@ void copy_vmlinuz_debian() {
 
 void generate_initrd_debian() {
     progress_dialog("Generating Initramfs for Debian...");
-    execute_command("cd /home/$USER/.config/cmi");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-debian/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-debian/live/ 2>/dev/null");
-    message_box("Success", "Debian initramfs generated successfully.");
+    message_box("Success", "Debian initramfs And Vmlinuz generated successfully.");
 }
 
 void edit_grub_cfg_debian() {
@@ -637,7 +632,7 @@ void clone_system(const string &clone_dir) {
         parent_dir = parent_dir.substr(last_slash + 1);
     }
 
-    string command = "cd / && sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+    string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
     "--exclude=/sys/* "
@@ -748,12 +743,7 @@ void set_clone_directory() {
 
 void install_one_time_updater() {
     progress_dialog("Installing one-time updater...");
-    const vector<string> commands = {
-        "./home/$USER/.config/cmi/patch.sh",
-    };
-    for (const auto &cmd : commands) {
-        execute_command(cmd);
-    }
+    execute_command("./home/$USER/.config/cmi/patch.sh");
     message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
 }
 
@@ -807,7 +797,6 @@ void squashfs_menu(Distro distro) {
 }
 
 void create_iso(Distro distro) {
-    // Prompt for ISO name and output directory
     string iso_name = prompt("What do you want to name your .iso? ");
     if (iso_name.empty()) {
         error_box("Input Error", "ISO name cannot be empty.");
@@ -820,19 +809,16 @@ void create_iso(Distro distro) {
         return;
     }
 
-    // Generate timestamp
     time_t now = time(nullptr);
     struct tm* t = localtime(&now);
     char timestamp[20];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H%M", t);
 
-    // Construct ISO file name without using + or /
     std::ostringstream oss;
     oss << output_dir << std::filesystem::path::preferred_separator
     << iso_name << "_amd64_" << timestamp << ".iso";
     string iso_file_name = oss.str();
 
-    // Build image directory based on distro
     string build_image_dir;
     if (distro == UBUNTU) {
         build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-noble";
@@ -842,13 +828,11 @@ void create_iso(Distro distro) {
         build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch";
     }
 
-    // Create output directory if it doesn't exist
     if (!dir_exists(output_dir)) {
         execute_command("mkdir -p " + output_dir);
     }
 
-    // Construct xorriso command without using + or /
-    oss.str(""); // Clear the stringstream
+    oss.str("");
     oss << "sudo xorriso -as mkisofs -o " << iso_file_name
     << " -V 2025 -iso-level 3";
 
@@ -858,7 +842,6 @@ void create_iso(Distro distro) {
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
         << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
     } else if (distro == DEBIAN) {
-        // Custom xorriso command for Debian
         oss << " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
         << " -c isolinux/boot.cat"
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
@@ -873,31 +856,18 @@ void create_iso(Distro distro) {
     oss << " " << build_image_dir;
 
     string xorriso_command = oss.str();
+    execute_command(xorriso_command);
 
-    // Prompt for sudo password
-    string sudo_password = password_prompt("Enter your sudo password: ");
-    if (sudo_password.empty()) {
-        error_box("Input Error", "Sudo password cannot be empty.");
-        return;
-    }
-
-    // Run the xorriso command
-    run_sudo_command(xorriso_command, sudo_password);
-
-    // Success message
     message_box("Success", "ISO creation completed.");
 
-    // Prompt to go back to the main menu
     string choice = prompt("Press 'm' to go back to main menu or Enter to exit: ");
     if (!choice.empty() && (choice[0] == 'm' || choice[0] == 'M')) {
-        run_command("ruby /opt/claudemods-iso-konsole-script/demo.rb");
+        execute_command("ruby /opt/claudemods-iso-konsole-script/demo.rb");
     }
 }
 
 void run_iso_in_qemu() {
-    const string qemu_script = "/opt/claudemods-iso-konsole-script/Supported-Distros/qemu.rb";
-    string command = "ruby " + qemu_script;
-    run_command(command);
+    execute_command("ruby /opt/claudemods-iso-konsole-script/Supported-Distros/qemu.rb");
 }
 
 void iso_creator_menu(Distro distro) {
@@ -941,11 +911,6 @@ void create_command_files() {
         return;
     }
     exe_path[len] = '\0';
-    string sudo_password = password_prompt("Enter sudo password to create command files: ");
-    if (sudo_password.empty()) {
-        error_box("Error", "Sudo password cannot be empty");
-        return;
-    }
     string command = "bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -956,7 +921,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 5\n"
     "EOF\n"
     "chmod 755 /usr/bin/gen-init'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -967,7 +933,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 6\n"
     "EOF\n"
     "chmod 755 /usr/bin/edit-isocfg'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -978,7 +945,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 7\n"
     "EOF\n"
     "chmod 755 /usr/bin/edit-grubcfg'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -989,7 +957,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 8\n"
     "EOF\n"
     "chmod 755 /usr/bin/setup-script'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1000,7 +969,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 3\n"
     "EOF\n"
     "chmod 755 /usr/bin/make-iso'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1011,7 +981,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 4\n"
     "EOF\n"
     "chmod 755 /usr/bin/make-squashfs'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/gen-calamares << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1022,7 +993,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 9\n"
     "EOF\n"
     "chmod 755 /usr/bin/gen-calamares'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     cout << GREEN << "Activated! You can now use all commands in your terminal." << RESET << endl;
 }
 
@@ -1139,7 +1111,7 @@ void setup_script_menu(Distro distro) {
 
     while (true) {
         system("clear");
-        print_banner();
+        print_banner(distro);
 
         cout << COLOR_CYAN << "  Setup Script Menu" << RESET << endl;
         cout << COLOR_CYAN << "  -----------------" << RESET << endl;
@@ -1148,7 +1120,7 @@ void setup_script_menu(Distro distro) {
             if (i == static_cast<size_t>(selected)) {
                 cout << get_highlight_color(distro) << "➤ " << items[i] << RESET << endl;
             } else {
-                cout << "  " << items[i] << endl;
+                cout << COLOR_CYAN << "  " << items[i] << RESET << "\n";
             }
         }
 
@@ -1157,7 +1129,7 @@ void setup_script_menu(Distro distro) {
         FD_SET(STDIN_FILENO, &fds);
         struct timeval tv;
         tv.tv_sec = 0;
-        tv.tv_usec = 100000; // 100ms timeout
+        tv.tv_usec = 100000;
 
         int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
 
@@ -1165,14 +1137,14 @@ void setup_script_menu(Distro distro) {
             perror("select()");
         } else if (retval) {
             int c = getchar();
-            if (c == '\033') { // Escape sequence
-                getchar(); // Skip '['
+            if (c == '\033') {
+                getchar();
                 c = getchar();
 
-                if (c == 'A' && selected > 0) selected--; // Up arrow
-                else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++; // Down arrow
+                if (c == 'A' && selected > 0) selected--;
+                else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++;
             }
-            else if (c == '\n') { // Enter key
+            else if (c == '\n') {
                 switch(selected) {
                     case 0:
                         if (distro == ARCH) install_dependencies_arch();
