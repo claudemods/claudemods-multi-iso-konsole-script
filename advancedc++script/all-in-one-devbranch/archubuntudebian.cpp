@@ -1078,7 +1078,7 @@ void setup_script_menu(Distro distro) {
             if (i == static_cast<size_t>(selected)) {
                 cout << get_highlight_color(distro) << "➤ " << items[i] << RESET << endl;
             } else {
-                cout << "  " << items[i] << endl;
+                cout << COLOR_CYAN << "  " << items[i] << RESET << "\n";
             }
         }
 
