@@ -3,7 +3,8 @@
 
 new ui adding messages for initramfs and clone dir
 
-![Screenshot_20250627_173801](https://github.com/user-attachments/assets/125bf080-f14f-4bb2-a1f8-dc664359da82)
+![Screenshot_20250627_174238](https://github.com/user-attachments/assets/973e95d5-0945-4437-a8d0-b292535a4fe9)
+
 
 
 
