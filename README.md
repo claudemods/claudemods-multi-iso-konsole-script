@@ -60,13 +60,16 @@
 </div>
 
 <div align="center">
-  <h3 align="center">Urgent News! v2.0 betas are being frequently updated with fixes to be like 1.06.1 and better</h3>
+  <h3 align="center">Urgent News! Arch Cloning Works In My C++ Script</h3>
+    
+  <h3 align="center">Debian And Its Derivatives Have Kernel Issues Which Ive Know About A While Now</h3>
+    
+  <h3 align="center">Hopefully The Journal Issue Gets Resolved Soon</h3>
 
 ---
 
 <div align="center">
-  build dependencies needed to install on older distros for new cscript libreadline6-dev and libncurses-dev
-</div>
+  build dependencies needed to install on older distros for new cscript libreadline6-dev and libncurses-dev</div>
 
 
 ---
