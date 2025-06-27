@@ -109,7 +109,7 @@ string get_highlight_color(Distro distro) {
         case ARCH: return "\033[34m";
         case UBUNTU: return "\033[38;2;255;165;0m";
         case DEBIAN: return "\033[31m";
-        case CACHYOS: return "\033[38;2;36;255;255m";
+        case CACHYOS: return "\033[34m";
         default: return "\033[36m";
     }
 }
