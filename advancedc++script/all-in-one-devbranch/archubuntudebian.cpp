@@ -389,7 +389,6 @@ void install_dependencies_arch() {
 
 void generate_initrd_arch() {
     progress_dialog("Generating Initramfs And Copying Vmlinuz (Arch)...");
-    execute_command("cd /home/$USER/.config/cmi");
     execute_command("cd /home/$USER/.config/cmi/build-image-arch && sudo mkinitcpio -c live.conf -g /home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img");
     execute_command("sudo cp /boot/vmlinuz-linux* /home/$USER/.config/cmi/build-image-arch/live/ 2>/dev/null");
     message_box("Success", "Initramfs generated successfully.");
@@ -451,7 +450,7 @@ void install_dependencies_cachyos() {
 
 void install_calamares_cachyos() {
     progress_dialog("Installing Calamares for CachyOS...");
-    execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch && sudo pacman -U --noconfirm calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
+    execute_command("sudo pacman -U --noconfirm calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully for CachyOS.");
 }
 
@@ -490,7 +489,6 @@ void copy_vmlinuz_ubuntu() {
 
 void generate_initrd_ubuntu() {
     progress_dialog("Generating Initramfs for Ubuntu...");
-    execute_command("cd /home/$USER/.config/cmi");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-noble/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-noble/live/ 2>/dev/null");
     message_box("Success", "Ubuntu initramfs generated successfully.");
@@ -548,7 +546,6 @@ void copy_vmlinuz_debian() {
 
 void generate_initrd_debian() {
     progress_dialog("Generating Initramfs for Debian...");
-    execute_command("cd /home/$USER/.config/cmi");
     execute_command("sudo mkinitramfs -o \"/home/$USER/.config/cmi/build-image-debian/live/initrd.img-$(uname -r)\" \"$(uname -r)\"");
     execute_command("sudo cp /boot/vmlinuz* /home/$USER/.config/cmi/build-image-debian/live/ 2>/dev/null");
     message_box("Success", "Debian initramfs generated successfully.");
@@ -593,7 +590,7 @@ void clone_system(const string &clone_dir) {
         parent_dir = parent_dir.substr(last_slash + 1);
     }
 
-    string command = "cd / && sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+    string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
     "--exclude=/sys/* "
