@@ -22,8 +22,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <pwd.h>
-#include <sstream>    // For std::ostringstream
-#include <filesystem> // For std::filesystem
+#include <sstream>
+#include <filesystem>
 
 #define MAX_PATH 4096
 #define MAX_CMD 16384
@@ -44,6 +44,44 @@ atomic<bool> time_thread_running(true);
 mutex time_mutex;
 string current_time_str;
 bool should_reset = false;
+
+// Forward declarations
+string get_kernel_version();
+string read_clone_dir();
+bool dir_exists(const string &path);
+void execute_command(const string& cmd);
+Distro detect_distro();
+string get_distro_name(Distro distro);
+
+// Status check functions - moved after required function declarations
+bool is_init_generated(Distro distro) {
+    string init_path;
+    if (distro == UBUNTU || distro == DEBIAN) {
+        init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-" +
+        (distro == UBUNTU ? "noble" : "debian") + "/live/initrd.img-" + get_kernel_version();
+    } else {
+        init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch/live/initramfs-linux.img";
+    }
+    struct stat st;
+    return stat(init_path.c_str(), &st) == 0;
+}
+
+string get_clone_dir_status() {
+    string clone_dir = read_clone_dir();
+    if (clone_dir.empty()) {
+        return RED + string("✗ Clone directory not set (Use Option 4 in Setup Script Menu)") + RESET;
+    } else {
+        return GREEN + string("✓ Clone directory: ") + clone_dir + RESET;
+    }
+}
+
+string get_init_status(Distro distro) {
+    if (is_init_generated(distro)) {
+        return GREEN + string("✓ Initramfs generated") + RESET;
+    } else {
+        return RED + string("✗ Initramfs not generated (Use Option 1 in Setup Script Menu)") + RESET;
+    }
+}
 
 bool dir_exists(const string &path) {
     struct stat st;
@@ -125,6 +163,22 @@ string get_distro_name(Distro distro) {
     }
 }
 
+string get_kernel_version() {
+    string version = "unknown";
+    FILE* fp = popen("uname -r", "r");
+    if (!fp) {
+        perror("Failed to get kernel version");
+        return version;
+    }
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), fp)) {
+        version = buffer;
+        version.erase(version.find_last_not_of("\n") + 1);
+    }
+    pclose(fp);
+    return version;
+}
+
 string read_clone_dir() {
     string file_path = "/home/" + string(getenv("USER")) + "/.config/cmi/clonedir.txt";
     ifstream f(file_path, ios::in | ios::binary);
@@ -182,7 +236,7 @@ void save_clone_dir(const string &dir_path) {
     should_reset = true;
 }
 
-void print_banner() {
+void print_banner(Distro distro) {
     cout << RED;
     cout <<
     "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
@@ -198,6 +252,10 @@ void print_banner() {
             lock_guard<mutex> lock(time_mutex);
             cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
         }
+
+        // Display status information
+        cout << get_clone_dir_status() << endl;
+        cout << get_init_status(distro) << endl;
 
         cout << GREEN << "Disk Usage:" << RESET << endl;
         string cmd = "df -h /";
@@ -267,22 +325,6 @@ string password_prompt(const string &prompt_text) {
     return get_input(prompt_text, false);
 }
 
-string get_kernel_version() {
-    string version = "unknown";
-    FILE* fp = popen("uname -r", "r");
-    if (!fp) {
-        perror("Failed to get kernel version");
-        return version;
-    }
-    char buffer[256];
-    if (fgets(buffer, sizeof(buffer), fp)) {
-        version = buffer;
-        version.erase(version.find_last_not_of("\n") + 1);
-    }
-    pclose(fp);
-    return version;
-}
-
 void update_time_thread() {
     while (time_thread_running) {
         time_t now = time(NULL);
@@ -301,7 +343,7 @@ void update_time_thread() {
 
 int show_menu(const string &title, const vector<string> &items, int selected, Distro distro = ARCH) {
     system("clear");
-    print_banner();
+    print_banner(distro);
 
     string highlight_color = get_highlight_color(distro);
 
@@ -1069,7 +1111,7 @@ void setup_script_menu(Distro distro) {
 
     while (true) {
         system("clear");
-        print_banner();
+        print_banner(distro);
 
         cout << COLOR_CYAN << "  Setup Script Menu" << RESET << endl;
         cout << COLOR_CYAN << "  -----------------" << RESET << endl;
