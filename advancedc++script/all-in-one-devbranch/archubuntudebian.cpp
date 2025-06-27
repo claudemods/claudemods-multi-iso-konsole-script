@@ -52,13 +52,14 @@ bool dir_exists(const string &path);
 void execute_command(const string& cmd);
 Distro detect_distro();
 string get_distro_name(Distro distro);
+void edit_calamares_branding();  // New function declaration
 
-// Status check functions - moved after required function declarations
+// Status check functions
 bool is_init_generated(Distro distro) {
     string init_path;
     if (distro == UBUNTU || distro == DEBIAN) {
         init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-" +
-        (distro == UBUNTU ? "noble" : "debian") + "/live/initrd.img-" + get_kernel_version();
+                   (distro == UBUNTU ? "noble" : "debian") + "/live/initrd.img-" + get_kernel_version();
     } else {
         init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch/live/initramfs-linux.img";
     }
@@ -245,27 +246,27 @@ void print_banner(Distro distro) {
     "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 27-06-2025" << RESET << endl;
+    cout << RESET;
+    cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 28-06-2025" << RESET << endl;
 
-        {
-            lock_guard<mutex> lock(time_mutex);
-            cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
+    {
+        lock_guard<mutex> lock(time_mutex);
+        cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
+    }
+
+    // Display status information
+    cout << get_clone_dir_status() << endl;
+    cout << get_init_status(distro) << endl;
+
+    cout << GREEN << "Disk Usage:" << RESET << endl;
+    string cmd = "df -h /";
+    unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (pipe) {
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+            cout << GREEN << buffer << RESET;
         }
-
-        // Display status information
-        cout << get_clone_dir_status() << endl;
-        cout << get_init_status(distro) << endl;
-
-        cout << GREEN << "Disk Usage:" << RESET << endl;
-        string cmd = "df -h /";
-        unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            char buffer[128];
-            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-                cout << GREEN << buffer << RESET;
-            }
-        }
+    }
 }
 
 int get_key() {
@@ -452,6 +453,12 @@ void install_calamares_arch() {
     progress_dialog("Installing Calamares for Arch Linux...");
     execute_command("cd /home/$USER/.config/cmi/calamares-per-distro/arch >/dev/null 2>&1 && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar ckbcomp-1.227-2-any.pkg.tar.zst");
     message_box("Success", "Calamares installed successfully for Arch Linux.");
+}
+
+void edit_calamares_branding() {
+    progress_dialog("Opening Calamares branding configuration...");
+    execute_command("sudo nano /usr/share/calamares/branding/claudemods/branding.desc");
+    message_box("Success", "Calamares branding configuration opened for editing.");
 }
 
 void install_dependencies_cachyos() {
@@ -995,6 +1002,18 @@ void create_command_files() {
     "chmod 755 /usr/bin/gen-calamares'";
     execute_command("sudo " + command);
 
+    command = "bash -c 'cat > /usr/bin/edit-branding << \"EOF\"\n"
+    "#!/bin/sh\n"
+    "if [ \"$1\" = \"--help\" ]; then\n"
+    "  echo \"Usage: edit-branding\"\n"
+    "  echo \"Edit Calamares branding\"\n"
+    "  exit 0\n"
+    "fi\n"
+    "exec " + string(exe_path) + " 10\n"
+    "EOF\n"
+    "chmod 755 /usr/bin/edit-branding'";
+    execute_command("sudo " + command);
+
     cout << GREEN << "Activated! You can now use all commands in your terminal." << RESET << endl;
 }
 
@@ -1006,6 +1025,7 @@ void remove_command_files() {
     execute_command("sudo rm -f /usr/bin/make-iso");
     execute_command("sudo rm -f /usr/bin/make-squashfs");
     execute_command("sudo rm -f /usr/bin/gen-calamares");
+    execute_command("sudo rm -f /usr/bin/edit-branding");
     cout << GREEN << "Commands deactivated and removed from system." << RESET << endl;
 }
 
@@ -1057,6 +1077,7 @@ void setup_script_menu(Distro distro) {
                 "Edit grub.cfg (arch)",
                 "Set clone directory path",
                 "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1069,6 +1090,7 @@ void setup_script_menu(Distro distro) {
                 "Edit grub.cfg (cachyos)",
                 "Set clone directory path",
                 "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1081,6 +1103,7 @@ void setup_script_menu(Distro distro) {
                 "Edit grub.cfg (ubuntu)",
                 "Set clone directory path",
                 "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1093,6 +1116,7 @@ void setup_script_menu(Distro distro) {
                 "Edit grub.cfg (debian)",
                 "Set clone directory path",
                 "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1177,9 +1201,12 @@ void setup_script_menu(Distro distro) {
                         else if (distro == DEBIAN) install_calamares_debian();
                         break;
                     case 6:
-                        install_one_time_updater();
+                        edit_calamares_branding();
                         break;
                     case 7:
+                        install_one_time_updater();
+                        break;
+                    case 8:
                         tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
                         return;
                 }
@@ -1233,6 +1260,9 @@ int main(int argc, char* argv[]) {
                 else if (distro == CACHYOS) install_calamares_cachyos();
                 else if (distro == UBUNTU) install_calamares_ubuntu();
                 else if (distro == DEBIAN) install_calamares_debian();
+                break;
+            case 10:
+                edit_calamares_branding();
                 break;
             default:
                 cout << "Invalid option" << endl;
