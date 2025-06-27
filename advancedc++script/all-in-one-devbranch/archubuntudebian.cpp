@@ -238,14 +238,6 @@ void print_blue(const string &text) {
     cout << BLUE << text << RESET << endl;
 }
 
-void run_command(const string &command) {
-    cout << COLOR_CYAN << "Running command: " << command << RESET << endl;
-    int status = system(command.c_str());
-    if (status != 0) {
-        cout << RED << "Command failed with exit code: " << WEXITSTATUS(status) << RESET << endl;
-    }
-}
-
 string get_input(const string &prompt_text, bool echo = true) {
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
@@ -273,42 +265,6 @@ string prompt(const string &prompt_text) {
 
 string password_prompt(const string &prompt_text) {
     return get_input(prompt_text, false);
-}
-
-void run_sudo_command(const string &command, const string &password) {
-    cout << COLOR_CYAN << "Running command: " << command << RESET << endl;
-    int pipefd[2];
-    if (pipe(pipefd)) {
-        perror("pipe");
-        exit(EXIT_FAILURE);
-    }
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror("fork");
-        exit(EXIT_FAILURE);
-    }
-    if (pid == 0) {
-        close(pipefd[1]);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-        string full_command = "sudo -S " + command;
-        execl("/bin/sh", "sh", "-c", full_command.c_str(), (char *)NULL);
-        perror("execl");
-        exit(EXIT_FAILURE);
-    } else {
-        close(pipefd[0]);
-        write(pipefd[1], password.c_str(), password.length());
-        write(pipefd[1], "\n", 1);
-        close(pipefd[1]);
-        int status;
-        waitpid(pid, &status, 0);
-        if (WIFEXITED(status)) {
-            int exit_code = WEXITSTATUS(status);
-            if (exit_code != 0) {
-                cout << RED << "Command failed with exit code " << exit_code << "." << RESET << endl;
-            }
-        }
-    }
 }
 
 string get_kernel_version() {
@@ -748,12 +704,7 @@ void set_clone_directory() {
 
 void install_one_time_updater() {
     progress_dialog("Installing one-time updater...");
-    const vector<string> commands = {
-        "./home/$USER/.config/cmi/patch.sh",
-    };
-    for (const auto &cmd : commands) {
-        execute_command(cmd);
-    }
+    execute_command("./home/$USER/.config/cmi/patch.sh");
     message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
 }
 
@@ -807,7 +758,6 @@ void squashfs_menu(Distro distro) {
 }
 
 void create_iso(Distro distro) {
-    // Prompt for ISO name and output directory
     string iso_name = prompt("What do you want to name your .iso? ");
     if (iso_name.empty()) {
         error_box("Input Error", "ISO name cannot be empty.");
@@ -820,19 +770,16 @@ void create_iso(Distro distro) {
         return;
     }
 
-    // Generate timestamp
     time_t now = time(nullptr);
     struct tm* t = localtime(&now);
     char timestamp[20];
     strftime(timestamp, sizeof(timestamp), "%Y-%m-%d_%H%M", t);
 
-    // Construct ISO file name without using + or /
     std::ostringstream oss;
     oss << output_dir << std::filesystem::path::preferred_separator
     << iso_name << "_amd64_" << timestamp << ".iso";
     string iso_file_name = oss.str();
 
-    // Build image directory based on distro
     string build_image_dir;
     if (distro == UBUNTU) {
         build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-noble";
@@ -842,13 +789,11 @@ void create_iso(Distro distro) {
         build_image_dir = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch";
     }
 
-    // Create output directory if it doesn't exist
     if (!dir_exists(output_dir)) {
         execute_command("mkdir -p " + output_dir);
     }
 
-    // Construct xorriso command without using + or /
-    oss.str(""); // Clear the stringstream
+    oss.str("");
     oss << "sudo xorriso -as mkisofs -o " << iso_file_name
     << " -V 2025 -iso-level 3";
 
@@ -858,7 +803,6 @@ void create_iso(Distro distro) {
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
         << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
     } else if (distro == DEBIAN) {
-        // Custom xorriso command for Debian
         oss << " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
         << " -c isolinux/boot.cat"
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
@@ -873,31 +817,18 @@ void create_iso(Distro distro) {
     oss << " " << build_image_dir;
 
     string xorriso_command = oss.str();
+    execute_command(xorriso_command);
 
-    // Prompt for sudo password
-    string sudo_password = password_prompt("Enter your sudo password: ");
-    if (sudo_password.empty()) {
-        error_box("Input Error", "Sudo password cannot be empty.");
-        return;
-    }
-
-    // Run the xorriso command
-    run_sudo_command(xorriso_command, sudo_password);
-
-    // Success message
     message_box("Success", "ISO creation completed.");
 
-    // Prompt to go back to the main menu
     string choice = prompt("Press 'm' to go back to main menu or Enter to exit: ");
     if (!choice.empty() && (choice[0] == 'm' || choice[0] == 'M')) {
-        run_command("ruby /opt/claudemods-iso-konsole-script/demo.rb");
+        execute_command("ruby /opt/claudemods-iso-konsole-script/demo.rb");
     }
 }
 
 void run_iso_in_qemu() {
-    const string qemu_script = "/opt/claudemods-iso-konsole-script/Supported-Distros/qemu.rb";
-    string command = "ruby " + qemu_script;
-    run_command(command);
+    execute_command("ruby /opt/claudemods-iso-konsole-script/Supported-Distros/qemu.rb");
 }
 
 void iso_creator_menu(Distro distro) {
@@ -941,11 +872,6 @@ void create_command_files() {
         return;
     }
     exe_path[len] = '\0';
-    string sudo_password = password_prompt("Enter sudo password to create command files: ");
-    if (sudo_password.empty()) {
-        error_box("Error", "Sudo password cannot be empty");
-        return;
-    }
     string command = "bash -c 'cat > /usr/bin/gen-init << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -956,7 +882,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 5\n"
     "EOF\n"
     "chmod 755 /usr/bin/gen-init'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/edit-isocfg << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -967,7 +894,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 6\n"
     "EOF\n"
     "chmod 755 /usr/bin/edit-isocfg'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/edit-grubcfg << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -978,7 +906,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 7\n"
     "EOF\n"
     "chmod 755 /usr/bin/edit-grubcfg'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/setup-script << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -989,7 +918,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 8\n"
     "EOF\n"
     "chmod 755 /usr/bin/setup-script'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/make-iso << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1000,7 +930,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 3\n"
     "EOF\n"
     "chmod 755 /usr/bin/make-iso'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/make-squashfs << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1011,7 +942,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 4\n"
     "EOF\n"
     "chmod 755 /usr/bin/make-squashfs'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     command = "bash -c 'cat > /usr/bin/gen-calamares << \"EOF\"\n"
     "#!/bin/sh\n"
     "if [ \"$1\" = \"--help\" ]; then\n"
@@ -1022,7 +954,8 @@ void create_command_files() {
     "exec " + string(exe_path) + " 9\n"
     "EOF\n"
     "chmod 755 /usr/bin/gen-calamares'";
-    run_sudo_command(command, sudo_password);
+    execute_command("sudo " + command);
+
     cout << GREEN << "Activated! You can now use all commands in your terminal." << RESET << endl;
 }
 
@@ -1157,7 +1090,7 @@ void setup_script_menu(Distro distro) {
         FD_SET(STDIN_FILENO, &fds);
         struct timeval tv;
         tv.tv_sec = 0;
-        tv.tv_usec = 100000; // 100ms timeout
+        tv.tv_usec = 100000;
 
         int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
 
@@ -1165,14 +1098,14 @@ void setup_script_menu(Distro distro) {
             perror("select()");
         } else if (retval) {
             int c = getchar();
-            if (c == '\033') { // Escape sequence
-                getchar(); // Skip '['
+            if (c == '\033') {
+                getchar();
                 c = getchar();
 
-                if (c == 'A' && selected > 0) selected--; // Up arrow
-                else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++; // Down arrow
+                if (c == 'A' && selected > 0) selected--;
+                else if (c == 'B' && selected < static_cast<int>(items.size()) - 1) selected++;
             }
-            else if (c == '\n') { // Enter key
+            else if (c == '\n') {
                 switch(selected) {
                     case 0:
                         if (distro == ARCH) install_dependencies_arch();
