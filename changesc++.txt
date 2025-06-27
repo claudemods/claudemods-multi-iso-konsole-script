@@ -1,4 +1,4 @@
-cmi advanced c++ script beta v2.0 24-06-2025
+cmi advanced c++ script beta v2.0 27-06-2025
 
 new install method for all-in-one advanced c++ script beta v2.0 use below command
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"
