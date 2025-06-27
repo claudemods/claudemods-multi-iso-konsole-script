@@ -192,7 +192,7 @@ void print_banner() {
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
         cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 26-06-2025" << RESET << endl;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 27-06-2025" << RESET << endl;
 
         {
             lock_guard<mutex> lock(time_mutex);
