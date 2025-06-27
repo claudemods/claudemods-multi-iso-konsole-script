@@ -1,31 +1,9 @@
+27-06-2025 dogfooding
 
-xorriso command updated to support debian and fully working from tests
+cachyos and arch now have there respectable highlight colours
 
-![Screenshot_archlinux-clone_2025-06-26_16:41:05](https://github.com/user-attachments/assets/49fbc449-faae-4a52-afe5-fb9791ba1e42)
+![Screenshot_20250627_144301](https://github.com/user-attachments/assets/8184b10b-2198-4610-8b01-8134d5ef113b)
 
+setup script menu has now got its colours now im going to add new features and then move onto the c script
 
-
-
-well im now making a squashfs next is xorriso command
-
-![Screenshot_archlinux-clone_2025-06-26_15:30:40](https://github.com/user-attachments/assets/df44677e-fb0c-45eb-9930-e8537ebb7781)
-
-
-
-currently dogfooding debian
-after fixing and updating the dependencies for debian im now cloning debian first time with the v2.0 script
-
-![Screenshot_archlinux-clone_2025-06-26_15:02:44](https://github.com/user-attachments/assets/dc14a65f-7f22-48e5-be22-fc3559110e4d)
-
-
-
-
-
-
-kde neon being tested currently before debian and then ill do some simple fixes to ui and outputs
-
-![Screenshot_archlinux-clone_2025-06-26_11:43:13](https://github.com/user-attachments/assets/c7475083-ce52-48d3-80cf-4253b935da32)
-
-another one bites the dust ubuntu/kdeneon .iso created now to test boot and move onto debian
-
-![Screenshot_archlinux-clone_2025-06-26_12:29:07](https://github.com/user-attachments/assets/5d47da9c-5793-4bba-818a-ea8a379c4ce2)
+![Screenshot_20250627_144324](https://github.com/user-attachments/assets/2fec89a6-8500-4b19-8e99-0bcf512d7e9d)
