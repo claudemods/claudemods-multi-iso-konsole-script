@@ -1,4 +1,4 @@
-27-06-2025 dogfooding
+27-06-2025 dev branch dogfooding 
 
 cachyos and arch now have there respectable highlight colours
 
