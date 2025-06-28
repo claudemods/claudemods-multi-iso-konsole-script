@@ -1,5 +1,11 @@
 28-06-2025 DevBranch
 
+currently making a debian clone with the new fixes to rsync command
+
+![Screenshot_archlinux-clone_2025-06-28_10:27:02](https://github.com/user-attachments/assets/9627ee73-14dd-455f-948c-4f80873c65ef)
+
+
+
 new info options
 
 ![Screenshot_20250628_011147](https://github.com/user-attachments/assets/7ddd3415-8c8b-494f-866a-d3ee313dee25)
