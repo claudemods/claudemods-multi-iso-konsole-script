@@ -736,6 +736,10 @@ void clone_system(const string &clone_dir) {
     }
 
     string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+    "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
+    "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
+    "--exclude=/etc/mtab "
+    "--exclude=/etc/fstab "
     "--exclude=/dev/* "
     "--exclude=/proc/* "
     "--exclude=/sys/* "
@@ -755,6 +759,7 @@ void clone_system(const string &clone_dir) {
     "--include=tmp "
     "--include=sys "
     "--include=usr "
+    "--include=etc "
     "/ " + full_clone_path;
 
     cout << GREEN << "Cloning system into directory: " << full_clone_path << RESET << endl;
