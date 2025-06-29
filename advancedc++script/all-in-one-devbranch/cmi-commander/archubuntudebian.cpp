@@ -81,6 +81,20 @@ string get_kernel_version() {
     return version.empty() ? "unknown" : version;
 }
 
+string get_vmlinuz_version() {
+    string version;
+    FILE* fp = popen("ls -2 /boot/vmlinuz*", "r");
+    if (fp) {
+        char buffer[256];
+        if (fgets(buffer, sizeof(buffer), fp)) {
+            version = buffer;
+            version.erase(version.find_last_not_of("\n") + 1);
+        }
+        pclose(fp);
+    }
+    return version.empty() ? "unknown" : version;
+}
+
 string get_distro_version() {
     ifstream os_release("/etc/os-release");
     string line;
@@ -500,91 +514,12 @@ void show_changelog() {
     execute_command("cat " + expand_path(CHANGELOG_PATH));
 }
 
-bool commands_exist() {
-    string test_cmd = "ls /usr/local/bin/cmi-* >/dev/null 2>&1";
-    return system(test_cmd.c_str()) == 0;
-}
-
-void create_commands() {
-    if (commands_exist()) {
-        return;
-    }
-
-    char exe_path[PATH_MAX];
-    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path)-1);
-    if (len == -1) {
-        exit(1);
-    }
-    exe_path[len] = '\0';
-
-    string commands[] = {
-        "install-deps",
-        "gen-init",
-        "set-iso-name",
-        "edit-isolinux",
-        "edit-grub",
-        "set-clone-dir",
-        "install-calamares",
-        "edit-branding",
-        "install-updater",
-        "create-squashfs",
-        "create-squashfs-clone",
-        "delete-clone",
-        "create-iso",
-        "run-qemu",
-        "status",
-        "guide",
-        "changelog"
-    };
-
-    for (const auto& cmd : commands) {
-        string script = "#!/bin/sh\n";
-        script += "exec " + string(exe_path) + " " + cmd + " \"$@\"\n";
-
-        string file_path = "/usr/local/bin/cmi-" + cmd;
-        ofstream f(file_path);
-        if (!f) {
-            continue;
-        }
-        f << script;
-        f.close();
-
-        execute_command("sudo chmod 755 " + file_path);
-    }
-}
-
-void remove_commands() {
-    string commands[] = {
-        "install-deps",
-        "gen-init",
-        "set-iso-name",
-        "edit-isolinux",
-        "edit-grub",
-        "set-clone-dir",
-        "install-calamares",
-        "edit-branding",
-        "install-updater",
-        "create-squashfs",
-        "create-squashfs-clone",
-        "delete-clone",
-        "create-iso",
-        "run-qemu",
-        "status",
-        "guide",
-        "changelog"
-    };
-
-    for (const auto& cmd : commands) {
-        string file_path = "/usr/local/bin/cmi-" + cmd;
-        execute_command("sudo rm -f " + file_path);
-    }
-}
-
 void show_status(Distro distro) {
     cout << "Current Distribution: " << COLOR_CYAN << get_distro_name(distro) << " "
     << get_distro_version() << RESET << endl;
     cout << "CMI Version: " << COLOR_CYAN << get_cmi_version() << RESET << endl;
     cout << "Kernel Version: " << COLOR_CYAN << get_kernel_version() << RESET << endl;
+    cout << "vmlinuz Version: " << COLOR_CYAN << get_vmlinuz_version() << RESET << endl;
 
     string clone_dir = read_clone_dir();
     cout << "Clone Directory: " << (clone_dir.empty() ? RED + string("Not set") : GREEN + clone_dir) << RESET << endl;
@@ -593,41 +528,41 @@ void show_status(Distro distro) {
 
     string iso_name = get_iso_name();
     cout << "ISO Name: " << (iso_name.empty() ? RED + string("Not set") : GREEN + iso_name) << RESET << endl;
-
-    cout << "\nAvailable Commands:\n" << COLOR_CYAN
-    << "  cmi install-deps\n"
-    << "  cmi gen-init\n"
-    << "  cmi set-iso-name <name>\n"
-    << "  cmi edit-isolinux\n"
-    << "  cmi edit-grub\n"
-    << "  cmi set-clone-dir <path>\n"
-    << "  cmi install-calamares\n"
-    << "  cmi edit-branding\n"
-    << "  cmi install-updater\n"
-    << "  cmi create-squashfs\n"
-    << "  cmi create-squashfs-clone\n"
-    << "  cmi delete-clone\n"
-    << "  cmi create-iso <out_dir>\n"
-    << "  cmi run-qemu\n"
-    << "  cmi status\n"
-    << "  cmi guide\n"
-    << "  cmi changelog\n"
-    << "  cmi create-commands\n"
-    << "  cmi remove-commands\n"
-    << RESET << endl;
 }
 
 void print_usage() {
-    show_status(detect_distro());
+    cout << "Usage: cmi <command> [options]\n\n"
+    << "Available commands:\n"
+    << COLOR_CYAN << "  install-deps            - Install required dependencies\n"
+    << "  gen-init                - Generate initramfs\n"
+    << "  set-iso-name <name>     - Set ISO output name\n"
+    << "  edit-isolinux           - Edit isolinux configuration\n"
+    << "  edit-grub               - Edit GRUB configuration\n"
+    << "  set-clone-dir <path>    - Set directory for system cloning\n"
+    << "  install-calamares       - Install Calamares installer\n"
+    << "  edit-branding           - Edit Calamares branding\n"
+    << "  install-updater         - Install updater\n"
+    << "  create-squashfs         - Create squashfs from current system\n"
+    << "  create-squashfs-clone   - Clone system and create squashfs\n"
+    << "  delete-clone            - Delete cloned system\n"
+    << "  create-iso <out_dir>    - Create ISO image\n"
+    << "  run-qemu                - Run QEMU with the ISO\n"
+    << "  status                  - Show current status\n"
+    << "  guide                   - Show user guide\n"
+    << "  changelog               - Show changelog\n"
+    << "  mainmenu                - Launch main menu (cmitui)\n" << RESET;
 }
 
 int main(int argc, char* argv[]) {
+    Distro distro = detect_distro();
+
     if (argc < 2) {
+        show_status(distro);
+        cout << "\n";
         print_usage();
-        return 1;
+        return 0;
     }
 
-    Distro distro = detect_distro();
     string command = argv[1];
 
     if (command == "install-deps") install_dependencies(distro);
@@ -656,9 +591,10 @@ int main(int argc, char* argv[]) {
     else if (command == "status") show_status(distro);
     else if (command == "guide") show_guide();
     else if (command == "changelog") show_changelog();
-    else if (command == "create-commands") create_commands();
-    else if (command == "remove-commands") remove_commands();
+    else if (command == "mainmenu") execute_command("cmitui");
     else {
+        show_status(distro);
+        cout << "\n";
         print_usage();
         return 1;
     }
