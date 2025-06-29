@@ -127,17 +127,17 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander/cmi /usr/bin/cmi");
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
         // Ubuntu/KDE Neon-specific commands
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmitui /usr/bin/cmitui");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-dev/branchcmi-commander-tui/cmitui /usr/bin/cmitui");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander/cmi /usr/bin/cmi");
         
@@ -148,7 +148,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander/cmi /usr/bin/cmi");
     } else {
