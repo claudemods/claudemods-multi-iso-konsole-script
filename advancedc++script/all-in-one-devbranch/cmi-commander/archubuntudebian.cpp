@@ -41,7 +41,7 @@ using namespace std;
 struct termios original_term;
 enum Distro { ARCH, UBUNTU, DEBIAN, CACHYOS, NEON, UNKNOWN };
 const string VERSION_FILE = "/home/$USER/.config/cmi/version.txt";
-const string GUIDE_PATH = "/home/$USER/.config/cmi/guide.txt";
+const string GUIDE_PATH = "/home/$USER/.config/cmi/readme.txt";
 const string CHANGELOG_PATH = "/home/$USER/.config/cmi/changelog.txt";
 const string CLONE_DIR_FILE = "/home/$USER/.config/cmi/clonedir.txt";
 const string ISO_NAME_FILE = "/home/$USER/.config/cmi/isoname.txt";
