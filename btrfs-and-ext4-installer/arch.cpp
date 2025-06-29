@@ -273,9 +273,6 @@ int main() {
     cout << COLOR_CYAN << "Copying system files (this may take a while)..." << COLOR_RESET << endl;
     copy_system(drive + "1");
 
-    cout << COLOR_CYAN << "Generating fstab..." << COLOR_RESET << endl;
-    generate_fstab(root_part, fs_type);
-
     cout << COLOR_CYAN << "Installing bootloader..." << COLOR_RESET << endl;
     if (fs_type == "btrfs") {
         install_grub_btrfs(drive);
