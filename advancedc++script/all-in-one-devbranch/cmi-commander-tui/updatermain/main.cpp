@@ -80,7 +80,7 @@ void* execute_update_thread(void* /*arg*/) {
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/arch/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/version/arch/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -88,7 +88,7 @@ void* execute_update_thread(void* /*arg*/) {
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/ubuntu/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/version/ubuntu/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -96,7 +96,7 @@ void* execute_update_thread(void* /*arg*/) {
     } else if (strcmp(detected_distro, "debian") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/debian/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/version/debian/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -109,41 +109,48 @@ void* execute_update_thread(void* /*arg*/) {
 
     // EXPLICIT HANDLING FOR CACHYOS (USES ARCH FILES)
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/arch/version.txt /home/$USER/.config/cmi/");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/version/arch/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-arch.zip -d /home/$USER/.config/cmi/");
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/ubuntu/version.txt /home/$USER/.config/cmi/");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/version/ubuntu/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-noble.zip -d /home/$USER/.config/cmi/");
     } else if (strcmp(detected_distro, "debian") == 0) {
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/debian/version.txt /home/$USER/.config/cmi/");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/version/debian/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
     }
 
     // FINAL STEPS WITH DISTRO DETECTION
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         // Arch/CachyOS-specific commands
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch && qmake && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi.bin /usr/bin/cmi.bin");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui && qmake && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/cmitui /usr/bin/cmitui");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander/cmi /usr/bin/cmi");
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
         // Ubuntu/KDE Neon-specific commands
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi.bin /usr/bin/cmi.bin");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmitui /usr/bin/cmitui");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander/cmi /usr/bin/cmi");
+        
     } else if (strcmp(detected_distro, "debian") == 0) {
         // Debian-specific commands
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi.bin /usr/bin/cmi.bin");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/cmitui /usr/bin/cmitui");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/calamares-per-distro /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander-tui/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi-commander/cmi /usr/bin/cmi");
     } else {
         std::cout << COLOR_RED << "Unsupported distribution: " << detected_distro << COLOR_RESET << std::endl;
         commands_completed = true;
@@ -186,7 +193,7 @@ int main() {
     pthread_join(thread, nullptr);
 
     std::cout << COLOR_GREEN << "\nInstallation complete!\n" << COLOR_RESET;
-    std::cout << COLOR_GREEN << "Executable installed to: /usr/bin/cmi.bin\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "Executable installed to: /usr/bin/cmi and cmitui\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Configuration files placed in: /home/$USER/.config/cmi/\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Detected distro: " << detected_distro << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Current version: " << current_version << COLOR_RESET << std::endl;
