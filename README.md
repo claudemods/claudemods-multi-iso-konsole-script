@@ -84,7 +84,7 @@
 ### 🚀 New Install Methods
 
 <div align="center">
-  <strong>cmi commander and tui advanced c++DevBranch:</strong><br>
+  <strong>all in one cmi commander and tui advanced c++DevBranch:</strong><br>
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"</code>
 </div>
 
