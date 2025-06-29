@@ -84,17 +84,22 @@
 ### 🚀 New Install Methods
 
 <div align="center">
-  <strong>All-in-one advanced C++ script beta v2.0 Release Branch:</strong><br>
+  <strong>cmi commander and tui advanced c++ devbranch Release DevBranch:</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"</code>
+</div>
+
+<div align="center">
+  <strong>All-in-one advanced C++ script beta v2.0 Release MainBranch:</strong><br>
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"</code>
 </div>
 
 <div align="center">
-  <strong>All-in-one advanced C++ script beta v2.0 Dev Branch:</strong><br>
+  <strong>All-in-one advanced C++ script v2.0 DevBranch:</strong><br>
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one-devbranch/installermain/patch.sh)"</code>
 </div>
 
 <div align="center">
-  <strong>Advanced C script beta v2.0:</strong><br>
+  <strong>Advanced C script beta v2.0 MainBranch:</strong><br>
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"</code>
 </div>
 
