@@ -230,7 +230,6 @@ void generate_fstab(const string& root_part, const string& fs_type) {
 
     // Generate fstab
     execute_command("mkdir -p /mnt/etc");
-    execute_command("chroot /mnt > mkinitcpio -P");
 
     // For Btrfs, we need to add subvolume options
     if (fs_type == "btrfs") {
