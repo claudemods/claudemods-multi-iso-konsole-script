@@ -73,37 +73,27 @@ string get_uk_date_time() {
 void display_header() {
     cout << COLOR_RED;
     cout << R"(
-██████╗ ███████╗██████╗ ███████╗██████╗ ███████╗██████╗
-██╔══██╗██╔════╝██╔══██╗██╔════╝██╔══██╗██╔════╝██╔══██╗
-██████╔╝█████╗  ██████╔╝███████╗██████╔╝█████╗  ██████╔╝
-██╔══██╗██╔══╝  ██╔══██╗╚════██║██╔═══╝ ██╔══╝  ██╔══██╗
-██║  ██║███████╗██║  ██║███████║██║     ███████╗██║  ██║
-╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝
+░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
+██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
+██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
+██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
+╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
+░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝
 )" << endl;
-cout << COLOR_CYAN << "System Installer with Rsync v1.0" << COLOR_RESET << endl;
-cout << COLOR_CYAN << "Supports Btrfs and Ext4 filesystems" << COLOR_RESET << endl << endl;
+    cout << COLOR_CYAN << "System Installer with Rsync v1.0" << COLOR_RESET << endl;
+    cout << COLOR_CYAN << "Supports Btrfs and Ext4 filesystems" << COLOR_RESET << endl << endl;
 }
 
 void prepare_target_partitions(const string& drive, const string& fs_type) {
-    // Unmount any existing partitions
     execute_command("umount -f " + drive + "* 2>/dev/null || true");
-
-    // Wipe existing filesystems
     execute_command("wipefs -a " + drive);
-
-    // Create new partition table
     execute_command("parted -s " + drive + " mklabel gpt");
-
-    // Create partitions (550MB for EFI, rest for root)
     execute_command("parted -s " + drive + " mkpart primary fat32 1MiB 551MiB");
     execute_command("parted -s " + drive + " mkpart primary " + fs_type + " 551MiB 100%");
     execute_command("parted -s " + drive + " set 1 esp on");
     execute_command("partprobe " + drive);
-
-    // Wait for partitions to be available
     sleep(2);
 
-    // Format partitions
     string efi_part = drive + "1";
     string root_part = drive + "2";
 
@@ -112,10 +102,7 @@ void prepare_target_partitions(const string& drive, const string& fs_type) {
         exit(1);
     }
 
-    // Format EFI partition
     execute_command("mkfs.vfat -F32 " + efi_part);
-
-    // Format root partition
     if (fs_type == "btrfs") {
         execute_command("mkfs.btrfs -f -L ROOT " + root_part);
     } else {
@@ -124,10 +111,7 @@ void prepare_target_partitions(const string& drive, const string& fs_type) {
 }
 
 void setup_btrfs_subvolumes(const string& root_part) {
-    // Mount root partition
     execute_command("mount " + root_part + " /mnt");
-
-    // Create subvolumes
     execute_command("btrfs subvolume create /mnt/@");
     execute_command("btrfs subvolume create /mnt/@home");
     execute_command("btrfs subvolume create /mnt/@root");
@@ -138,11 +122,8 @@ void setup_btrfs_subvolumes(const string& root_part) {
     execute_command("mkdir -p /mnt/@/var/lib");
     execute_command("btrfs subvolume create /mnt/@/var/lib/portables");
     execute_command("btrfs subvolume create /mnt/@/var/lib/machines");
-
-    // Unmount
     execute_command("umount /mnt");
 
-    // Mount all subvolumes
     execute_command("mount -o subvol=@ " + root_part + " /mnt");
     execute_command("mkdir -p /mnt/{home,root,srv,tmp,var/{cache,log},var/lib/{portables,machines},boot/efi}");
     execute_command("mount -o subvol=@home " + root_part + " /mnt/home");
@@ -154,55 +135,46 @@ void setup_btrfs_subvolumes(const string& root_part) {
 }
 
 void setup_ext4_filesystem(const string& root_part) {
-    // Mount root partition
     execute_command("mount " + root_part + " /mnt");
-
-    // Create standard directories
     execute_command("mkdir -p /mnt/{home,boot/efi,etc,usr,var,proc,sys,dev,tmp,run}");
 }
 
 void copy_system(const string& efi_part) {
-    // Rsync command with progress and exclusions
     string rsync_cmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
-    "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
-    "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
-    "--exclude=/etc/mtab "
-    "--exclude=/etc/fstab "
-    "--exclude=/dev/* "
-    "--exclude=/proc/* "
-    "--exclude=/sys/* "
-    "--exclude=/tmp/* "
-    "--exclude=/run/* "
-    "--exclude=/mnt/* "
-    "--exclude=/media/* "
-    "--exclude=/lost+found "
-    "--include=/dev "
-    "--include=/proc "
-    "--include=/tmp "
-    "--include=/sys "
-    "--include=/run "
-    "--include=/usr "
-    "--include=/etc "
-    "/ /mnt";
-
-execute_command(rsync_cmd);
-
-// Mount EFI partition
-execute_command("mount " + efi_part + " /mnt/boot/efi");
-
-// Create necessary directories
-execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
+        "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
+        "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
+        "--exclude=/etc/mtab "
+        "--exclude=/etc/fstab "
+        "--exclude=/dev/* "
+        "--exclude=/proc/* "
+        "--exclude=/sys/* "
+        "--exclude=/tmp/* "
+        "--exclude=/run/* "
+        "--exclude=/mnt/* "
+        "--exclude=/media/* "
+        "--exclude=/lost+found "
+        "--include=/dev "
+        "--include=/proc "
+        "--include=/tmp "
+        "--include=/sys "
+        "--include=/run "
+        "--include=/usr "
+        "--include=/etc "
+        "/ /mnt";
+    execute_command(rsync_cmd);
+    execute_command("mount " + efi_part + " /mnt/boot/efi");
+    execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
+    execute_command("cp btrfsfstabcompressed.sh /opt");
 }
 
-void install_grub(const string& drive) {
-    // Bind mount required directories
+// GRUB installation for ext4 - EXACTLY AS YOU SPECIFIED
+void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
     execute_command("mount --bind /proc /mnt/proc");
     execute_command("mount --bind /sys /mnt/sys");
     execute_command("mount --bind /run /mnt/run");
 
-    // Chroot and install GRUB
     execute_command("chroot /mnt /bin/bash -c \""
     "grub-install --target=x86_64-efi "
     "--efi-directory=/boot/efi "
@@ -225,29 +197,40 @@ void install_grub(const string& drive) {
     "mkinitcpio -P\"");
 }
 
-void generate_fstab(const string& root_part, const string& fs_type) {
-    string efi_part = root_part.substr(0, root_part.length()-1) + "1";
+// GRUB installation for btrfs - EXACTLY AS YOU SPECIFIED
+void install_grub_btrfs(const string& drive) {
+    execute_command("mount --bind /dev /mnt/dev");
+    execute_command("mount --bind /dev/pts /mnt/dev/pts");
+    execute_command("mount --bind /proc /mnt/proc");
+    execute_command("mount --bind /sys /mnt/sys");
+    execute_command("mount --bind /run /mnt/run");
 
-    // Generate fstab
-    execute_command("mkdir -p /mnt/etc");
-
-    // For Btrfs, we need to add subvolume options
-    if (fs_type == "btrfs") {
-        execute_command("sed -i 's|" + root_part + ".*|" + root_part + " / btrfs defaults,subvol=@ 0 0|' /mnt/etc/fstab");
-        execute_command("echo '" + root_part + " /home btrfs defaults,subvol=@home 0 0' >> /mnt/etc/fstab");
-        execute_command("echo '" + root_part + " /root btrfs defaults,subvol=@root 0 0' >> /mnt/etc/fstab");
-        execute_command("echo '" + root_part + " /srv btrfs defaults,subvol=@srv 0 0' >> /mnt/etc/fstab");
-        execute_command("echo '" + root_part + " /var/cache btrfs defaults,subvol=@cache 0 0' >> /mnt/etc/fstab");
-        execute_command("echo '" + root_part + " /tmp btrfs defaults,subvol=@tmp 0 0' >> /mnt/etc/fstab");
-        execute_command("echo '" + root_part + " /var/log btrfs defaults,subvol=@log 0 0' >> /mnt/etc/fstab");
-    }
-
+    execute_command("chroot /mnt /bin/bash -c \""
+    "grub-install --target=x86_64-efi "
+    "--efi-directory=/boot/efi "
+    "--bootloader-id=GRUB "
+    "--recheck || { "
+    "   echo 'GRUB install failed, trying fallback...'; "
+    "   grub-install --target=x86_64-efi "
+    "   --efi-directory=/boot/efi "
+    "   --bootloader-id=GRUB "
+    "   --removable; "
+    "}; "
+    "if command -v efibootmgr >/dev/null; then "
+    "   efibootmgr --create "
+    "   --disk " + drive + " "
+    "   --part 1 "
+    "   --loader /EFI/GRUB/grubx64.efi "
+    "   --label 'GRUB'; "
+    "fi; "
+    "grub-mkconfig -o /boot/grub/grub.cfg; "
+    "./opt/btrfsfstabcompressed.sh ; "    
+    "mkinitcpio -P\"");
 }
 
 int main() {
     display_header();
 
-    // Get target drive
     string drive;
     cout << COLOR_CYAN << "Enter target drive (e.g., /dev/sda): " << COLOR_RESET;
     getline(cin, drive);
@@ -256,7 +239,6 @@ int main() {
         return 1;
     }
 
-    // Get filesystem type
     string fs_type;
     cout << COLOR_CYAN << "Choose filesystem type (btrfs/ext4): " << COLOR_RESET;
     getline(cin, fs_type);
@@ -266,7 +248,6 @@ int main() {
         return 1;
     }
 
-    // Confirm operation
     cout << COLOR_YELLOW << "\nWARNING: This will erase ALL data on " << drive << " and install a new system.\n";
     cout << "Are you sure you want to continue? (yes/no): " << COLOR_RESET;
     string confirmation;
@@ -277,13 +258,11 @@ int main() {
         return 0;
     }
 
-    // Prepare target partitions
     cout << COLOR_CYAN << "\nPreparing target partitions..." << COLOR_RESET << endl;
     prepare_target_partitions(drive, fs_type);
 
     string root_part = drive + "2";
 
-    // Setup filesystem structure
     cout << COLOR_CYAN << "Setting up " << fs_type << " filesystem..." << COLOR_RESET << endl;
     if (fs_type == "btrfs") {
         setup_btrfs_subvolumes(root_part);
@@ -291,19 +270,19 @@ int main() {
         setup_ext4_filesystem(root_part);
     }
 
-    // Copy system
     cout << COLOR_CYAN << "Copying system files (this may take a while)..." << COLOR_RESET << endl;
     copy_system(drive + "1");
 
-    // Generate fstab
     cout << COLOR_CYAN << "Generating fstab..." << COLOR_RESET << endl;
     generate_fstab(root_part, fs_type);
 
-    // Install GRUB
     cout << COLOR_CYAN << "Installing bootloader..." << COLOR_RESET << endl;
-    install_grub(drive);
+    if (fs_type == "btrfs") {
+        install_grub_btrfs(drive);
+    } else {
+        install_grub_ext4(drive);
+    }
 
-    // Cleanup
     cout << COLOR_CYAN << "Cleaning up..." << COLOR_RESET << endl;
     execute_command("umount -R /mnt");
 
