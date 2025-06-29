@@ -1,0 +1,434 @@
+#!/usr/bin/env ruby
+
+# Constants
+MAX_PATH = 4096
+MAX_CMD = 16384
+BLUE = "\033[34m"
+GREEN = "\033[32m"
+RED = "\033[31m"
+RESET = "\033[0m"
+COLOR_CYAN = "\033[38;2;0;255;255m"
+COLOR_GOLD = "\033[38;2;36;255;255m"
+PASSWORD_MAX = 100
+COLOR_RESET = "\033[0m"
+
+# Paths
+VERSION_FILE = "/home/$USER/.config/cmi/version.txt"
+GUIDE_PATH = "/home/$USER/.config/cmi/readme.txt"
+CHANGELOG_PATH = "/home/$USER/.config/cmi/changelog.txt"
+CLONE_DIR_FILE = "/home/$USER/.config/cmi/clonedir.txt"
+ISO_NAME_FILE = "/home/$USER/.config/cmi/isoname.txt"
+
+class CMI
+  class << self
+    def expand_path(path)
+      path.gsub('$USER', ENV['USER'] || '')
+    end
+
+    def get_cmi_version
+      path = expand_path(VERSION_FILE)
+      File.read(path).lines.first.chomp rescue "unknown"
+    end
+
+    def get_kernel_version
+      `uname -r`.chomp
+    rescue
+      "unknown"
+    end
+
+    def get_vmlinuz_version
+      `ls /boot/vmlinuz*`.lines.first.chomp.split('/').last rescue "unknown"
+    end
+
+    def get_distro_version
+      if File.exist?('/etc/os-release')
+        File.foreach('/etc/os-release') do |line|
+          if line.start_with?('VERSION_ID=')
+            version = line.split('=').last.chomp
+            version.gsub!(/"/, '')
+            return version
+          end
+        end
+      end
+      "unknown"
+    end
+
+    def detect_distro
+      if File.exist?('/etc/os-release')
+        File.foreach('/etc/os-release') do |line|
+          if line.start_with?('ID=')
+            id = line.chomp
+            return :arch if id.include?('arch')
+            return :ubuntu if id.include?('ubuntu')
+            return :debian if id.include?('debian')
+            return :cachyos if id.include?('cachyos')
+            return :neon if id.include?('neon')
+          end
+        end
+      end
+      :unknown
+    end
+
+    def get_distro_name(distro)
+      case distro
+      when :arch then "Arch Linux"
+      when :ubuntu then "Ubuntu"
+      when :debian then "Debian"
+      when :cachyos then "CachyOS"
+      when :neon then "KDE Neon"
+      else "Unknown"
+      end
+    end
+
+    def execute_command(cmd)
+      system(cmd) or raise "Command failed: #{cmd}"
+    end
+
+    def read_clone_dir
+      path = expand_path(CLONE_DIR_FILE)
+      return nil unless File.exist?(path)
+
+      dir = File.read(path).chomp
+      dir += '/' unless dir.end_with?('/')
+      dir
+    rescue
+      nil
+    end
+
+    def dir_exists?(path)
+      File.directory?(path)
+    end
+
+    def save_clone_dir(dir_path)
+      config_dir = expand_path("/home/$USER/.config/cmi")
+      execute_command("mkdir -p #{config_dir}") unless dir_exists?(config_dir)
+
+      full_clone_path = dir_path.end_with?('/') ? dir_path : "#{dir_path}/"
+      File.write(File.join(config_dir, "clonedir.txt"), full_clone_path)
+
+      clone_folder = "#{full_clone_path}clone_system_temp"
+      execute_command("mkdir -p #{clone_folder}") unless dir_exists?(clone_folder)
+    end
+
+    def save_iso_name(name)
+      config_dir = expand_path("/home/$USER/.config/cmi")
+      execute_command("mkdir -p #{config_dir}") unless dir_exists?(config_dir)
+
+      File.write(File.join(config_dir, "isoname.txt"), name)
+    end
+
+    def get_iso_name
+      path = expand_path(ISO_NAME_FILE)
+      File.read(path).chomp if File.exist?(path)
+    end
+
+    def is_init_generated?(distro)
+      init_path = case distro
+                  when :ubuntu, :debian
+                    distro_name = distro == :ubuntu ? "noble" : "debian"
+                    expand_path("/home/$USER/.config/cmi/build-image-#{distro_name}/live/initrd.img-#{get_kernel_version}")
+                  else
+                    expand_path("/home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img")
+                  end
+      File.exist?(init_path)
+    end
+
+    def install_dependencies(distro)
+      case distro
+      when :arch, :cachyos
+        execute_command("sudo pacman -S --needed --noconfirm arch-install-scripts bash-completion " +
+                       "dosfstools erofs-utils findutils grub jq libarchive libisoburn lsb-release " +
+                       "lvm2 mkinitcpio-archiso mkinitcpio-nfs-utils mtools nbd pacman-contrib " +
+                       "parted procps-ng pv python rsync squashfs-tools sshfs syslinux xdg-utils " +
+                       "bash-completion zsh-completions kernel-modules-hook virt-manager")
+      when :ubuntu, :neon
+        execute_command("sudo apt install -y cryptsetup dmeventd isolinux libaio-dev libcares2 " +
+                       "libdevmapper-event1.02.1 liblvm2cmd2.03 live-boot live-boot-doc " +
+                       "live-boot-initramfs-tools live-config-systemd live-tools lvm2 pxelinux " +
+                       "syslinux syslinux-common thin-provisioning-tools squashfs-tools xorriso")
+      when :debian
+        execute_command("sudo apt install -y cryptsetup dmeventd isolinux libaio1 libc-ares2 " +
+                       "libdevmapper-event1.02.1 liblvm2cmd2.03 live-boot live-boot-doc " +
+                       "live-boot-initramfs-tools live-config-systemd live-tools lvm2 pxelinux " +
+                       "syslinux syslinux-common thin-provisioning-tools squashfs-tools xorriso")
+      else
+        raise "Unknown distribution"
+      end
+    end
+
+    def generate_initrd(distro)
+      case distro
+      when :arch, :cachyos
+        build_dir = expand_path("/home/$USER/.config/cmi/build-image-arch")
+        init_path = expand_path("/home/$USER/.config/cmi/build-image-arch/live/initramfs-linux.img")
+        execute_command("cd #{build_dir} >/dev/null 2>&1 && sudo mkinitcpio -c live.conf -g #{init_path}")
+        execute_command("sudo cp /boot/vmlinuz-linux* #{expand_path("/home/$USER/.config/cmi/build-image-arch/live/")} 2>/dev/null")
+      when :ubuntu, :neon
+        init_path = expand_path("/home/$USER/.config/cmi/build-image-noble/live/initrd.img-$(uname -r)")
+        execute_command("sudo mkinitramfs -o \"#{init_path}\" \"$(uname -r)\"")
+        execute_command("sudo cp /boot/vmlinuz* #{expand_path("/home/$USER/.config/cmi/build-image-noble/live/")} 2>/dev/null")
+      when :debian
+        init_path = expand_path("/home/$USER/.config/cmi/build-image-debian/live/initrd.img-$(uname -r)")
+        execute_command("sudo mkinitramfs -o \"#{init_path}\" \"$(uname -r)\"")
+        execute_command("sudo cp /boot/vmlinuz* #{expand_path("/home/$USER/.config/cmi/build-image-debian/live/")} 2>/dev/null")
+      else
+        raise "Unknown distribution"
+      end
+    end
+
+    def edit_isolinux_cfg(distro)
+      path = case distro
+             when :arch, :cachyos then expand_path("/home/$USER/.config/cmi/build-image-arch/isolinux/isolinux.cfg")
+             when :ubuntu, :neon then expand_path("/home/$USER/.config/cmi/build-image-noble/isolinux/isolinux.cfg")
+             when :debian then expand_path("/home/$USER/.config/cmi/build-image-debian/isolinux/isolinux.cfg")
+             else raise "Unknown distribution"
+             end
+      execute_command("nano #{path}")
+    end
+
+    def edit_grub_cfg(distro)
+      path = case distro
+             when :arch, :cachyos then expand_path("/home/$USER/.config/cmi/build-image-arch/boot/grub/grub.cfg")
+             when :ubuntu, :neon then expand_path("/home/$USER/.config/cmi/build-image-noble/boot/grub/grub.cfg")
+             when :debian then expand_path("/home/$USER/.config/cmi/build-image-debian/boot/grub/grub.cfg")
+             else raise "Unknown distribution"
+             end
+      execute_command("nano #{path}")
+    end
+
+    def install_calamares(distro)
+      case distro
+      when :arch
+        calamares_dir = expand_path("/home/$USER/.config/cmi/calamares-per-distro/arch")
+        execute_command("cd #{calamares_dir} >/dev/null 2>&1 && sudo pacman -U calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst " +
+                       "calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar " +
+                       "ckbcomp-1.227-2-any.pkg.tar.zst")
+      when :cachyos
+        execute_command("sudo pacman -U --noconfirm calamares-3.3.14-5-x86_64_REPACKED.pkg.tar.zst " +
+                       "calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar " +
+                       "ckbcomp-1.227-2-any.pkg.tar.zst")
+      when :ubuntu, :neon
+        execute_command("sudo apt install -y calamares-settings-ubuntu-common calamares")
+      when :debian
+        execute_command("sudo apt install -y calamares-settings-debian calamares")
+      else
+        raise "Unknown distribution"
+      end
+    end
+
+    def edit_calamares_branding
+      execute_command("sudo nano /usr/share/calamares/branding/claudemods/branding.desc")
+    end
+
+    def clone_system(clone_dir)
+      full_clone_path = "#{clone_dir.end_with?('/') ? clone_dir : "#{clone_dir}/"}clone_system_temp"
+      execute_command("mkdir -p #{full_clone_path}") unless dir_exists?(full_clone_path)
+
+      execute_command("sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
+                     "--exclude=/etc/udev/rules.d/70-persistent-cd.rules " +
+                     "--exclude=/etc/udev/rules.d/70-persistent-net.rules " +
+                     "--exclude=/etc/mtab " +
+                     "--exclude=/etc/fstab " +
+                     "--exclude=/dev/* " +
+                     "--exclude=/proc/* " +
+                     "--exclude=/sys/* " +
+                     "--exclude=/tmp/* " +
+                     "--exclude=/run/* " +
+                     "--exclude=/mnt/* " +
+                     "--exclude=/media/* " +
+                     "--exclude=/lost+found " +
+                     "--exclude=clone_system_temp " +
+                     "--include=dev " +
+                     "--include=proc " +
+                     "--include=tmp " +
+                     "--include=sys " +
+                     "--include=run " +
+                     "--include=dev " +
+                     "--include=proc " +
+                     "--include=tmp " +
+                     "--include=sys " +
+                     "--include=usr " +
+                     "--include=etc " +
+                     "/ #{full_clone_path}")
+    end
+
+    def create_squashfs(distro)
+      clone_dir = read_clone_dir or raise "Clone directory not set"
+      full_clone_path = "#{clone_dir.end_with?('/') ? clone_dir : "#{clone_dir}/"}clone_system_temp"
+
+      output_path = case distro
+                    when :ubuntu, :neon then expand_path("/home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs")
+                    when :debian then expand_path("/home/$USER/.config/cmi/build-image-debian/live/filesystem.sfs")
+                    else expand_path("/home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs")
+                    end
+
+      execute_command("sudo mksquashfs #{full_clone_path} #{output_path} " +
+                     "-comp xz -Xbcj x86 -b 1M -no-duplicates -no-recovery " +
+                     "-always-use-fragments -wildcards -xattrs")
+    end
+
+    def create_squashfs_clone(distro)
+      clone_dir = read_clone_dir or raise "Clone directory not set"
+      full_clone_path = "#{clone_dir.end_with?('/') ? clone_dir : "#{clone_dir}/"}clone_system_temp"
+
+      clone_system(clone_dir) unless dir_exists?(full_clone_path)
+      create_squashfs(distro)
+    end
+
+    def delete_clone(distro)
+      clone_dir = read_clone_dir or raise "Clone directory not set"
+      full_clone_path = "#{clone_dir.end_with?('/') ? clone_dir : "#{clone_dir}/"}clone_system_temp"
+
+      execute_command("sudo rm -rf #{full_clone_path}")
+
+      squashfs_path = case distro
+                      when :ubuntu, :neon then expand_path("/home/$USER/.config/cmi/build-image-noble/live/filesystem.sfs")
+                      when :debian then expand_path("/home/$USER/.config/cmi/build-image-debian/live/filesystem.sfs")
+                      else expand_path("/home/$USER/.config/cmi/build-image-arch/arch/x86_64/airootfs.sfs")
+                      end
+
+      execute_command("sudo rm -f #{squashfs_path}") if File.exist?(squashfs_path)
+    end
+
+    def create_iso(distro, output_dir)
+      iso_name = get_iso_name or raise "ISO name not set"
+      raise "Output directory not specified" if output_dir.nil? || output_dir.empty?
+
+      timestamp = Time.now.strftime("%Y-%m-%d_%H%M")
+      iso_file_name = "#{output_dir}/#{iso_name}_amd64_#{timestamp}.iso"
+
+      build_image_dir = case distro
+                        when :ubuntu, :neon then expand_path("/home/$USER/.config/cmi/build-image-noble")
+                        when :debian then expand_path("/home/$USER/.config/cmi/build-image-debian")
+                        else expand_path("/home/$USER/.config/cmi/build-image-arch")
+                        end
+
+      execute_command("mkdir -p #{output_dir}") unless dir_exists?(output_dir)
+
+      xorriso_command = "sudo xorriso -as mkisofs -o #{iso_file_name} -V 2025 -iso-level 3"
+
+      case distro
+      when :ubuntu, :neon
+        xorriso_command += " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin" +
+                          " -c isolinux/boot.cat" +
+                          " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table" +
+                          " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat"
+      when :debian
+        xorriso_command += " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin" +
+                          " -c isolinux/boot.cat" +
+                          " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table" +
+                          " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat"
+      else
+        xorriso_command += " -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin" +
+                          " -c isolinux/boot.cat" +
+                          " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table" +
+                          " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat"
+      end
+
+      execute_command("#{xorriso_command} #{build_image_dir}")
+    end
+
+    def run_qemu
+      execute_command("ruby /opt/claudemods-iso-konsole-script/Supported-Distros/qemu.rb")
+    end
+
+    def install_updater
+      execute_command(expand_path("./home/$USER/.config/cmi/patch.sh"))
+    end
+
+    def show_guide
+      execute_command("cat #{expand_path(GUIDE_PATH)}")
+    end
+
+    def show_changelog
+      execute_command("cat #{expand_path(CHANGELOG_PATH)}")
+    end
+
+    def show_status(distro)
+      puts "Current Distribution: #{COLOR_CYAN}#{get_distro_name(distro)} #{get_distro_version}#{RESET}"
+      puts "CMI Version: #{COLOR_CYAN}#{get_cmi_version}#{RESET}"
+      puts "Kernel Version: #{COLOR_CYAN}#{get_kernel_version}#{RESET}"
+      puts "vmlinuz Version: #{COLOR_CYAN}#{get_vmlinuz_version}#{RESET}"
+
+      clone_dir = read_clone_dir
+      puts "Clone Directory: #{clone_dir ? GREEN : RED}#{clone_dir || 'Not set'}#{RESET}"
+
+      puts "Initramfs: #{is_init_generated?(distro) ? GREEN : RED}#{is_init_generated?(distro) ? 'Generated' : 'Not generated'}#{RESET}"
+
+      iso_name = get_iso_name
+      puts "ISO Name: #{iso_name ? GREEN : RED}#{iso_name || 'Not set'}#{RESET}"
+    end
+
+    def print_usage
+      puts "Usage: cmi <command> [options]\n\n"
+      puts "Available commands:"
+      puts "#{COLOR_CYAN}  install-deps            - Install required dependencies"
+      puts "  gen-init                - Generate initramfs"
+      puts "  set-iso-name <name>     - Set ISO output name"
+      puts "  edit-isolinux           - Edit isolinux configuration"
+      puts "  edit-grub               - Edit GRUB configuration"
+      puts "  set-clone-dir <path>    - Set directory for system cloning"
+      puts "  install-calamares       - Install Calamares installer"
+      puts "  edit-branding           - Edit Calamares branding"
+      puts "  install-updater         - Install updater"
+      puts "  create-squashfs         - Create squashfs from current system"
+      puts "  create-squashfs-clone   - Clone system and create squashfs"
+      puts "  delete-clone            - Delete cloned system"
+      puts "  create-iso <out_dir>    - Create ISO image"
+      puts "  run-qemu                - Run QEMU with the ISO"
+      puts "  status                  - Show current status"
+      puts "  guide                   - Show user guide"
+      puts "  changelog               - Show changelog"
+      puts "  mainmenu                - Launch main menu (cmitui)#{RESET}"
+    end
+  end
+end
+
+# Main execution
+begin
+  distro = CMI.detect_distro
+
+  if ARGV.empty?
+    CMI.show_status(distro)
+    puts
+    CMI.print_usage
+    exit 0
+  end
+
+  command = ARGV[0]
+
+  case command
+  when "install-deps" then CMI.install_dependencies(distro)
+  when "gen-init" then CMI.generate_initrd(distro)
+  when "set-iso-name"
+    raise "ISO name not specified" if ARGV.size < 2
+    CMI.save_iso_name(ARGV[1])
+  when "edit-isolinux" then CMI.edit_isolinux_cfg(distro)
+  when "edit-grub" then CMI.edit_grub_cfg(distro)
+  when "set-clone-dir"
+    raise "Clone directory not specified" if ARGV.size < 2
+    CMI.save_clone_dir(ARGV[1])
+  when "install-calamares" then CMI.install_calamares(distro)
+  when "edit-branding" then CMI.edit_calamares_branding
+  when "install-updater" then CMI.install_updater
+  when "create-squashfs" then CMI.create_squashfs(distro)
+  when "create-squashfs-clone" then CMI.create_squashfs_clone(distro)
+  when "delete-clone" then CMI.delete_clone(distro)
+  when "create-iso"
+    raise "Output directory not specified" if ARGV.size < 2
+    CMI.create_iso(distro, ARGV[1])
+  when "run-qemu" then CMI.run_qemu
+  when "status" then CMI.show_status(distro)
+  when "guide" then CMI.show_guide
+  when "changelog" then CMI.show_changelog
+  when "mainmenu" then CMI.execute_command("cmitui")
+  else
+    CMI.show_status(distro)
+    puts
+    CMI.print_usage
+    exit 1
+  end
+rescue => e
+  puts "Error: #{e.message}"
+  exit 1
+end
