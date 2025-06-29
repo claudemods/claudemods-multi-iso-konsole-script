@@ -3,7 +3,7 @@ TEMPLATE = app
 CONFIG += c++23
 
 # Target Application Name
-TARGET = cmi
+TARGET = cmitui
 
 # Source Files
 SOURCES += archubuntudebian.cpp
