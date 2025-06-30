@@ -177,7 +177,7 @@ void copy_system(const string& efi_part) {
     execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
     execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
 }
-
+// ext4 now works
 void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
