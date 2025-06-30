@@ -171,14 +171,14 @@ void copy_system(const string& efi_part) {
     "--include=/usr "
     "--include=/etc "
     "/ /mnt";
-execute_command(rsync_cmd);
-execute_command("rm -rf /mnt/boot/grub");
-execute_command("mkdir -p /mnt/boot");
-execute_command("mkdir -p /mnt/boot/efi");
-execute_command("mount " + efi_part + " /mnt/boot/efi");
-execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
-execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
-execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
+    execute_command(rsync_cmd);
+    execute_command("rm -rf /mnt/boot/grub");
+    execute_command("mkdir -p /mnt/boot");
+    execute_command("mkdir -p /mnt/boot/efi");
+    execute_command("mount " + efi_part + " /mnt/boot/efi");
+    execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
+    execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
+    execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
 }
 
 void install_grub_ext4(const string& drive) {
@@ -189,28 +189,13 @@ void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /run /mnt/run");
 
     execute_command("chroot /mnt /bin/bash -c \""
-    "grub-install --target=x86_64-efi "
-    "--efi-directory=/boot/efi "
-    "--bootloader-id=GRUB "
-    "--recheck || { "
-    "   echo 'GRUB install failed, trying fallback...'; "
-    "   grub-install --target=x86_64-efi "
-    "   --efi-directory=/boot/efi "
-    "   --bootloader-id=GRUB "
-    "   --removable; "
-    "}; "
-    "if command -v efibootmgr >/dev/null; then "
-    "   efibootmgr --create "
-    "   --disk " + drive + " "
-    "   --part 1 "
-    "   --loader /EFI/GRUB/grubx64.efi "
-    "   --label 'GRUB'; "
-    "fi; "
+    "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
     "mkinitcpio -P\"");
 }
 
 void install_grub_btrfs(const string& drive) {
+    execute_command("touch /etc/fstab");
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
     execute_command("mount --bind /proc /mnt/proc");
@@ -218,25 +203,9 @@ void install_grub_btrfs(const string& drive) {
     execute_command("mount --bind /run /mnt/run");
 
     execute_command("chroot /mnt /bin/bash -c \""
-    "grub-install --target=x86_64-efi "
-    "--efi-directory=/boot/efi "
-    "--bootloader-id=GRUB "
-    "--recheck || { "
-    "   echo 'GRUB install failed, trying fallback...'; "
-    "   grub-install --target=x86_64-efi "
-    "   --efi-directory=/boot/efi "
-    "   --bootloader-id=GRUB "
-    "   --removable; "
-    "}; "
-    "if command -v efibootmgr >/dev/null; then "
-    "   efibootmgr --create "
-    "   --disk " + drive + " "
-    "   --part 1 "
-    "   --loader /EFI/GRUB/grubx64.efi "
-    "   --label 'GRUB'; "
-    "fi; "
+    "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
-    "./opt/btrfsfstabcompressed.sh ; "
+    "./opt/btrfsfstabcompressed.sh; "
     "mkinitcpio -P\"");
 }
 
