@@ -1,23 +1,13 @@
-28-06-2025 DevBranch c++ 
-
-currently making a debian clone with the new fixes to rsync command
-
-![Screenshot_archlinux-clone_2025-06-28_10:27:02](https://github.com/user-attachments/assets/9627ee73-14dd-455f-948c-4f80873c65ef)
 
 
+30-06-2025 cmi rsync ext4 and btrfs installer
 
-new info options
+currently im tryin to fix my rsync installer i had working scripts in the past
 
-![Screenshot_20250628_011147](https://github.com/user-attachments/assets/7ddd3415-8c8b-494f-866a-d3ee313dee25)
+just a matter of building it back up again 
 
-
- and also calamares branding.desc option and iso name option
-
-![Screenshot_20250628_011200](https://github.com/user-attachments/assets/14a2f8a2-859c-465b-8370-00a656b04865)
+![Screenshot_20250630_133803](https://github.com/user-attachments/assets/fde51fb7-ba33-4dc3-bf85-b7cebb6a8c03)
 
 
-28-06-2025 DevBranch c arch
 
-converted from c++ latest DevBranch and removed debian and ubuntu
 
-![Screenshot_20250628_110114](https://github.com/user-attachments/assets/899eea1a-a9ea-4083-8b1c-a71fe4081488)
