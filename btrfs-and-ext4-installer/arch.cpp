@@ -80,8 +80,8 @@ void display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝
 )" << endl;
-    cout << COLOR_CYAN << "System Installer with Rsync v1.0" << COLOR_RESET << endl;
-    cout << COLOR_CYAN << "Supports Btrfs and Ext4 filesystems" << COLOR_RESET << endl << endl;
+    cout << COLOR_CYAN << "System Installer with Rsync v1.1" << COLOR_RESET << endl;
+    cout << COLOR_CYAN << "Supports Btrfs (with Zstd compression) and Ext4 filesystems" << COLOR_RESET << endl << endl;
 }
 
 void prepare_target_partitions(const string& drive, const string& fs_type) {
@@ -111,7 +111,10 @@ void prepare_target_partitions(const string& drive, const string& fs_type) {
 }
 
 void setup_btrfs_subvolumes(const string& root_part) {
+    // Mount root partition temporarily to create subvolumes
     execute_command("mount " + root_part + " /mnt");
+    
+    // Create subvolumes with compression enabled
     execute_command("btrfs subvolume create /mnt/@");
     execute_command("btrfs subvolume create /mnt/@home");
     execute_command("btrfs subvolume create /mnt/@root");
@@ -122,16 +125,23 @@ void setup_btrfs_subvolumes(const string& root_part) {
     execute_command("mkdir -p /mnt/@/var/lib");
     execute_command("btrfs subvolume create /mnt/@/var/lib/portables");
     execute_command("btrfs subvolume create /mnt/@/var/lib/machines");
+    
+    // Unmount temporary mount
     execute_command("umount /mnt");
 
-    execute_command("mount -o subvol=@ " + root_part + " /mnt");
+    // Mount all subvolumes with Zstd compression (level 22)
+    execute_command("mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt");
     execute_command("mkdir -p /mnt/{home,root,srv,tmp,var/{cache,log},var/lib/{portables,machines},boot/efi}");
-    execute_command("mount -o subvol=@home " + root_part + " /mnt/home");
-    execute_command("mount -o subvol=@root " + root_part + " /mnt/root");
-    execute_command("mount -o subvol=@srv " + root_part + " /mnt/srv");
-    execute_command("mount -o subvol=@cache " + root_part + " /mnt/var/cache");
-    execute_command("mount -o subvol=@tmp " + root_part + " /mnt/tmp");
-    execute_command("mount -o subvol=@log " + root_part + " /mnt/var/log");
+    
+    // Mount other subvolumes with same compression settings
+    execute_command("mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/home");
+    execute_command("mount -o subvol=@root,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/root");
+    execute_command("mount -o subvol=@srv,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/srv");
+    execute_command("mount -o subvol=@cache,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/var/cache");
+    execute_command("mount -o subvol=@tmp,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/tmp");
+    execute_command("mount -o subvol=@log,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/var/log");
+    execute_command("mount -o subvol=@/var/lib/portables,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/var/lib/portables");
+    execute_command("mount -o subvol=@/var/lib/machines,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/var/lib/machines");
 }
 
 void setup_ext4_filesystem(const string& root_part) {
@@ -167,7 +177,6 @@ void copy_system(const string& efi_part) {
     execute_command("cp btrfsfstabcompressed.sh /opt");
 }
 
-// GRUB installation for ext4 - EXACTLY AS YOU SPECIFIED
 void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
@@ -197,7 +206,6 @@ void install_grub_ext4(const string& drive) {
     "mkinitcpio -P\"");
 }
 
-// GRUB installation for btrfs - EXACTLY AS YOU SPECIFIED
 void install_grub_btrfs(const string& drive) {
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
