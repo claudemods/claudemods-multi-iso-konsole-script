@@ -188,7 +188,7 @@ void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /proc /mnt/proc");
     execute_command("mount --bind /sys /mnt/sys");
     execute_command("mount --bind /run /mnt/run");
-
+    execute_command("genfstab -U -p /mnt >> /mnt/etc/fstab");
     execute_command("chroot /mnt /bin/bash -c \""
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
