@@ -177,7 +177,7 @@ execute_command("mkdir -p /mnt/boot");
 execute_command("mkdir -p /mnt/boot/efi");
 execute_command("mount " + efi_part + " /mnt/boot/efi");
 execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
-execute_command("cp btrfsfstabcompressed.sh /opt");
+execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
 execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
 }
 
