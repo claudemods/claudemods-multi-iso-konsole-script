@@ -175,6 +175,7 @@ execute_command(rsync_cmd);
 execute_command("mount " + efi_part + " /mnt/boot/efi");
 execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
 execute_command("cp btrfsfstabcompressed.sh /opt");
+execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
 }
 
 void install_grub_ext4(const string& drive) {
