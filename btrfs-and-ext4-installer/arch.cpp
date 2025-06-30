@@ -172,9 +172,6 @@ void copy_system(const string& efi_part) {
     "--include=/etc "
     "/ /mnt";
     execute_command(rsync_cmd);
-    execute_command("rm -rf /mnt/boot/grub");
-    execute_command("mkdir -p /mnt/boot");
-    execute_command("mkdir -p /mnt/boot/efi");
     execute_command("touch /mnt/etc/fstab");
     execute_command("mount " + efi_part + " /mnt/boot/efi");
     execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
