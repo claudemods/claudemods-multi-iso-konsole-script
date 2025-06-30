@@ -78,10 +78,10 @@ void display_header() {
 ██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
 ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
-░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝╚═╝  ╚═╝
+░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << endl;
-    cout << COLOR_CYAN << "System Installer with Rsync v1.1" << COLOR_RESET << endl;
-    cout << COLOR_CYAN << "Supports Btrfs (with Zstd compression) and Ext4 filesystems" << COLOR_RESET << endl << endl;
+cout << COLOR_CYAN << "claudemods cmi rsync installer v1.01" << COLOR_RESET << endl;
+cout << COLOR_CYAN << "Supports Btrfs (with Zstd compression) and Ext4 filesystems" << COLOR_RESET << endl << endl;
 }
 
 void prepare_target_partitions(const string& drive, const string& fs_type) {
@@ -113,7 +113,7 @@ void prepare_target_partitions(const string& drive, const string& fs_type) {
 void setup_btrfs_subvolumes(const string& root_part) {
     // Mount root partition temporarily to create subvolumes
     execute_command("mount " + root_part + " /mnt");
-    
+
     // Create subvolumes with compression enabled
     execute_command("btrfs subvolume create /mnt/@");
     execute_command("btrfs subvolume create /mnt/@home");
@@ -125,14 +125,14 @@ void setup_btrfs_subvolumes(const string& root_part) {
     execute_command("mkdir -p /mnt/@/var/lib");
     execute_command("btrfs subvolume create /mnt/@/var/lib/portables");
     execute_command("btrfs subvolume create /mnt/@/var/lib/machines");
-    
+
     // Unmount temporary mount
     execute_command("umount /mnt");
 
     // Mount all subvolumes with Zstd compression (level 22)
     execute_command("mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt");
     execute_command("mkdir -p /mnt/{home,root,srv,tmp,var/{cache,log},var/lib/{portables,machines},boot/efi}");
-    
+
     // Mount other subvolumes with same compression settings
     execute_command("mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/home");
     execute_command("mount -o subvol=@root,compress=zstd:22,compress-force=zstd:22 " + root_part + " /mnt/root");
@@ -151,30 +151,30 @@ void setup_ext4_filesystem(const string& root_part) {
 
 void copy_system(const string& efi_part) {
     string rsync_cmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
-        "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
-        "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
-        "--exclude=/etc/mtab "
-        "--exclude=/etc/fstab "
-        "--exclude=/dev/* "
-        "--exclude=/proc/* "
-        "--exclude=/sys/* "
-        "--exclude=/tmp/* "
-        "--exclude=/run/* "
-        "--exclude=/mnt/* "
-        "--exclude=/media/* "
-        "--exclude=/lost+found "
-        "--include=/dev "
-        "--include=/proc "
-        "--include=/tmp "
-        "--include=/sys "
-        "--include=/run "
-        "--include=/usr "
-        "--include=/etc "
-        "/ /mnt";
-    execute_command(rsync_cmd);
-    execute_command("mount " + efi_part + " /mnt/boot/efi");
-    execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
-    execute_command("cp btrfsfstabcompressed.sh /opt");
+    "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
+    "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
+    "--exclude=/etc/mtab "
+    "--exclude=/etc/fstab "
+    "--exclude=/dev/* "
+    "--exclude=/proc/* "
+    "--exclude=/sys/* "
+    "--exclude=/tmp/* "
+    "--exclude=/run/* "
+    "--exclude=/mnt/* "
+    "--exclude=/media/* "
+    "--exclude=/lost+found "
+    "--include=/dev "
+    "--include=/proc "
+    "--include=/tmp "
+    "--include=/sys "
+    "--include=/run "
+    "--include=/usr "
+    "--include=/etc "
+    "/ /mnt";
+execute_command(rsync_cmd);
+execute_command("mount " + efi_part + " /mnt/boot/efi");
+execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
+execute_command("cp btrfsfstabcompressed.sh /opt");
 }
 
 void install_grub_ext4(const string& drive) {
@@ -232,7 +232,7 @@ void install_grub_btrfs(const string& drive) {
     "   --label 'GRUB'; "
     "fi; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
-    "./opt/btrfsfstabcompressed.sh ; "    
+    "./opt/btrfsfstabcompressed.sh ; "
     "mkinitcpio -P\"");
 }
 
