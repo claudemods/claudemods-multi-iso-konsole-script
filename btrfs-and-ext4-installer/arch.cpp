@@ -172,7 +172,6 @@ void copy_system(const string& efi_part) {
     "--include=/etc "
     "/ /mnt";
     execute_command(rsync_cmd);
-    execute_command("touch /mnt/etc/fstab");
     execute_command("mount " + efi_part + " /mnt/boot/efi");
     execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
     execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
@@ -193,6 +192,7 @@ void install_grub_ext4(const string& drive) {
 }
 
 void install_grub_btrfs(const string& drive) {
+    execute_command("touch /mnt/etc/fstab");
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
     execute_command("mount --bind /proc /mnt/proc");
