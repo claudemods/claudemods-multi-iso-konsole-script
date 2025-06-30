@@ -9,4 +9,5 @@ but my clone hasnt got grub-btrfs installed so you know what is next
 currently im cloning a custom cachyos kde dev from kdelinux repos built from arch base
 
 
-![Screenshot_20250630_133803](https://github.com/user-attachments/assets/10d7cb76-bf5c-4130-bcc0-01c81a2fc5b1)
+![Uploading Screenshot_archlinux-clone_2025-06-30_17:50:38.png…]()
+
