@@ -341,31 +341,35 @@ void print_banner(Distro distro) {
     cout <<
     "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
     "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
-    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
-    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+    "██║░░╚═╝██║░░░░░██║░░██║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+    "██║░░██╗██║░░░░░██║░░██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
-    "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
-        cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 28-06-2025" << RESET << endl;
+    "░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
+    cout << RESET;
+    cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 28-06-2025" << RESET << endl;
 
-        {
-            lock_guard<mutex> lock(time_mutex);
-            cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
+    // Display current distribution and kernel version above time
+    cout << GREEN << "Current Distribution: " << get_distro_name(distro) << RESET << endl;
+    cout << GREEN << "Current Kernel: " << get_kernel_version() << RESET << endl;
+
+    {
+        lock_guard<mutex> lock(time_mutex);
+        cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
+    }
+
+    cout << get_clone_dir_status() << endl;
+    cout << get_init_status(distro) << endl;
+    cout << get_iso_name_status() << endl;
+
+    cout << GREEN << "Disk Usage:" << RESET << endl;
+    string cmd = "df -h /";
+    unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (pipe) {
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+            cout << GREEN << buffer << RESET;
         }
-
-        cout << get_clone_dir_status() << endl;
-        cout << get_init_status(distro) << endl;
-        cout << get_iso_name_status() << endl;
-
-        cout << GREEN << "Disk Usage:" << RESET << endl;
-        string cmd = "df -h /";
-        unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd.c_str(), "r"), pclose);
-        if (pipe) {
-            char buffer[128];
-            while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
-                cout << GREEN << buffer << RESET;
-            }
-        }
+    }
 }
 
 int get_key() {
