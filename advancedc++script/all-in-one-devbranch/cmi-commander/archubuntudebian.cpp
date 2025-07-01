@@ -191,12 +191,6 @@ void save_clone_dir(const string &dir_path) {
     ofstream f(file_path, ios::out | ios::trunc);
     f << full_clone_path;
     f.close();
-
-    string clone_folder = full_clone_path + "clone_system_temp";
-    if (!dir_exists(clone_folder)) {
-        string mkdir_cmd = "mkdir -p " + clone_folder;
-        execute_command(mkdir_cmd);
-    }
 }
 
 void save_iso_name(const string &name) {
@@ -477,25 +471,25 @@ void create_iso(Distro distro, const string &output_dir) {
     string xorriso_command = "sudo xorriso -as mkisofs -o " + iso_file_name +
     " -V 2025 -iso-level 3";
 
-        if (distro == UBUNTU || distro == NEON) {
-            xorriso_command += " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
-            " -c isolinux/boot.cat"
-            " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
-            " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
-        } else if (distro == DEBIAN) {
-            xorriso_command += " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
-            " -c isolinux/boot.cat"
-            " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
-            " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
-        } else {
-            xorriso_command += " -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin"
-            " -c isolinux/boot.cat"
-            " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
-            " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
-        }
+    if (distro == UBUNTU || distro == NEON) {
+        xorriso_command += " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
+        " -c isolinux/boot.cat"
+        " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+        " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
+    } else if (distro == DEBIAN) {
+        xorriso_command += " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
+        " -c isolinux/boot.cat"
+        " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+        " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
+    } else {
+        xorriso_command += " -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin"
+        " -c isolinux/boot.cat"
+        " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
+        " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
+    }
 
-        xorriso_command += " " + build_image_dir;
-        execute_command(xorriso_command);
+    xorriso_command += " " + build_image_dir;
+    execute_command(xorriso_command);
 }
 
 void run_qemu() {
