@@ -83,7 +83,7 @@ string get_kernel_version() {
 
 string get_vmlinuz_version() {
     string version;
-    FILE* fp = popen("ls /boot/vmlinuz*", "r");
+    FILE* fp = popen("sudo ls /boot/vmlinuz*", "r");
     if (fp) {
         char buffer[256];
         if (fgets(buffer, sizeof(buffer), fp)) {
