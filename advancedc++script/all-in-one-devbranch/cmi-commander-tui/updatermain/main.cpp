@@ -16,7 +16,7 @@
 #define COLOR_RESET "\033[0m"
 
 char detected_distro[64] = "";
-const char* executable_name = "cmi.bin";
+const char* executable_name = "cmi";
 bool commands_completed = false;
 bool loading_complete = false;
 char current_version[64] = "unknown";
