@@ -80,7 +80,7 @@ void display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << endl;
-cout << COLOR_CYAN << "claudemods apex installer v1.03" << COLOR_RESET << endl;
+cout << COLOR_CYAN << "claudemods Apex CKGE Full Stable Installer v1.03" << COLOR_RESET << endl;
 cout << COLOR_CYAN << "Supports Btrfs (with Zstd compression) and Ext4 filesystems" << COLOR_RESET << endl << endl;
 }
 
