@@ -80,7 +80,7 @@ void display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << endl;
-cout << COLOR_CYAN << "claudemods cmi rsync installer v1.01" << COLOR_RESET << endl;
+cout << COLOR_CYAN << "claudemods apex installer v1.03" << COLOR_RESET << endl;
 cout << COLOR_CYAN << "Supports Btrfs (with Zstd compression) and Ext4 filesystems" << COLOR_RESET << endl << endl;
 }
 
@@ -171,6 +171,11 @@ void install_grub_ext4(const string& drive) {
     "genfstab -U /; "
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
+    "mkdir -p /home/apex; "
+    "useradd apex; "
+    "passwd apex; "
+    "passwd root; "
+    "chown apex /home/apex; "
     "mkinitcpio -P\"");
 }
 
@@ -189,6 +194,11 @@ void install_grub_btrfs(const string& drive) {
     execute_command("chroot /mnt /bin/bash -c \""
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
+    "mkdir -p /home/apex; "
+    "useradd apex; "
+    "passwd apex; "
+    "passwd root; "
+    "chown apex /home/apex; "
     "./opt/btrfsfstabcompressed.sh; "
     "mkinitcpio -P\"");
 }
