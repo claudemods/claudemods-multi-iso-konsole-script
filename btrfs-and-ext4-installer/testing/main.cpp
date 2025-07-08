@@ -176,6 +176,7 @@ void install_grub_ext4(const string& drive) {
     "passwd apex; "
     "passwd root; "
     "chown apex /home/apex; "
+    "sudo timedatectl set-timezone Europe/London; "
     "systemctl enable sddm.service; "
     "mkinitcpio -P\"");
 }
@@ -201,6 +202,7 @@ void install_grub_btrfs(const string& drive) {
     "passwd root; "
     "chown apex /home/apex; "
     "systemctl enable sddm.service; "
+    "sudo timedatectl set-timezone Europe/London; "
     "./opt/btrfsfstabcompressed.sh; "
     "mkinitcpio -P\"");
 }
