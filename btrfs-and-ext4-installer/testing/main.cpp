@@ -176,6 +176,7 @@ void install_grub_ext4(const string& drive) {
     "passwd apex; "
     "passwd root; "
     "chown apex /home/apex; "
+    "systemctl enable sddm.service; "
     "mkinitcpio -P\"");
 }
 
@@ -199,6 +200,7 @@ void install_grub_btrfs(const string& drive) {
     "passwd apex; "
     "passwd root; "
     "chown apex /home/apex; "
+    "systemctl enable sddm.service; "
     "./opt/btrfsfstabcompressed.sh; "
     "mkinitcpio -P\"");
 }
