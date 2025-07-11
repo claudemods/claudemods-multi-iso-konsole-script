@@ -1,0 +1,843 @@
+#!/bin/bash
+
+# Configuration
+CONFIG_DIR="$HOME/.config/cmi"
+CLONE_DIR_FILE="$CONFIG_DIR/clonedir.txt"
+ISO_NAME_FILE="$CONFIG_DIR/isoname.txt"
+MAX_PATH=4096
+MAX_CMD=16384
+
+# Colors
+BLUE="\033[34m"
+GREEN="\033[32m"
+RED="\033[31m"
+RESET="\033[0m"
+COLOR_CYAN="\033[38;2;0;255;255m"
+COLOR_GOLD="\033[38;2;36;255;255m"
+COLOR_RESET="\033[0m"
+
+# Distribution detection
+UNKNOWN=0
+ARCH=1
+UBUNTU=2
+DEBIAN=3
+CACHYOS=4
+NEON=5
+
+# Initialize
+mkdir -p "$CONFIG_DIR"
+current_time_str=$(date +"%d/%m/%Y %H:%M:%S")
+should_reset=false
+
+# Function to get kernel version
+get_kernel_version() {
+    uname -r
+}
+
+# Function to read clone directory
+read_clone_dir() {
+    if [[ -f "$CLONE_DIR_FILE" ]]; then
+        local dir_path=$(<"$CLONE_DIR_FILE")
+        dir_path=${dir_path%$'\n'}
+        if [[ -n "$dir_path" && "${dir_path: -1}" != "/" ]]; then
+            dir_path+="/"
+        fi
+        echo "$dir_path"
+    else
+        echo ""
+    fi
+}
+
+# Function to check if directory exists
+dir_exists() {
+    [[ -d "$1" ]]
+}
+
+# Function to execute command with feedback
+execute_command() {
+    echo -e "${COLOR_CYAN}"
+    eval "$1"
+    local status=$?
+    echo -e "${COLOR_RESET}"
+    if [[ $status -ne 0 ]]; then
+        echo -e "${RED}Error executing: $1${RESET}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# Function to detect distribution
+detect_distro() {
+    if [[ -f "/etc/os-release" ]]; then
+        source /etc/os-release
+        case $ID in
+            arch) echo $ARCH ;;
+            ubuntu) echo $UBUNTU ;;
+            debian) echo $DEBIAN ;;
+            cachyos) echo $CACHYOS ;;
+            neon) echo $NEON ;;
+            *) echo $UNKNOWN ;;
+        esac
+    else
+        echo $UNKNOWN
+    fi
+}
+
+# Function to get distribution name
+get_distro_name() {
+    case $1 in
+        $ARCH) echo "Arch" ;;
+        $UBUNTU) echo "Ubuntu" ;;
+        $DEBIAN) echo "Debian" ;;
+        $CACHYOS) echo "CachyOS" ;;
+        $NEON) echo "KDE Neon" ;;
+        *) echo "Unknown" ;;
+    esac
+}
+
+# Function to get highlight color
+get_highlight_color() {
+    case $1 in
+        $ARCH) echo "\033[34m" ;;
+        $UBUNTU) echo "\033[38;2;255;165;0m" ;;
+        $DEBIAN) echo "\033[31m" ;;
+        $CACHYOS) echo "\033[34m" ;;
+        *) echo "\033[36m" ;;
+    esac
+}
+
+# Function to check if init is generated
+is_init_generated() {
+    local init_path
+    if [[ $1 == $UBUNTU || $1 == $DEBIAN ]]; then
+        init_path="$HOME/.config/cmi/build-image-$( [[ $1 == $UBUNTU ]] && echo "noble" || echo "debian" )/live/initrd.img-$(get_kernel_version)"
+    else
+        init_path="$HOME/.config/cmi/build-image-arch/live/initramfs-linux.img"
+    fi
+    [[ -f "$init_path" ]]
+}
+
+# Function to get clone directory status
+get_clone_dir_status() {
+    local clone_dir=$(read_clone_dir)
+    if [[ -z "$clone_dir" ]]; then
+        echo -e "${RED}✗ Clone directory not set (Use Option 4 in Setup Script Menu)${RESET}"
+    else
+        echo -e "${GREEN}✓ Clone directory: $clone_dir${RESET}"
+    fi
+}
+
+# Function to get init status
+get_init_status() {
+    if is_init_generated $1; then
+        echo -e "${GREEN}✓ Initramfs generated${RESET}"
+    else
+        echo -e "${RED}✗ Initramfs not generated (Use Option 1 in Setup Script Menu)${RESET}"
+    fi
+}
+
+# Function to get ISO name
+get_iso_name() {
+    if [[ -f "$ISO_NAME_FILE" ]]; then
+        head -n 1 "$ISO_NAME_FILE"
+    else
+        echo ""
+    fi
+}
+
+# Function to get ISO name status
+get_iso_name_status() {
+    local iso_name=$(get_iso_name)
+    if [[ -z "$iso_name" ]]; then
+        echo -e "${RED}✗ ISO name not set (Use Option 3 in Setup Script Menu)${RESET}"
+    else
+        echo -e "${GREEN}✓ ISO name: $iso_name${RESET}"
+    fi
+}
+
+# Function to save clone directory
+save_clone_dir() {
+    local dir_path="$1"
+    if [[ "${dir_path: -1}" != "/" ]]; then
+        dir_path+="/"
+    fi
+    echo "$dir_path" > "$CLONE_DIR_FILE"
+    should_reset=true
+}
+
+# Function to save ISO name
+save_iso_name() {
+    echo "$1" > "$ISO_NAME_FILE"
+    should_reset=true
+}
+
+# Function to set ISO name
+set_iso_name() {
+    exec 3>&1
+    local name=$(dialog --inputbox "Enter ISO name (without extension):" 0 0 2>&1 1>&3)
+    exec 3>&-
+    
+    if [[ -z "$name" ]]; then
+        dialog --msgbox "Error: ISO name cannot be empty" 0 0
+        return
+    fi
+    save_iso_name "$name"
+}
+
+# Function to show message box
+message_box() {
+    dialog --title "$1" --msgbox "$2" 0 0
+}
+
+# Function to show error box
+error_box() {
+    dialog --title "$1" --msgbox "$2" 0 0
+}
+
+# Function to show progress dialog
+progress_dialog() {
+    dialog --infobox "$1" 0 0
+}
+
+# Function to print banner
+print_banner() {
+    clear
+    echo -e "${RED}"
+    echo "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗"
+    echo "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝"
+    echo "██║░░╚═╝██║░░░░░██║░░██║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░"
+    echo "██║░░██╗██║░░░░░██║░░██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗"
+    echo "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝"
+    echo "░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░"
+    echo -e "${RESET}"
+    echo -e "${RED}Claudemods Multi Iso Creator Advanced Bash Script v2.0 DevBranch 28-06-2025${RESET}"
+    
+    local distro_name=$(get_distro_name $1)
+    echo -e "${GREEN}Current Distribution: $distro_name${RESET}"
+    echo -e "${GREEN}Current Kernel: $(get_kernel_version)${RESET}"
+    
+    current_time_str=$(date +"%d/%m/%Y %H:%M:%S")
+    echo -e "${GREEN}Current UK Time: $current_time_str${RESET}"
+    
+    echo -e "$(get_clone_dir_status)"
+    echo -e "$(get_init_status $1)"
+    echo -e "$(get_iso_name_status)"
+    
+    echo -e "${GREEN}Disk Usage:${RESET}"
+    df -h /
+}
+
+# Install dependencies for Arch
+install_dependencies_arch() {
+    progress_dialog "Installing dependencies..."
+    execute_command "cmi install-deps" && \
+    message_box "Success" "Dependencies installed successfully."
+}
+
+# Generate initrd for Arch
+generate_initrd_arch() {
+    progress_dialog "Generating Initramfs And Copying Vmlinuz (Arch)..."
+    execute_command "cmi gen-init" && \
+    message_box "Success" "Initramfs And Vmlinuz generated successfully."
+}
+
+# Edit grub.cfg for Arch
+edit_grub_cfg_arch() {
+    progress_dialog "Opening grub.cfg (arch)..."
+    execute_command "cmi edit-grub" && \
+    message_box "Success" "grub.cfg opened for editing."
+}
+
+# Edit isolinux.cfg for Arch
+edit_isolinux_cfg_arch() {
+    progress_dialog "Opening isolinux.cfg (arch)..."
+    execute_command "cmi edit-isolinux" && \
+    message_box "Success" "isolinux.cfg opened for editing."
+}
+
+# Install Calamares for Arch
+install_calamares_arch() {
+    progress_dialog "Installing Calamares for Arch Linux..."
+    execute_command "cmi install-calamares" && \
+    message_box "Success" "Calamares installed successfully for Arch Linux."
+}
+
+# Edit Calamares branding
+edit_calamares_branding() {
+    progress_dialog "Opening Calamares branding configuration..."
+    execute_command "cmi edit-branding" && \
+    message_box "Success" "Calamares branding configuration opened for editing."
+}
+
+# Install dependencies for CachyOS
+install_dependencies_cachyos() {
+    progress_dialog "Installing dependencies..."
+    execute_command "cmi install-deps" && \
+    message_box "Success" "Dependencies installed successfully."
+}
+
+# Install Calamares for CachyOS
+install_calamares_cachyos() {
+    progress_dialog "Installing Calamares for CachyOS..."
+    execute_command "cmi install-calamares" && \
+    message_box "Success" "Calamares installed successfully for CachyOS."
+}
+
+# Install dependencies for Ubuntu
+install_dependencies_ubuntu() {
+    progress_dialog "Installing Ubuntu dependencies..."
+    execute_command "cmi install-deps" && \
+    message_box "Success" "Ubuntu dependencies installed successfully."
+}
+
+# Copy vmlinuz for Ubuntu
+copy_vmlinuz_ubuntu() {
+    progress_dialog "Copying vmlinuz for Ubuntu..."
+    execute_command "cmi gen-init" && \
+    message_box "Success" "Vmlinuz copied successfully for Ubuntu."
+}
+
+# Generate initrd for Ubuntu
+generate_initrd_ubuntu() {
+    progress_dialog "Generating Initramfs for Ubuntu..."
+    execute_command "cmi gen-init" && \
+    message_box "Success" "Ubuntu initramfs And Vmlinuz generated successfully."
+}
+
+# Edit grub.cfg for Ubuntu
+edit_grub_cfg_ubuntu() {
+    progress_dialog "Opening Ubuntu grub.cfg..."
+    execute_command "cmi edit-grub" && \
+    message_box "Success" "Ubuntu grub.cfg opened for editing."
+}
+
+# Edit isolinux.cfg for Ubuntu
+edit_isolinux_cfg_ubuntu() {
+    progress_dialog "Opening Ubuntu isolinux.cfg..."
+    execute_command "cmi edit-isolinux" && \
+    message_box "Success" "Ubuntu isolinux.cfg opened for editing."
+}
+
+# Install Calamares for Ubuntu
+install_calamares_ubuntu() {
+    progress_dialog "Installing Calamares for Ubuntu..."
+    execute_command "cmi install-calamares" && \
+    message_box "Success" "Calamares installed successfully for Ubuntu."
+}
+
+# Install dependencies for Debian
+install_dependencies_debian() {
+    progress_dialog "Installing Debian dependencies..."
+    execute_command "cmi install-deps" && \
+    message_box "Success" "Debian dependencies installed successfully."
+}
+
+# Copy vmlinuz for Debian
+copy_vmlinuz_debian() {
+    progress_dialog "Copying vmlinuz for Debian..."
+    execute_command "cmi gen-init" && \
+    message_box "Success" "Vmlinuz copied successfully for Debian."
+}
+
+# Generate initrd for Debian
+generate_initrd_debian() {
+    progress_dialog "Generating Initramfs for Debian..."
+    execute_command "cmi gen-init" && \
+    message_box "Success" "Debian initramfs And Vmlinuz generated successfully."
+}
+
+# Edit grub.cfg for Debian
+edit_grub_cfg_debian() {
+    progress_dialog "Opening Debian grub.cfg..."
+    execute_command "cmi edit-grub" && \
+    message_box "Success" "Debian grub.cfg opened for editing."
+}
+
+# Edit isolinux.cfg for Debian
+edit_isolinux_cfg_debian() {
+    progress_dialog "Opening Debian isolinux.cfg..."
+    execute_command "cmi edit-isolinux" && \
+    message_box "Success" "Debian isolinux.cfg opened for editing."
+}
+
+# Install Calamares for Debian
+install_calamares_debian() {
+    progress_dialog "Installing Calamares for Debian..."
+    execute_command "cmi install-calamares" && \
+    message_box "Success" "Calamares installed successfully for Debian."
+}
+
+# Clone system
+clone_system() {
+    local clone_dir="$1"
+    if [[ "${clone_dir: -1}" != "/" ]]; then
+        clone_dir+="/"
+    fi
+    local full_clone_path="${clone_dir}clone_system_temp"
+    
+    echo -e "${GREEN}Cloning system into directory: $full_clone_path${RESET}"
+}
+
+# Create squashfs image
+create_squashfs_image() {
+    local distro=$1
+    local clone_dir=$(read_clone_dir)
+    if [[ -z "$clone_dir" ]]; then
+        error_box "Error" "No clone directory specified. Please set it in Setup Script menu."
+        return
+    fi
+
+    local full_clone_path="$clone_dir"
+    if [[ "${full_clone_path: -1}" != "/" ]]; then
+        full_clone_path+="/"
+    fi
+    full_clone_path+="clone_system_temp"
+
+    execute_command "cmi create-squashfs"
+    echo -e "${GREEN}Creating SquashFS image from: $full_clone_path${RESET}"
+}
+
+# Delete clone system temp
+delete_clone_system_temp() {
+    local distro=$1
+    local clone_dir=$(read_clone_dir)
+    if [[ -z "$clone_dir" ]]; then
+        error_box "Error" "No clone directory specified. Please set it in Setup Script menu."
+        return
+    fi
+
+    local full_clone_path="$clone_dir"
+    if [[ "${full_clone_path: -1}" != "/" ]]; then
+        full_clone_path+="/"
+    fi
+    full_clone_path+="clone_system_temp"
+
+    execute_command "cmi delete-clone"
+    echo -e "${GREEN}Deleting clone directory: $full_clone_path${RESET}"
+}
+
+# Set clone directory
+set_clone_directory() {
+    exec 3>&1
+    local dir_path=$(dialog --inputbox "Enter full path for clone directory e.g /home/\$USER/Pictures" 0 0 2>&1 1>&3)
+    exec 3>&-
+    
+    if [[ -z "$dir_path" ]]; then
+        error_box "Error" "Directory path cannot be empty"
+        return
+    fi
+
+    if [[ "${dir_path: -1}" != "/" ]]; then
+        dir_path+="/"
+    fi
+
+    save_clone_dir "$dir_path"
+    execute_command "cmi set-clone-dir \"$dir_path\""
+}
+
+# Install one-time updater
+install_one_time_updater() {
+    progress_dialog "Installing one-time updater..."
+    execute_command "cmi install-updater" && \
+    message_box "Success" "One-time updater installed successfully in /home/\$USER/.config/cmi"
+}
+
+# SquashFS menu
+squashfs_menu() {
+    local distro=$1
+    local options=(
+        "1" "Max compression (xz)"
+        "2" "Create SquashFS from clone directory"
+        "3" "Delete clone directory and SquashFS image"
+        "4" "Back to Main Menu"
+    )
+    
+    while true; do
+        choice=$(dialog --title "SquashFS Creator" \
+                       --menu "Choose an option:" 0 0 0 \
+                       "${options[@]}" \
+                       2>&1 >/dev/tty)
+        
+        case $choice in
+            1)
+                local clone_dir=$(read_clone_dir)
+                if [[ -z "$clone_dir" ]]; then
+                    error_box "Error" "No clone directory specified. Please set it in Setup Script menu."
+                    continue
+                fi
+                if ! dir_exists "${clone_dir}/clone_system_temp"; then
+                    clone_system "$clone_dir"
+                fi
+                create_squashfs_image "$distro"
+                ;;
+            2)
+                create_squashfs_image "$distro"
+                ;;
+            3)
+                delete_clone_system_temp "$distro"
+                ;;
+            4)
+                return
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+}
+
+# Create ISO
+create_iso() {
+    local distro=$1
+    local iso_name=$(get_iso_name)
+    if [[ -z "$iso_name" ]]; then
+        error_box "Error" "ISO name not set. Please set it in Setup Script menu (Option 3)"
+        return
+    fi
+
+    exec 3>&1
+    local output_dir=$(dialog --inputbox "Enter the output directory path:" 0 0 2>&1 1>&3)
+    exec 3>&-
+    
+    if [[ -z "$output_dir" ]]; then
+        error_box "Input Error" "Output directory cannot be empty."
+        return
+    fi
+
+    execute_command "cmi create-iso \"$output_dir\""
+    message_box "Success" "ISO creation completed."
+
+    exec 3>&1
+    local choice=$(dialog --menu "Choose an option:" 0 0 0 \
+                         "1" "Go back to main menu" \
+                         "2" "Exit" \
+                         2>&1 1>&3)
+    exec 3>&-
+    
+    if [[ "$choice" == "1" ]]; then
+        execute_command "ruby /opt/claudemods-iso-konsole-script/demo.rb"
+    fi
+}
+
+# Run ISO in QEMU
+run_iso_in_qemu() {
+    progress_dialog "Running ISO in QEMU..."
+    execute_command "cmi run-qemu" && \
+    message_box "Success" "ISO launched in QEMU."
+}
+
+# ISO Creator menu
+iso_creator_menu() {
+    local distro=$1
+    local options=(
+        "1" "Create ISO"
+        "2" "Run ISO in QEMU"
+        "3" "Back to Main Menu"
+    )
+    
+    while true; do
+        choice=$(dialog --title "ISO Creator Menu" \
+                       --menu "Choose an option:" 0 0 0 \
+                       "${options[@]}" \
+                       2>&1 >/dev/tty)
+        
+        case $choice in
+            1)
+                create_iso "$distro"
+                ;;
+            2)
+                run_iso_in_qemu
+                ;;
+            3)
+                return
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+}
+
+# Setup script menu
+setup_script_menu() {
+    local distro=$1
+    local distro_name=$(get_distro_name "$distro")
+    local options=()
+    local actions=()
+    
+    case $distro in
+        $ARCH)
+            options=(
+                "1" "Install Dependencies (Arch)"
+                "2" "Generate initcpio configuration (arch)"
+                "3" "Set ISO Name"
+                "4" "Edit isolinux.cfg (arch)"
+                "5" "Edit grub.cfg (arch)"
+                "6" "Set clone directory path"
+                "7" "Install Calamares"
+                "8" "Edit Calamares Branding"
+                "9" "Install One Time Updater"
+                "10" "Back to Main Menu"
+            )
+            actions=(
+                "install_dependencies_arch"
+                "generate_initrd_arch"
+                "set_iso_name"
+                "edit_isolinux_cfg_arch"
+                "edit_grub_cfg_arch"
+                "set_clone_directory"
+                "install_calamares_arch"
+                "edit_calamares_branding"
+                "install_one_time_updater"
+                "return"
+            )
+            ;;
+        $UBUNTU)
+            options=(
+                "1" "Install Dependencies (Ubuntu)"
+                "2" "Generate initramfs (ubuntu)"
+                "3" "Set ISO Name"
+                "4" "Edit isolinux.cfg (ubuntu)"
+                "5" "Edit grub.cfg (ubuntu)"
+                "6" "Set clone directory path"
+                "7" "Install Calamares"
+                "8" "Edit Calamares Branding"
+                "9" "Install One Time Updater"
+                "10" "Back to Main Menu"
+            )
+            actions=(
+                "install_dependencies_ubuntu"
+                "generate_initrd_ubuntu"
+                "set_iso_name"
+                "edit_isolinux_cfg_ubuntu"
+                "edit_grub_cfg_ubuntu"
+                "set_clone_directory"
+                "install_calamares_ubuntu"
+                "edit_calamares_branding"
+                "install_one_time_updater"
+                "return"
+            )
+            ;;
+        $DEBIAN)
+            options=(
+                "1" "Install Dependencies (Debian)"
+                "2" "Generate initramfs (debian)"
+                "3" "Set ISO Name"
+                "4" "Edit isolinux.cfg (debian)"
+                "5" "Edit grub.cfg (debian)"
+                "6" "Set clone directory path"
+                "7" "Install Calamares"
+                "8" "Edit Calamares Branding"
+                "9" "Install One Time Updater"
+                "10" "Back to Main Menu"
+            )
+            actions=(
+                "install_dependencies_debian"
+                "generate_initrd_debian"
+                "set_iso_name"
+                "edit_isolinux_cfg_debian"
+                "edit_grub_cfg_debian"
+                "set_clone_directory"
+                "install_calamares_debian"
+                "edit_calamares_branding"
+                "install_one_time_updater"
+                "return"
+            )
+            ;;
+        $CACHYOS)
+            options=(
+                "1" "Install Dependencies (CachyOS)"
+                "2" "Generate initcpio configuration (cachyos)"
+                "3" "Set ISO Name"
+                "4" "Edit isolinux.cfg (cachyos)"
+                "5" "Edit grub.cfg (cachyos)"
+                "6" "Set clone directory path"
+                "7" "Install Calamares"
+                "8" "Edit Calamares Branding"
+                "9" "Install One Time Updater"
+                "10" "Back to Main Menu"
+            )
+            actions=(
+                "install_dependencies_cachyos"
+                "generate_initrd_arch" # Same as Arch for CachyOS
+                "set_iso_name"
+                "edit_isolinux_cfg_arch" # Same as Arch for CachyOS
+                "edit_grub_cfg_arch" # Same as Arch for CachyOS
+                "set_clone_directory"
+                "install_calamares_cachyos"
+                "edit_calamares_branding"
+                "install_one_time_updater"
+                "return"
+            )
+            ;;
+        $NEON)
+            options=(
+                "1" "Install Dependencies (Ubuntu)"
+                "2" "Generate initramfs (ubuntu)"
+                "3" "Set ISO Name"
+                "4" "Edit isolinux.cfg (ubuntu)"
+                "5" "Edit grub.cfg (ubuntu)"
+                "6" "Set clone directory path"
+                "7" "Install Calamares"
+                "8" "Edit Calamares Branding"
+                "9" "Install One Time Updater"
+                "10" "Back to Main Menu"
+            )
+            actions=(
+                "install_dependencies_ubuntu"
+                "generate_initrd_ubuntu"
+                "set_iso_name"
+                "edit_isolinux_cfg_ubuntu"
+                "edit_grub_cfg_ubuntu"
+                "set_clone_directory"
+                "install_calamares_ubuntu"
+                "edit_calamares_branding"
+                "install_one_time_updater"
+                "return"
+            )
+            ;;
+        *)
+            error_box "Error" "Unsupported distribution"
+            return
+            ;;
+    esac
+    
+    while true; do
+        choice=$(dialog --title "Setup Script Menu" \
+                       --menu "Choose an option:" 0 0 0 \
+                       "${options[@]}" \
+                       2>&1 >/dev/tty)
+        
+        if [[ -z "$choice" ]]; then
+            return
+        fi
+        
+        # Adjust for 0-based array index
+        local action_index=$((choice - 1))
+        
+        if [[ "$action_index" -ge 0 && "$action_index" -lt "${#actions[@]}" ]]; then
+            local action="${actions[$action_index]}"
+            if [[ "$action" == "return" ]]; then
+                return
+            else
+                $action
+            fi
+        fi
+    done
+}
+
+# Main menu
+main_menu() {
+    local distro=$(detect_distro)
+    local options=(
+        "1" "Guide"
+        "2" "Setup Script"
+        "3" "SquashFS Creator"
+        "4" "ISO Creator"
+        "5" "Changelog"
+        "6" "Exit"
+    )
+    
+    while true; do
+        if $should_reset; then
+            should_reset=false
+            continue
+        fi
+        
+        print_banner "$distro"
+        
+        choice=$(dialog --title "Main Menu" \
+                       --menu "Choose an option:" 0 0 0 \
+                       "${options[@]}" \
+                       2>&1 >/dev/tty)
+        
+        case $choice in
+            1)
+                execute_command "cmi guide"
+                ;;
+            2)
+                setup_script_menu "$distro"
+                ;;
+            3)
+                squashfs_menu "$distro"
+                ;;
+            4)
+                iso_creator_menu "$distro"
+                ;;
+            5)
+                execute_command "cmi changelog"
+                ;;
+            6)
+                exit 0
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+}
+
+# Handle command line arguments
+if [[ $# -gt 0 ]]; then
+    distro=$(detect_distro)
+    case $1 in
+        5)
+            if [[ $distro == $ARCH || $distro == $CACHYOS ]]; then
+                generate_initrd_arch
+            elif [[ $distro == $UBUNTU || $distro == $NEON ]]; then
+                generate_initrd_ubuntu
+            elif [[ $distro == $DEBIAN ]]; then
+                generate_initrd_debian
+            fi
+            ;;
+        6)
+            if [[ $distro == $ARCH || $distro == $CACHYOS ]]; then
+                edit_isolinux_cfg_arch
+            elif [[ $distro == $UBUNTU || $distro == $NEON ]]; then
+                edit_isolinux_cfg_ubuntu
+            elif [[ $distro == $DEBIAN ]]; then
+                edit_isolinux_cfg_debian
+            fi
+            ;;
+        7)
+            if [[ $distro == $ARCH || $distro == $CACHYOS ]]; then
+                edit_grub_cfg_arch
+            elif [[ $distro == $UBUNTU || $distro == $NEON ]]; then
+                edit_grub_cfg_ubuntu
+            elif [[ $distro == $DEBIAN ]]; then
+                edit_grub_cfg_debian
+            fi
+            ;;
+        8)
+            setup_script_menu "$distro"
+            ;;
+        3)
+            iso_creator_menu "$distro"
+            ;;
+        4)
+            squashfs_menu "$distro"
+            ;;
+        9)
+            if [[ $distro == $ARCH ]]; then
+                install_calamares_arch
+            elif [[ $distro == $CACHYOS ]]; then
+                install_calamares_cachyos
+            elif [[ $distro == $UBUNTU || $distro == $NEON ]]; then
+                install_calamares_ubuntu
+            elif [[ $distro == $DEBIAN ]]; then
+                install_calamares_debian
+            fi
+            ;;
+        10)
+            edit_calamares_branding
+            ;;
+        *)
+            echo "Invalid option"
+            exit 1
+            ;;
+    esac
+    exit 0
+fi
+
+# Start the main menu
+main_menu
