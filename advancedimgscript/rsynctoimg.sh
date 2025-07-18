@@ -20,18 +20,18 @@ if ! truncate -s "$IMG_SIZE" "$IMG_NAME"; then
     exit 1
 fi
 
-# Format as BTRFS with compression feature enabled
-echo "Formatting as BTRFS (compression will be applied during copy)"
-if ! mkfs.btrfs -f -L "SYSTEM_BACKUP" "$IMG_NAME"; then
+# Format as BTRFS with FORCED compression
+echo "Formatting as BTRFS with forced zstd:$COMPRESSION_LEVEL compression"
+if ! mkfs.btrfs -f --compress-force=zstd:$COMPRESSION_LEVEL -L "SYSTEM_BACKUP" "$IMG_NAME"; then
     echo "Failed to format BTRFS filesystem" >&2
     rm -f "$IMG_NAME"
     exit 1
 fi
 
 # Create mount point
-echo "Mounting the image file with maximum compression settings"
+echo "Mounting the image file with forced compression"
 mkdir -p "$MOUNT_POINT" || exit 1
-if ! mount -o loop,compress=zstd:$COMPRESSION_LEVEL,discard,noatime,space_cache=v2,autodefrag "$IMG_NAME" "$MOUNT_POINT"; then
+if ! mount -o loop,compress-force=zstd:$COMPRESSION_LEVEL,discard,noatime,space_cache=v2,autodefrag "$IMG_NAME" "$MOUNT_POINT"; then
     echo "Failed to mount image file" >&2
     rm -f "$IMG_NAME"
     rmdir "$MOUNT_POINT"
@@ -74,12 +74,6 @@ if ! rsync -aHAXSr --numeric-ids --info=progress2 \
     exit 1
 fi
 
-# Force compression on all files
-echo "Ensuring all files are compressed..."
-if ! btrfs filesystem defragment -r -v -czstd:$COMPRESSION_LEVEL "$MOUNT_POINT"; then
-    echo "Defragmentation/compression failed for some files" >&2
-fi
-
 # Clean up
 echo "Unmounting and finalizing..."
 sync
@@ -91,6 +85,6 @@ if ! rmdir "$MOUNT_POINT"; then
 fi
 
 echo -e "\nCompressed BTRFS image created successfully: $IMG_NAME"
-echo "Compression: zstd at level $COMPRESSION_LEVEL"
+echo "Compression: zstd at level $COMPRESSION_LEVEL (forced during write)"
 echo "Mount with:"
 echo "  sudo mount -o loop,compress=zstd:$COMPRESSION_LEVEL $IMG_NAME /mnt/point"
