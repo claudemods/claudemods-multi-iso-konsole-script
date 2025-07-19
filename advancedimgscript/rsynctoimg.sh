@@ -11,17 +11,20 @@ IMG_SIZE="6G"                # Size of the image file
 IMG_NAME="system_backup.img" # Output image filename
 MOUNT_POINT="/mnt/btrfs_temp" # Temporary mount point
 SOURCE_DIR="/"               # Source directory to backup
-COMPRESSION_LEVEL="22"       # Maximum compression level
-FS_TYPE="btrfs"              # Filesystem type: btrfs or ext4
+COMPRESSION_LEVEL="22"       # Maximum compression level for BTRFS
 
-# Ask for filesystem type if not specified
-if [ "$#" -eq 1 ]; then
-    FS_TYPE="$1"
-fi
+# Ask user for filesystem type
+echo "Choose the filesystem type:"
+echo "1) btrfs"
+echo "2) ext4"
+read -p "Enter your choice (1 or 2): " choice
 
-if [ "$FS_TYPE" != "btrfs" ] && [ "$FS_TYPE" != "ext4" ]; then
-    echo "Usage: $0 [btrfs|ext4]" >&2
-    echo "Defaulting to btrfs"
+if [ "$choice" = "1" ]; then
+    FS_TYPE="btrfs"
+elif [ "$choice" = "2" ]; then
+    FS_TYPE="ext4"
+else
+    echo "Invalid choice. Defaulting to btrfs."
     FS_TYPE="btrfs"
 fi
 
@@ -69,8 +72,8 @@ else
     fi
 fi
 
-# Rsync command to copy files (EXACTLY AS ORIGINAL)
-echo "Copying files with rsync (this will apply zstd:$COMPRESSION_LEVEL compression for btrfs)..."
+# Rsync command to copy files
+echo "Copying files with rsync..."
 if ! rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
@@ -86,22 +89,11 @@ if ! rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/lost+found \
     --exclude=btrfs_temp \
     --exclude=system_backup.img \
-    --include=dev \
-    --include=proc \
-    --include=tmp \
-    --include=sys \
-    --include=run \
-    --include=dev \
-    --include=proc \
-    --include=tmp \
-    --include=sys \
-    --include=usr \
-    --include=etc \
     "$SOURCE_DIR" "$MOUNT_POINT"; then
     echo "Rsync failed" >&2
-    umount "$MOUNT_POINT"
+    umount "$MOUNT_POINT" || echo "Warning: Failed to unmount $MOUNT_POINT" >&2
     rm -f "$IMG_NAME"
-    rmdir "$MOUNT_POINT"
+    rmdir "$MOUNT_POINT" || echo "Warning: Failed to remove mount directory" >&2
     exit 1
 fi
 
