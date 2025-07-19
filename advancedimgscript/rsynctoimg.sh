@@ -12,34 +12,65 @@ IMG_NAME="system_backup.img" # Output image filename
 MOUNT_POINT="/mnt/btrfs_temp" # Temporary mount point
 SOURCE_DIR="/"               # Source directory to backup
 COMPRESSION_LEVEL="22"       # Maximum compression level
+FS_TYPE="btrfs"              # Filesystem type: btrfs or ext4
+
+# Ask for filesystem type if not specified
+if [ "$#" -eq 1 ]; then
+    FS_TYPE="$1"
+fi
+
+if [ "$FS_TYPE" != "btrfs" ] && [ "$FS_TYPE" != "ext4" ]; then
+    echo "Usage: $0 [btrfs|ext4]" >&2
+    echo "Defaulting to btrfs"
+    FS_TYPE="btrfs"
+fi
 
 # Create the image file
-echo "Creating $IMG_SIZE BTRFS image file: $IMG_NAME"
+echo "Creating $IMG_SIZE $FS_TYPE image file: $IMG_NAME"
 if ! truncate -s "$IMG_SIZE" "$IMG_NAME"; then
     echo "Failed to create image file" >&2
     exit 1
 fi
 
-# Format as BTRFS with FORCED compression
-echo "Formatting as BTRFS with forced zstd:$COMPRESSION_LEVEL compression"
-if ! mkfs.btrfs -f --compress-force=zstd:$COMPRESSION_LEVEL -L "SYSTEM_BACKUP" "$IMG_NAME"; then
-    echo "Failed to format BTRFS filesystem" >&2
-    rm -f "$IMG_NAME"
-    exit 1
+# Format the image based on filesystem type
+if [ "$FS_TYPE" = "btrfs" ]; then
+    echo "Formatting as BTRFS with forced zstd:$COMPRESSION_LEVEL compression"
+    if ! mkfs.btrfs -f --compress-force=zstd:$COMPRESSION_LEVEL -L "SYSTEM_BACKUP" "$IMG_NAME"; then
+        echo "Failed to format BTRFS filesystem" >&2
+        rm -f "$IMG_NAME"
+        exit 1
+    fi
+else
+    echo "Formatting as ext4"
+    if ! mkfs.ext4 -F -L "SYSTEM_BACKUP" "$IMG_NAME"; then
+        echo "Failed to format ext4 filesystem" >&2
+        rm -f "$IMG_NAME"
+        exit 1
+    fi
 fi
 
 # Create mount point
-echo "Mounting the image file with forced compression"
+echo "Mounting the image file"
 mkdir -p "$MOUNT_POINT" || exit 1
-if ! mount -o loop,compress-force=zstd:$COMPRESSION_LEVEL,discard,noatime,space_cache=v2,autodefrag "$IMG_NAME" "$MOUNT_POINT"; then
-    echo "Failed to mount image file" >&2
-    rm -f "$IMG_NAME"
-    rmdir "$MOUNT_POINT"
-    exit 1
+
+if [ "$FS_TYPE" = "btrfs" ]; then
+    if ! mount -o loop,compress-force=zstd:$COMPRESSION_LEVEL,discard,noatime,space_cache=v2,autodefrag "$IMG_NAME" "$MOUNT_POINT"; then
+        echo "Failed to mount BTRFS image file" >&2
+        rm -f "$IMG_NAME"
+        rmdir "$MOUNT_POINT"
+        exit 1
+    fi
+else
+    if ! mount -o loop,discard,noatime "$IMG_NAME" "$MOUNT_POINT"; then
+        echo "Failed to mount ext4 image file" >&2
+        rm -f "$IMG_NAME"
+        rmdir "$MOUNT_POINT"
+        exit 1
+    fi
 fi
 
-# Rsync command to copy files with compression
-echo "Copying files with rsync (this will apply zstd:$COMPRESSION_LEVEL compression)..."
+# Rsync command to copy files (EXACTLY AS ORIGINAL)
+echo "Copying files with rsync (this will apply zstd:$COMPRESSION_LEVEL compression for btrfs)..."
 if ! rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
@@ -84,7 +115,14 @@ if ! rmdir "$MOUNT_POINT"; then
     echo "Warning: Failed to remove mount directory" >&2
 fi
 
-echo -e "\nCompressed BTRFS image created successfully: $IMG_NAME"
-echo "Compression: zstd at level $COMPRESSION_LEVEL (forced during write)"
-echo "Mount with:"
-echo "  sudo mount -o loop,compress=zstd:$COMPRESSION_LEVEL $IMG_NAME /mnt/point"
+# Final message based on filesystem type
+if [ "$FS_TYPE" = "btrfs" ]; then
+    echo -e "\nCompressed BTRFS image created successfully: $IMG_NAME"
+    echo "Compression: zstd at level $COMPRESSION_LEVEL (forced during write)"
+    echo "Mount with:"
+    echo "  sudo mount -o loop,compress=zstd:$COMPRESSION_LEVEL $IMG_NAME /mnt/point"
+else
+    echo -e "\nExt4 image created successfully: $IMG_NAME"
+    echo "Mount with:"
+    echo "  sudo mount -o loop $IMG_NAME /mnt/point"
+fi
