@@ -18,7 +18,7 @@ const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
 const std::string SQUASHFS_COMPRESSION = "zstd";
 const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
-std::string BUILD_DIR = "";
+std::string BUILD_DIR = "/home/spitfire/.config/cmi/build-image-arch-ext4img";
 std::string USERNAME = "";
 
 // Configuration state
