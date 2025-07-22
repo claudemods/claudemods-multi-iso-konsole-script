@@ -260,7 +260,7 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=/mnt/* "
     "--exclude=/media/* "
     "--exclude=/lost+found "
-    "--exclude=*.squashfs.img "
+    "--exclude=*rootfs1.img "
     "--exclude=btrfs_temp "
     "--exclude=rootfs.img " +
     source + " " + destination;
