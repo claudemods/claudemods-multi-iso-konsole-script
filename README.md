@@ -103,10 +103,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
   - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
   - Advanced: `btrfs-progs`, `qmake6` (for v1.0)
 
-## 🚀 Installation
-
-### For Image Iso Creator Beta (v1.0):
-## 🚀 Installation 
+## 🚀 Installation for new img iso creator
 - more info coming for now please wait
 
 ### For Image Iso Creator Beta (v1.0):
@@ -115,8 +112,9 @@ git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script
 cd advancedimgscript
 qmake6 && make
 sudo cp cmiimg /usr/local/bin/
-<div align="center"></div>
 ```
+
+  ## [ new video for v1 img iso creator](https://youtu.be/ej14L0vcZ9M)
 
 
 </div>
