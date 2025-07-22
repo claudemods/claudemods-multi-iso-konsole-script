@@ -14,7 +14,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 - [License](#-license)
 
 ## ✨ Features
-- 🖼️ Create compressed system images (ext4 or btrfs)
+- 🖼️ Create compressed system images (ext4 only currently)
 - � Generate bootable ISOs with custom configurations
 - 🔐 Automatic root privilege detection
 - 📊 Disk usage reporting
@@ -28,7 +28,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 - Linux system
 - GCC compiler
 - Root privileges (for most operations)
-- Required packages: `rsync`, `squashfs-tools`, `btrfs-progs`, `xorriso`, `grub`
+- Required packages: `rsync`, `squashfs-tools`, `btrfs-progs`, `xorriso`, `grub`, `dosfstools`
 
 ## 🚀 Installation
 ```bash
@@ -37,7 +37,7 @@ git clone https://github.com/yourusername/claudemods-image-creator.git
 cd claudemods-image-creator
 
 # Compile
-g++ -std=c++11 image_creator.cpp -o claudemods-image-creator
+qmake6 && make
 
 # Install
 sudo cp claudemods-image-creator /usr/local/bin/
