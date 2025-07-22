@@ -59,11 +59,9 @@
 
 # 🖥️ Claudemods Ext4/Btrfs Image & ISO Creator v1.0 🛠️ | Multi ISO Creator v2.0 🚀
 
-![Banner](https://via.placeholder.com/800x200?text=Claudemods+Image+%26+ISO+Creator)
-
 A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system with multi-distribution support.
 
-![C++](https://img.shields.io/badge/C++-17-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![C++](https://img.shields.io/badge/C++-23-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## 📝 Table of Contents
 - [Features](#-features)
