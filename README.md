@@ -105,15 +105,44 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 
 ## 🚀 Installation
 
-### For Image Creator (v1.0):
+### For Image Iso Creator Beta (v1.0):
+## 🚀 Installation 
+- more info coming for now please wait
+
 ```bash
-git clone https://github.com/yourusername/claudemods-image-creator.git
-cd claudemods-image-creator
+git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script
+cd advancedimgscript
 qmake6 && make
-sudo cp claudemods-image-creator /usr/local/bin/
+sudo cp cmiimg /usr/local/bin/
 
 <div align="center">
-    
-  [![YouTube](https://img.shields.io/youtube/channel/subscribers/UC6OgAhBq7Ocb5g1bQfVSd0Q?color=ff0000&label=Youtube&logo=youtube&style=palstic)](https://youtube.com/@claudemods)
+
 
 </div>
+
+---
+<div align="center">
+    
+### 🚀 New Install Methods
+
+<div align="center">
+  <strong>all in one cmi commander and tui advanced c++DevBranch:</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"</code>
+</div>
+
+<div align="center">
+  <strong>All-in-one advanced C++ script beta v2.0 MainBranch:</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"</code>
+</div>
+
+<div align="center">
+  <strong>All-in-one advanced C++ script v2.0 DevBranch:</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one-devbranch/installermain/patch.sh)"</code>
+</div>
+
+<div align="center">
+  <strong>Advanced C script beta v2.0 MainBranch:</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"</code>
+</div>
+
+---
