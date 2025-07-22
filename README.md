@@ -17,8 +17,6 @@
 
   <div align="center">
       
-[![Version](https://img.shields.io/github/v/release/claudemods/claudemods-multi-iso-konsole-script?color=FFD700&label=Latest%20Release&style=for-the-badge)](https://github.com/https://github.com/claudemods/claudemods-multi-iso-konsole-script/releases/tag/v2.0-27-06-2025)
- 
   </div>
 
   ## [ Guide ](https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/guide/readme.md)
@@ -59,55 +57,58 @@
   <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
 </div>
 
-<div align="center">
+# 🖥️ Claudemods Ext4/Btrfs Image & ISO Creator v1.0 🛠️ | Multi ISO Creator v2.0 🚀
 
----
+![Banner](https://via.placeholder.com/800x200?text=Claudemods+Image+%26+ISO+Creator)
 
-    
-  <h3 align="center">Urgent News! V2.0</h3>
+A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system with multi-distribution support.
 
-  <h3 align="center">Arch Cloning Works In My C++ Script 27-06-2025</h3>
-    
-  <h3 align="center">Debian And Its Derivatives Have Kernel Issues Which Ive Known About A While Now</h3>
-    
-  <h3 align="center">Hopefully The Journal Issue Gets Resolved Soon</h3>
+![C++](https://img.shields.io/badge/C++-17-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
----
+## 📝 Table of Contents
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Supported Distributions](#-supported-distributions)
+- [Code Overview](#-code-overview)
+- [License](#-license)
 
-<div align="center">
-  build dependencies needed to install on older distros for new cscript libreadline6-dev and libncurses-dev</div>
+## ✨ Features
 
+### Image Creation Features
+- 🖼️ Create compressed system images (ext4/btrfs)
+- 🔐 Automatic root privilege detection
+- 📊 Disk usage reporting
+- 🔄 Rsync-based file copying with intelligent exclusions
+- 🗜️ SquashFS compression with zstd support
+- 🔍 MD5 checksum generation
+- 🎨 Colorful terminal output
 
----
-<div align="center">
-    
-### 🚀 New Install Methods
+### ISO Creation Features
+- 🚀 Generate bootable ISOs with custom configurations
+- 🐧 Multi-Distro Support (Arch, Ubuntu, Debian, CachyOS, KDE Neon)
+- 🛠️ Customizable branding and kernel options
+- 🤖 Automated initramfs generation
+- ⏱️ Real-time updates and status indicators
+- 📝 Command Line Tools integration
 
-<div align="center">
-  <strong>all in one cmi commander and tui advanced c++DevBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"</code>
-</div>
+## 📋 Requirements
+- Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
+- GCC compiler (C++17 compatible)
+- Root privileges (sudo access)
+- Required packages:
+  - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
+  - Advanced: `btrfs-progs`, `qmake6` (for v1.0)
 
-<div align="center">
-  <strong>All-in-one advanced C++ script beta v2.0 MainBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"</code>
-</div>
+## 🚀 Installation
 
-<div align="center">
-  <strong>All-in-one advanced C++ script v2.0 DevBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one-devbranch/installermain/patch.sh)"</code>
-</div>
-
-<div align="center">
-  <strong>Advanced C script beta v2.0 MainBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"</code>
-</div>
-
----
-
-<div align="center">
-  <h3 align="center">Connect With Me On Social</h3>
-</div>
+### For Image Creator (v1.0):
+```bash
+git clone https://github.com/yourusername/claudemods-image-creator.git
+cd claudemods-image-creator
+qmake6 && make
+sudo cp claudemods-image-creator /usr/local/bin/
 
 <div align="center">
     
