@@ -73,7 +73,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << "claudemods ext4 img iso creator v1.0" << COLOR_RESET << std::endl << std::endl;
+std::cout << COLOR_CYAN << "claudemods arch ext4 img iso creator v1.0 22-07-2025" << COLOR_RESET << std::endl << std::endl;
 }
 
 void showDiskUsage() {
