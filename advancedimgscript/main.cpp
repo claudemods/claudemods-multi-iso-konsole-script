@@ -9,6 +9,7 @@
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <dirent.h>
+#include <pwd.h>
 
 // Constants
 const std::string ORIG_IMG_NAME = "rootfs1.img";
@@ -18,7 +19,7 @@ const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
 const std::string SQUASHFS_COMPRESSION = "zstd";
 const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
-std::string BUILD_DIR = "/home/spitfire/.config/cmi/build-image-arch-ext4img";
+std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-ext4img";
 std::string USERNAME = "";
 
 // Configuration state
@@ -79,33 +80,6 @@ void showDiskUsage() {
     std::cout << COLOR_GREEN << "\nCurrent system disk usage:\n" << COLOR_RESET;
     execute_command("df -h /");
     std::cout << std::endl;
-}
-
-void checkSetupStatus() {
-    std::cout << COLOR_BLUE << "\nCurrent ISO Creation Setup Status:\n" << COLOR_RESET;
-    std::cout << " "; printCheckbox(!config.isoTag.empty());
-    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(!config.isoName.empty());
-    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(!config.outputDir.empty());
-    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(!config.vmlinuzPath.empty());
-    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(config.mkinitcpioGenerated);
-    std::cout << " mkinitcpio Generated\n";
-
-    std::cout << " "; printCheckbox(config.grubEdited);
-    std::cout << " GRUB Config Edited\n";
-
-    if (config.isReadyForISO()) {
-        std::cout << COLOR_GREEN << "\nAll requirements met for ISO creation!\n" << COLOR_RESET;
-    } else {
-        std::cout << COLOR_YELLOW << "\nSome requirements are missing for ISO creation\n" << COLOR_RESET;
-    }
 }
 
 std::string getUserInput(const std::string& prompt) {
@@ -187,7 +161,7 @@ void editGrubCfg() {
 
     std::string grubCfgPath = BUILD_DIR + "/boot/grub/grub.cfg";
     std::cout << COLOR_CYAN << "Editing GRUB config: " << grubCfgPath << COLOR_RESET << std::endl;
-    execute_command("nano " + grubCfgPath);
+    execute_command("sudo nano " + grubCfgPath);
 
     config.grubEdited = true;
     std::cout << COLOR_GREEN << "GRUB config edited!" << COLOR_RESET << std::endl;
@@ -202,7 +176,64 @@ void setIsoName() {
 }
 
 void setOutputDir() {
-    config.outputDir = getUserInput("Enter output directory (e.g., ~/Downloads): ");
+    std::string defaultDir = "/home/" + USERNAME + "/Downloads";
+    std::cout << COLOR_GREEN << "Current output directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
+    config.outputDir = getUserInput("Enter output directory (e.g., " + defaultDir + " or $USER/Downloads): ");
+
+    // Replace $USER with actual username
+    size_t user_pos;
+    if ((user_pos = config.outputDir.find("$USER")) != std::string::npos) {
+        config.outputDir.replace(user_pos, 5, USERNAME);
+    }
+
+    // If empty, use default
+    if (config.outputDir.empty()) {
+        config.outputDir = defaultDir;
+    }
+}
+
+std::string getConfigFilePath() {
+    return "/home/" + USERNAME + "/.config/cmi/configuration.txt";
+}
+
+void saveConfig() {
+    std::string configPath = getConfigFilePath();
+    std::ofstream configFile(configPath);
+    if (configFile.is_open()) {
+        configFile << "isoTag=" << config.isoTag << "\n";
+        configFile << "isoName=" << config.isoName << "\n";
+        configFile << "outputDir=" << config.outputDir << "\n";
+        configFile << "vmlinuzPath=" << config.vmlinuzPath << "\n";
+        configFile << "mkinitcpioGenerated=" << (config.mkinitcpioGenerated ? "1" : "0") << "\n";
+        configFile << "grubEdited=" << (config.grubEdited ? "1" : "0") << "\n";
+        configFile.close();
+    } else {
+        std::cerr << COLOR_RED << "Failed to save configuration to " << configPath << COLOR_RESET << std::endl;
+    }
+}
+
+void loadConfig() {
+    std::string configPath = getConfigFilePath();
+    std::ifstream configFile(configPath);
+    if (configFile.is_open()) {
+        std::string line;
+        while (std::getline(configFile, line)) {
+            size_t delimiter = line.find('=');
+            if (delimiter != std::string::npos) {
+                std::string key = line.substr(0, delimiter);
+                std::string value = line.substr(delimiter + 1);
+
+                if (key == "isoTag") config.isoTag = value;
+                else if (key == "isoName") config.isoName = value;
+                else if (key == "outputDir") config.outputDir = value;
+                else if (key == "vmlinuzPath") config.vmlinuzPath = value;
+                else if (key == "mkinitcpioGenerated") config.mkinitcpioGenerated = (value == "1");
+                else if (key == "grubEdited") config.grubEdited = (value == "1");
+            }
+        }
+        configFile.close();
+    }
 }
 
 void showSetupMenu() {
@@ -213,26 +244,24 @@ void showSetupMenu() {
     std::cout << COLOR_BLUE << "4) Select vmlinuz\n" << COLOR_RESET;
     std::cout << COLOR_BLUE << "5) Generate mkinitcpio\n" << COLOR_RESET;
     std::cout << COLOR_BLUE << "6) Edit GRUB Config\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "7) Check Setup Status\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "8) Back to Main Menu\n" << COLOR_RESET;
+    std::cout << COLOR_BLUE << "7) Back to Main Menu\n" << COLOR_RESET;
 }
 
 void processSetupChoice(int choice) {
     switch (choice) {
-        case 1: setIsoTag(); break;
-        case 2: setIsoName(); break;
-        case 3: setOutputDir(); break;
-        case 4: selectVmlinuz(); break;
-        case 5: generateMkinitcpio(); break;
-        case 6: editGrubCfg(); break;
-        case 7: checkSetupStatus(); break;
-        case 8: return;
+        case 1: setIsoTag(); saveConfig(); break;
+        case 2: setIsoName(); saveConfig(); break;
+        case 3: setOutputDir(); saveConfig(); break;
+        case 4: selectVmlinuz(); saveConfig(); break;
+        case 5: generateMkinitcpio(); saveConfig(); break;
+        case 6: editGrubCfg(); saveConfig(); break;
+        case 7: return;
         default: std::cout << COLOR_RED << "Invalid choice!" << COLOR_RESET << std::endl;
     }
 }
 
 bool createImageFile(const std::string& size, const std::string& filename) {
-    std::string command = "truncate -s " + size + " " + filename;
+    std::string command = "sudo truncate -s " + size + " " + filename;
     execute_command(command);
     return true;
 }
@@ -329,7 +358,6 @@ void deleteOriginalImage(const std::string& imgName) {
 
 std::string getOutputDirectory() {
     std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img/LiveOS";
-    execute_command("mkdir -p " + dir);
     return dir;
 }
 
@@ -349,14 +377,12 @@ std::string expandPath(const std::string& path) {
 bool createISO() {
     if (!config.isReadyForISO()) {
         std::cerr << COLOR_RED << "Cannot create ISO - setup is incomplete!" << COLOR_RESET << std::endl;
-        checkSetupStatus();
         return false;
     }
 
     std::cout << COLOR_CYAN << "\nStarting ISO creation process...\n" << COLOR_RESET;
 
     std::string expandedOutputDir = expandPath(config.outputDir);
-    execute_command("mkdir -p " + expandedOutputDir);
 
     std::string xorrisoCmd = "sudo xorriso -as mkisofs "
     "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
@@ -388,6 +414,28 @@ bool createISO() {
 
 void showMainMenu() {
     std::cout << COLOR_BLUE << "\nMain Menu:\n" << COLOR_RESET;
+
+    // Show configuration status at the top
+    std::cout << COLOR_BLUE << "Current Configuration:\n" << COLOR_RESET;
+    std::cout << " "; printCheckbox(!config.isoTag.empty());
+    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << "\n";
+
+    std::cout << " "; printCheckbox(!config.isoName.empty());
+    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << "\n";
+
+    std::cout << " "; printCheckbox(!config.outputDir.empty());
+    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << "\n";
+
+    std::cout << " "; printCheckbox(!config.vmlinuzPath.empty());
+    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << "\n";
+
+    std::cout << " "; printCheckbox(config.mkinitcpioGenerated);
+    std::cout << " mkinitcpio Generated\n";
+
+    std::cout << " "; printCheckbox(config.grubEdited);
+    std::cout << " GRUB Config Edited\n";
+
+    std::cout << COLOR_BLUE << "\nOptions:\n" << COLOR_RESET;
     std::cout << COLOR_BLUE << "1) Create Image\n" << COLOR_RESET;
     std::cout << COLOR_BLUE << "2) ISO Creation Setup\n" << COLOR_RESET;
     std::cout << COLOR_BLUE << "3) Create ISO\n" << COLOR_RESET;
@@ -399,7 +447,6 @@ void showMainMenu() {
 void processMainMenuChoice(int choice) {
     switch (choice) {
         case 1: {
-            USERNAME = getUserInput("Enter your username: ");
             MOUNT_POINT = "/home/" + USERNAME + "/btrfs_temp";
             BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img";
 
@@ -436,7 +483,7 @@ void processMainMenuChoice(int choice) {
                 std::getline(std::cin, input);
                 try {
                     int setupChoice = std::stoi(input);
-                    if (setupChoice == 8) break;
+                    if (setupChoice == 7) break;
                     processSetupChoice(setupChoice);
                 } catch (...) {
                     std::cout << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
@@ -458,6 +505,25 @@ void processMainMenuChoice(int choice) {
 }
 
 int main() {
+    // Get current username
+    struct passwd *pw = getpwuid(getuid());
+    if (pw) {
+        USERNAME = pw->pw_name;
+    } else {
+        std::cerr << COLOR_RED << "Failed to get username!" << COLOR_RESET << std::endl;
+        return 1;
+    }
+
+    // Set BUILD_DIR based on username
+    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img";
+
+    // Create config directory if it doesn't exist
+    std::string configDir = "/home/" + USERNAME + "/.config/cmi";
+    execute_command("mkdir -p " + configDir);
+
+    // Load existing configuration
+    loadConfig();
+
     printBanner();
     showDiskUsage();
 
