@@ -1,0 +1,43 @@
+# 🖥️ Claudemods Ext4/Btrfs Image & ISO Creator v1.0 🛠️
+
+![Banner](https://via.placeholder.com/800x200?text=Claudemods+Image+Creator)
+
+A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system. 🔥
+
+## 📝 Table of Contents
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Code Overview](#-code-overview)
+- [Full Source Code](#-full-source-code)
+- [License](#-license)
+
+## ✨ Features
+- 🖼️ Create compressed system images (ext4 or btrfs)
+- � Generate bootable ISOs with custom configurations
+- 🔐 Automatic root privilege detection
+- 📊 Disk usage reporting
+- 🔄 Rsync-based file copying with intelligent exclusions
+- 🗜️ SquashFS compression with zstd support
+- 🔍 MD5 checksum generation
+- 🎨 Colorful terminal output
+- 🐧 Supports most Linux distributions
+
+## 📋 Requirements
+- Linux system
+- GCC compiler
+- Root privileges (for most operations)
+- Required packages: `rsync`, `squashfs-tools`, `btrfs-progs`, `xorriso`, `grub`
+
+## 🚀 Installation
+```bash
+# Clone repository
+git clone https://github.com/yourusername/claudemods-image-creator.git
+cd claudemods-image-creator
+
+# Compile
+g++ -std=c++11 image_creator.cpp -o claudemods-image-creator
+
+# Install
+sudo cp claudemods-image-creator /usr/local/bin/
