@@ -22,7 +22,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 - 🗜️ SquashFS compression with zstd support
 - 🔍 MD5 checksum generation
 - 🎨 Colorful terminal output
-- 🐧 Supports most Linux distributions
+- 🐧 Arch Based
 
 ## 📋 Requirements
 - Linux system
