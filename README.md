@@ -74,21 +74,26 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 ## ✨ Features
 
 ### Image Creation Features
+- 🚀 Generate bootable ISOs with custom configurations
+- 🛠️ Customizable branding and kernel options
 - 🖼️ Create compressed system images (ext4/btrfs)
-- 🔐 Automatic root privilege detection
 - 📊 Disk usage reporting
 - 🔄 Rsync-based file copying with intelligent exclusions
 - 🗜️ SquashFS compression with zstd support
+- 🤖 initramfs generation
 - 🔍 MD5 checksum generation
+- ⏱️ Real-time updates and status indicators
 - 🎨 Colorful terminal output
 
 ### ISO Creation Features
 - 🚀 Generate bootable ISOs with custom configurations
 - 🐧 Multi-Distro Support (Arch, Ubuntu, Debian, CachyOS, KDE Neon)
 - 🛠️ Customizable branding and kernel options
-- 🤖 Automated initramfs generation
+-  📊 Disk usage reporting
+- 🤖 initramfs generation
 - ⏱️ Real-time updates and status indicators
 - 📝 Command Line Tools integration
+- 🎨 Colorful terminal output
 
 ## 📋 Requirements
 - Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
