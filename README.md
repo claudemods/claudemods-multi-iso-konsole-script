@@ -92,7 +92,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 
 ## 📋 Requirements
 - Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
-- GCC compiler (C++17 compatible)
+- GCC compiler (C++23 compatible)
 - Root privileges (sudo access)
 - Required packages:
   - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
