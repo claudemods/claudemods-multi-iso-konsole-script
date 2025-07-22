@@ -123,7 +123,7 @@ cmiimg
 ---
 <div align="center">
     
-### 🚀 New Install Methods
+### 🚀 These ArE My Iso Creator Scripts My Img Iso Creator Will Be In Arch C++ All In One Soon
 
 <div align="center">
   <strong>all in one cmi commander and tui advanced c++DevBranch:</strong><br>
