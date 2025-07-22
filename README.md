@@ -112,6 +112,7 @@ git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script
 cd advancedimgscript
 qmake6 && make
 sudo cp cmiimg /usr/local/bin/
+cmiimg
 ```
 
   ## [ new video for v1 img iso creator](https://youtu.be/ej14L0vcZ9M)
