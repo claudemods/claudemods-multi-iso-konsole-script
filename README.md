@@ -109,13 +109,14 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 ## 🚀 Installation 
 - more info coming for now please wait
 
+### For Image Iso Creator Beta (v1.0):
 ```bash
 git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script
 cd advancedimgscript
 qmake6 && make
 sudo cp cmiimg /usr/local/bin/
-
-<div align="center">
+<div align="center"></div>
+```
 
 
 </div>
