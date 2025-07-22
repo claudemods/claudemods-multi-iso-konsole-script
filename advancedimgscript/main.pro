@@ -1,8 +1,8 @@
 # Project name
-TARGET = AppLaunchr
+TARGET = cmiimg
 
 # Required Qt modules
-QT += core gui
+QT += core
 
 # Source files
 SOURCES += main.cpp
