@@ -103,7 +103,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
   - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
   - Advanced: `btrfs-progs`, `qmake6` (for v1.0)
 
-## 🚀 Installation for new Arch img iso creator
+## 🚀 Installation method for new Arch img iso creator is temporary
 - more info coming for now please wait
 
 ### For Arch Image Iso Creator Beta (v1.0):
