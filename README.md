@@ -56,7 +56,7 @@
   <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
 </div>
 
-# 🖥️ Claudemods Ext4/Btrfs Image & ISO Creator v1.0 🛠️ | Multi ISO Creator v2.0 🚀
+## 🖥️ Claudemods Ext4/Btrfs Image & ISO Creator v1.0 Multi ISO Creator v2.0 🚀
 
 A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system with multi-distribution support.
 
