@@ -106,7 +106,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 ## 🚀 Installation method for new Arch img iso creator is temporary
 - more info coming for now please wait
 
-### For Arch Image Iso Creator Beta (v1.0 img iso creator):
+### For Arch Img Iso Creator Beta (v1.0):
 ```bash
 git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script
 cd advancedimgscript
