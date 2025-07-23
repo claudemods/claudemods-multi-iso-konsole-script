@@ -105,8 +105,8 @@
 - GCC compiler (C++23 compatible)
 - Root privileges (sudo access)
 - Required packages:
-  - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
-  - Advanced: `btrfs-progs`, `qmake6` (for v2.01 img iso creator)
+ - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`, `unzip`, `arch-install-scripts`, `bash-completion`, `erofs-utils`, `findutils`, `jq`, `libarchive`, `libisoburn`, `lsb-release`, `lvm2`, `mkinitcpio-archiso`, `mkinitcpio-nfs-utils`, `mtools`, `nbd`, `pacman-contrib`, `parted`, `procps-ng`, `pv`, `python`, `sshfs`, `syslinux`, `xdg-utils`, `zsh-completions`, `kernel-modules-hook`, `virt-manager` `qt6-tools` `qt5-tools`
+- Advanced: `btrfs-progs`, (for v2.01 img iso creator)  
 
 ## 💾 Installation
 
