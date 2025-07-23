@@ -146,12 +146,12 @@ cmiimg
 </div>
 
 <div align="center">
-  <strong>Advanced Arch Img Iso Script Beta v2.01 MainBranch(Coming):</strong><br>
+  <strong>Advanced Arch Img Iso Script c++ Beta v2.01 MainBranch(Coming):</strong><br>
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"</code>
 </div>
 
 <div align="center">
-  <strong>Advanced Arch Img Iso Script Beta v2.01 DevBranch(Coming):</strong><br>
+  <strong>Advanced Arch Img Iso c++ Script Beta v2.01 DevBranch(Coming):</strong><br>
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"</code>
 </div>
 
