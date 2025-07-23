@@ -56,7 +56,7 @@
   <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
 </div>
 
-## 🖥️ Claudemods Ext4/Btrfs Image & ISO Creator v1.0 Multi ISO Creator v2.0 🚀
+## 🖥️ Claudemods Ext4/Btrfs Img Iso Creator v2.01 🚀
 
 A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system with multi-distribution support.
 
@@ -101,21 +101,7 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 - Root privileges (sudo access)
 - Required packages:
   - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
-  - Advanced: `btrfs-progs`, `qmake6` (for v1.0 img iso creator)
-
-## 🚀 Installation method for new Arch img iso creator is temporary
-- more info coming for now please wait
-
-### For Arch Img Iso Creator Beta (v1.0):
-```bash
-git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script
-cd advancedimgscript
-qmake6 && make
-sudo cp cmiimg /usr/local/bin/
-cmiimg
-```
-
-  ## [ new video for arch v1 img iso creator](https://youtu.be/ej14L0vcZ9M)
+  - Advanced: `btrfs-progs`, `qmake6` (for v2.01 img iso creator)
 
 
 </div>
