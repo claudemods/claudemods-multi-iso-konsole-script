@@ -12,15 +12,17 @@
 #include <pwd.h>
 
 // Constants
-const std::string ORIG_IMG_NAME = "rootfs1.img";
+const std::string ORIG_IMG_NAME = "system.img";
 const std::string COMPRESSED_IMG_NAME = "rootfs.img";
-std::string MOUNT_POINT = "";
+std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
 const std::string SQUASHFS_COMPRESSION = "zstd";
 const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
 std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-ext4img";
 std::string USERNAME = "";
+const std::string BTRFS_LABEL = "LIVE_SYSTEM";
+const std::string BTRFS_COMPRESSION = "zstd";
 
 // Configuration state
 struct ConfigState {
@@ -78,7 +80,7 @@ std::cout << COLOR_CYAN << "claudemods arch ext4 img iso creator v1.01 23-07-202
 
 void showDiskUsage() {
     std::cout << COLOR_GREEN << "\nCurrent system disk usage:\n" << COLOR_RESET;
-    execute_command("df -h /");
+    execute_command("df -h /home");
     std::cout << std::endl;
 }
 
@@ -268,53 +270,18 @@ bool createImageFile(const std::string& size, const std::string& filename) {
 
 bool formatFilesystem(const std::string& fsType, const std::string& filename) {
     if (fsType == "btrfs") {
-        std::cout << COLOR_CYAN << "Formatting as BTRFS with forced zstd:" << COMPRESSION_LEVEL << " compression" << COLOR_RESET << std::endl;
-        std::string command = "sudo mkfs.btrfs -f --compress-force=zstd:" + COMPRESSION_LEVEL + " -L \"SYSTEM_BACKUP\" " + filename;
-        execute_command(command);
-    } 
-    else if (fsType == "zfs") {
-        std::cout << COLOR_CYAN << "Formatting as ZFS with maximum compression" << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "Creating Btrfs filesystem with " << BTRFS_COMPRESSION << " compression" << COLOR_RESET << std::endl;
         
-        // Create a loop device for the image
-        std::string loopDevice;
-        {
-            std::string cmd = "sudo losetup --find --show " + filename;
-            FILE* pipe = popen(cmd.c_str(), "r");
-            if (!pipe) {
-                std::cerr << COLOR_RED << "Failed to create loop device" << COLOR_RESET << std::endl;
-                return false;
-            }
-            char buffer[128];
-            if (!fgets(buffer, sizeof(buffer), pipe)) {
-                pclose(pipe);
-                std::cerr << COLOR_RED << "Failed to read loop device" << COLOR_RESET << std::endl;
-                return false;
-            }
-            pclose(pipe);
-            loopDevice = buffer;
-            // Remove trailing newline
-            loopDevice.erase(loopDevice.find_last_not_of("\n") + 1);
-        }
+        // Create temporary rootdir
+        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir");
         
-        // Create ZFS pool with maximum compression
-        std::string poolName = "backup_pool";
-        std::string command = "sudo zpool create -O compression=zstd-19 -O atime=off -O recordsize=1M " + 
-                             poolName + " " + loopDevice;
+        std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION + 
+                             " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
         execute_command(command);
         
-        // Create filesystem
-        execute_command("sudo zfs create " + poolName + "/rootfs");
-        
-        // Set mountpoint
-        execute_command("sudo zfs set mountpoint=legacy " + poolName + "/rootfs");
-        
-        // Export pool (we'll import it when mounting)
-        execute_command("sudo zpool export " + poolName);
-        
-        // Detach loop device
-        execute_command("sudo losetup -d " + loopDevice);
-    }
-    else {
+        // Cleanup temporary rootdir
+        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir");
+    } else {
         std::cout << COLOR_CYAN << "Formatting as ext4" << COLOR_RESET << std::endl;
         std::string command = "sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" " + filename;
         execute_command(command);
@@ -323,43 +290,12 @@ bool formatFilesystem(const std::string& fsType, const std::string& filename) {
 }
 
 bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
-    execute_command("mkdir -p " + mountPoint);
+    execute_command("sudo mkdir -p " + mountPoint);
     
     if (fsType == "btrfs") {
-        std::string options = "loop,compress-force=zstd:" + COMPRESSION_LEVEL + ",discard,noatime,space_cache=v2,autodefrag";
-        std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
+        std::string command = "sudo mount " + filename + " " + mountPoint;
         execute_command(command);
-    }
-    else if (fsType == "zfs") {
-        // Create loop device
-        std::string loopDevice;
-        {
-            std::string cmd = "sudo losetup --find --show " + filename;
-            FILE* pipe = popen(cmd.c_str(), "r");
-            if (!pipe) {
-                std::cerr << COLOR_RED << "Failed to create loop device" << COLOR_RESET << std::endl;
-                return false;
-            }
-            char buffer[128];
-            if (!fgets(buffer, sizeof(buffer), pipe)) {
-                pclose(pipe);
-                std::cerr << COLOR_RED << "Failed to read loop device" << COLOR_RESET << std::endl;
-                return false;
-            }
-            pclose(pipe);
-            loopDevice = buffer;
-            // Remove trailing newline
-            loopDevice.erase(loopDevice.find_last_not_of("\n") + 1);
-        }
-        
-        // Import ZFS pool
-        std::string poolName = "backup_pool";
-        execute_command("sudo zpool import -d " + loopDevice + " " + poolName);
-        
-        // Mount ZFS filesystem
-        execute_command("sudo mount -t zfs " + poolName + "/rootfs " + mountPoint);
-    }
-    else {
+    } else {
         std::string options = "loop,discard,noatime";
         std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
         execute_command(command);
@@ -367,7 +303,7 @@ bool mountFilesystem(const std::string& fsType, const std::string& filename, con
     return true;
 }
 
-bool copyFilesWithRsync(const std::string& source, const std::string& destination) {
+bool copyFilesWithRsync(const std::string& source, const std::string& destination, const std::string& fsType) {
     std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
     "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
@@ -386,6 +322,17 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=rootfs.img " +
     source + " " + destination;
     execute_command(command);
+    
+    if (fsType == "btrfs") {
+        // Optimize compression after copy
+        std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
+        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination);
+        
+        // Shrink to minimum size
+        std::cout << COLOR_CYAN << "Finalizing image..." << COLOR_RESET << std::endl;
+        execute_command("sudo btrfs filesystem resize max " + destination);
+    }
+    
     return true;
 }
 
@@ -393,7 +340,7 @@ bool unmountAndCleanup(const std::string& mountPoint) {
     sync();
     try {
         execute_command("sudo umount " + mountPoint);
-        execute_command("rmdir " + mountPoint);
+        execute_command("sudo rmdir " + mountPoint);
     } catch (...) {
         return false;
     }
@@ -419,19 +366,18 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
     std::cout << std::endl;
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
-    } 
-    else if (fsType == "zfs") {
-        std::cout << COLOR_CYAN << "Compressed ZFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
-    }
-    else {
+    } else {
         std::cout << COLOR_CYAN << "Ext4 image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
     }
     std::cout << COLOR_CYAN << "Checksum file: " << squashfsOutput << ".md5" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Size: ";
+    execute_command("sudo du -h " + squashfsOutput + " | cut -f1");
+    std::cout << COLOR_RESET;
 }
 
 void deleteOriginalImage(const std::string& imgName) {
     std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("rm -f " + imgName);
+    execute_command("sudo rm -f " + imgName);
 }
 
 std::string getOutputDirectory() {
@@ -525,37 +471,32 @@ void showMainMenu() {
 void processMainMenuChoice(int choice) {
     switch (choice) {
         case 1: {
-            MOUNT_POINT = "/home/" + USERNAME + "/btrfs_temp";
-            BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img";
-
             std::string outputDir = getOutputDirectory();
             std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
             std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
+
+            // Cleanup old files
+            execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true");
+            execute_command("sudo rm -rf " + outputOrigImgPath);
+            execute_command("sudo mkdir -p " + MOUNT_POINT);
+            execute_command("sudo mkdir -p " + outputDir);
 
             std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
 
             std::cout << COLOR_BLUE << "Choose filesystem type:\n" << COLOR_RESET;
             std::cout << COLOR_BLUE << "1) btrfs\n" << COLOR_RESET;
             std::cout << COLOR_BLUE << "2) ext4\n" << COLOR_RESET;
-            std::cout << COLOR_BLUE << "3) zfs (maximum compression)\n" << COLOR_RESET;
-            std::string fsChoice = getUserInput("Enter choice (1, 2 or 3): ");
-            std::string fsType;
-            if (fsChoice == "1") fsType = "btrfs";
-            else if (fsChoice == "2") fsType = "ext4";
-            else if (fsChoice == "3") fsType = "zfs";
-            else {
-                std::cout << COLOR_RED << "Invalid choice, defaulting to ext4" << COLOR_RESET << std::endl;
-                fsType = "ext4";
-            }
+            std::string fsChoice = getUserInput("Enter choice (1 or 2): ");
+            std::string fsType = (fsChoice == "1") ? "btrfs" : "ext4";
 
             if (!createImageFile(imgSize, outputOrigImgPath) ||
                 !formatFilesystem(fsType, outputOrigImgPath) ||
                 !mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT) ||
-                !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT)) {
+                !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
                 return;
-                }
+            }
 
-                unmountAndCleanup(MOUNT_POINT);
+            unmountAndCleanup(MOUNT_POINT);
             createSquashFS(outputOrigImgPath, outputCompressedImgPath);
             deleteOriginalImage(outputOrigImgPath);
             createChecksum(outputCompressedImgPath);
