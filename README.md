@@ -73,10 +73,10 @@ A powerful C++ utility to create compressed system images (ext4/btrfs) and boota
 
 ## ✨ Features
 
-### Image Creation Features
+### Img Creation Features
 - 🚀 Generate bootable ISOs with custom configurations
 - 🛠️ Customizable branding and kernel options
-- 🖼️ Create compressed system images (ext4 only for now)
+- 🖼️ Create compressed system images (Btrfs and Ext4)
 - 📊 Disk usage reporting
 - 🔄 Rsync-based file copying with intelligent exclusions
 - 🗜️ SquashFS compression with zstd support
