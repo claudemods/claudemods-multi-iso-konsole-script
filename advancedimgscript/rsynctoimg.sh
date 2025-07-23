@@ -3,17 +3,24 @@ set -eo pipefail
 
 # ===== Configuration =====
 SOURCE_ROOT="/"                      # Source directory (adjust if needed)
-IMAGE_NAME="live-system.img"          # Output image filename
-IMAGE_SIZE="8G"                      # Initial sparse image size (auto-shrinks later)
+IMAGE_DIR="/home/spitfire/.config/cmi/build-image-arch-ext4img/LiveOS"
+IMAGE_NAME="$IMAGE_DIR/system.img"    # Output image filename
 BTRFS_MOUNT="/mnt/btrfs_temp"        # Temporary mount point
 COMPRESSION_TYPE="zstd"              # zstd (recommended), zlib, or lzo
 BTRFS_LABEL="LIVE_SYSTEM"            # Filesystem label
+
+# ===== Get Available Space and Prompt for Size =====
+echo "Current disk usage:"
+df -h /home
+read -p "Enter image size in GB (e.g., 8): " IMAGE_GB
+IMAGE_SIZE="${IMAGE_GB}G"
 
 # ===== Cleanup Previous Runs =====
 echo "[1/5] Cleaning old files..."
 sudo umount "$BTRFS_MOUNT" 2>/dev/null || true
 sudo rm -rf "$IMAGE_NAME"
 sudo mkdir -p "$BTRFS_MOUNT"
+sudo mkdir -p "$IMAGE_DIR"
 
 # ===== Create Sparse Image =====
 echo "[2/5] Creating sparse image..."
@@ -54,11 +61,7 @@ sudo btrfs filesystem defrag -r -v -c "$COMPRESSION_TYPE" "$BTRFS_MOUNT"
 echo "[5/5] Finalizing image..."
 sudo btrfs filesystem resize max "$BTRFS_MOUNT"
 sudo umount "$BTRFS_MOUNT"
-sudo fallocate -d "$IMAGE_NAME"  # Punch holes in sparse file
 
-# ===== Verification =====
-echo "Verifying filesystem..."
-sudo fsck.btrfs -p "$IMAGE_NAME"
 
 echo -e "\n\033[1;32mDone!\033[0m Compressed live system image: \033[1m$IMAGE_NAME\033[0m"
 echo "Size: $(sudo du -h "$IMAGE_NAME" | cut -f1)"
