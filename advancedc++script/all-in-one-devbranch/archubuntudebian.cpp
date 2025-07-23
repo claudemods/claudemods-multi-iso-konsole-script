@@ -364,7 +364,7 @@ void print_banner(Distro distro) {
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
         cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 01-07-2025" << RESET << endl;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 23-07-2025" << RESET << endl;
 
         // Display current distribution and kernel version above time
         cout << GREEN << "Current Distribution: " << get_distro_name(distro) << RESET << endl;
