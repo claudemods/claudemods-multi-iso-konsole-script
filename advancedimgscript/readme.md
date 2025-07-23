@@ -1,9 +1,6 @@
+# Claudemods Arch Ext4/Btrfs Img ISO Creator v1.01 🛠️
 
-  🖥️
-                  
-  # Claudemods Arch Ext4/Btrfs Img ISO Creator v1.01 🛠️
-
-![Banner](https://via.placeholder.com/800x200?text=Claudemods+Image+Creator)
+![Banner](https://i.postimg.cc/JhMRf2RZ/claudemods-03-17-2025.gif)
 
 A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system. 🔥
 
