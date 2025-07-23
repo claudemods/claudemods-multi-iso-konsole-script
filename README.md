@@ -29,18 +29,15 @@
   [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&label=claudemods&color=3399FF&Linux&logo=ko-fi&logoColor=white)](https://ko-fi.com/claudemods)
   [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&label=claudemods&color=A836FF&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/claudemods)
 
-
-
-
+</div>
 
 <div align="center">
   <h5 align="center">Hello, welcome to claudemods Multi ISO Creator Written in C, C++ And Rust And More!</h5>
 </div>
 
-<p align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys,Refracta,Systemback and father Knoppix! </p>
+<p align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix! </p>
 
 </div>
-
 
 ## 🖥️ Claudemods Multi Iso Creator v2.0 🚀
 
@@ -48,18 +45,15 @@
 
 <p align="center">Without Separate Swap Or Home </p>
 
-
 ## 🖥️ Claudemods Arch Advanced Ext4/Btrfs Img Iso Creator v2.01 🚀
 
 <p align="center">This Is For UEFI Btrfs/Ext4 Arch Systems </p>
 
 <p align="center">Without Separate Swap Or Home </p>
 
-
 <div align="center">
   <h3 align="center">these projects are an experimental playground</h3>
 </div>
-
 
 <div align="center">
   <h3 align="center">i have wild ideas and lots of things being made in this repository</h3>
@@ -100,7 +94,7 @@
 - 🚀 Generate bootable ISOs with custom configurations
 - 🐧 Multi-Distro Support (Arch, Ubuntu, Debian, CachyOS, KDE Neon)
 - 🛠️ Customizable branding and kernel options
--  📊 Disk usage reporting
+- 📊 Disk usage reporting
 - 🤖 initramfs generation
 - ⏱️ Real-time updates and status indicators
 - 📝 Command Line Tools integration
@@ -114,43 +108,25 @@
   - Base: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`
   - Advanced: `btrfs-progs`, `qmake6` (for v2.01 img iso creator)
 
+## 💾 Installation
 
-</div>
+### Main Installation Methods:
 
----
-<div align="center">
-    
-### 🚀 These Are My Iso Creator Scripts My Img Iso Creator Will Be In Arch C++ All In One Soon
+```bash
+# All-in-one cmi commander and tui advanced c++ DevBranch:
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"
 
-<div align="center">
-  <strong>all in one cmi commander and tui advanced c++DevBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"</code>
-</div>
+# All-in-one advanced C++ script beta v2.0 MainBranch:
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"
 
-<div align="center">
-  <strong>All-in-one advanced C++ script beta v2.0 MainBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"</code>
-</div>
+# All-in-one advanced C++ script v2.0 DevBranch:
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one-devbranch/installermain/patch.sh)"
 
-<div align="center">
-  <strong>All-in-one advanced C++ script v2.0 DevBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one-devbranch/installermain/patch.sh)"</code>
-</div>
+# Advanced C script beta v2.0 MainBranch:
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
 
-<div align="center">
-  <strong>Advanced C script beta v2.0 MainBranch:</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"</code>
-</div>
+# Advanced Arch Img Iso Script c++ Beta v2.01 MainBranch (Coming Soon):
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"
 
-<div align="center">
-  <strong>Advanced Arch Img Iso Script c++ Beta v2.01 MainBranch(Coming):</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"</code>
-</div>
-
-<div align="center">
-  <strong>Advanced Arch Img Iso c++ Script Beta v2.01 DevBranch(Coming):</strong><br>
-  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"</code>
-</div>
-
-
----
+# Advanced Arch Img Iso c++ Script Beta v2.01 DevBranch (Coming Soon):
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"
