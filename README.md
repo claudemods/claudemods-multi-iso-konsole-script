@@ -145,4 +145,15 @@ cmiimg
   <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"</code>
 </div>
 
+<div align="center">
+  <strong>advanced img iso script beta v2.01 MainBranch(Ready):</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"</code>
+</div>
+
+<div align="center">
+  <strong>advanced img iso script beta v2.01 DevBranch(Coming):</strong><br>
+  <code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"</code>
+</div>
+
+
 ---
