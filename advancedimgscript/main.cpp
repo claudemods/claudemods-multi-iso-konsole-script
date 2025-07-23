@@ -75,12 +75,12 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << "claudemods arch ext4 img iso creator v1.01 23-07-2025" << COLOR_RESET << std::endl << std::endl;
+std::cout << COLOR_CYAN << "claudemods arch btrfs/ext4 img iso creator v1.01 23-07-2025" << COLOR_RESET << std::endl << std::endl;
 }
 
 void showDiskUsage() {
     std::cout << COLOR_GREEN << "\nCurrent system disk usage:\n" << COLOR_RESET;
-    execute_command("df -h /home");
+    execute_command("df -h /");
     std::cout << std::endl;
 }
 
