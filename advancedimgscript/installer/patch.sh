@@ -22,7 +22,7 @@ detect_distro
 if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     # Commands for Arch/CachyOS
     git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1
-    cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/updater && qmake6 && make >/dev/null 2>&1
+    cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/updatermain && qmake6 && make >/dev/null 2>&1
     ./advancedcscriptupdater.bin && rm -rf /home/$USER/claudemods-multi-iso-konsole-script
 else
     echo "Unsupported distribution: $DISTRO"
