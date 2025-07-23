@@ -29,24 +29,37 @@
   [![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&label=claudemods&color=3399FF&Linux&logo=ko-fi&logoColor=white)](https://ko-fi.com/claudemods)
   [![GitHub Sponsors](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&label=claudemods&color=A836FF&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/claudemods)
 
-</div>
 
----
+
+
 
 <div align="center">
-  <h5 align="center">Hello, welcome to claudemods Multi ISO Creator Written in C, C++ And Rust</h5>
+  <h5 align="center">Hello, welcome to claudemods Multi ISO Creator Written in C, C++ And Rust And More!</h5>
 </div>
+
+<p align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys,Refracta,Systemback and father Knoppix! </p>
+
+</div>
+
+
+## 🖥️ Claudemods Multi Iso Creator v2.0 🚀
 
 <p align="center">This Is For UEFI EXT4 Arch Ubuntu, Debian Systems </p>
 
 <p align="center">Without Separate Swap Or Home </p>
 
-<p align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys,Refracta,Systemback and father Knoppix! </p>
+
+## 🖥️ Claudemods Arch Advanced Ext4/Btrfs Img Iso Creator v2.01 🚀
+
+<p align="center">This Is For UEFI Btrfs/Ext4 Arch Systems </p>
+
+<p align="center">Without Separate Swap Or Home </p>
 
 
 <div align="center">
-  <h3 align="center">this project is an experimental playground</h3>
+  <h3 align="center">these projects are an experimental playground</h3>
 </div>
+
 
 <div align="center">
   <h3 align="center">i have wild ideas and lots of things being made in this repository</h3>
@@ -56,11 +69,7 @@
   <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
 </div>
 
-## 🖥️ Claudemods Multi Iso Creator v2.0 🚀
-
-## 🖥️ Claudemods Arch Advanced Ext4/Btrfs Img Iso Creator v2.01 🚀
-
-A powerful C++ utility to create compressed system images (ext4/btrfs) and bootable ISOs from your Linux system with multi-distribution support.
+---
 
 ![C++](https://img.shields.io/badge/C++-23-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
