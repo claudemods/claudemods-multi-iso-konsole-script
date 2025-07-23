@@ -73,7 +73,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << "claudemods arch ext4 img iso creator v1.0 22-07-2025" << COLOR_RESET << std::endl << std::endl;
+std::cout << COLOR_CYAN << "claudemods arch ext4 img iso creator v1.01 23-07-2025" << COLOR_RESET << std::endl << std::endl;
 }
 
 void showDiskUsage() {
@@ -271,7 +271,50 @@ bool formatFilesystem(const std::string& fsType, const std::string& filename) {
         std::cout << COLOR_CYAN << "Formatting as BTRFS with forced zstd:" << COMPRESSION_LEVEL << " compression" << COLOR_RESET << std::endl;
         std::string command = "sudo mkfs.btrfs -f --compress-force=zstd:" + COMPRESSION_LEVEL + " -L \"SYSTEM_BACKUP\" " + filename;
         execute_command(command);
-    } else {
+    } 
+    else if (fsType == "zfs") {
+        std::cout << COLOR_CYAN << "Formatting as ZFS with maximum compression" << COLOR_RESET << std::endl;
+        
+        // Create a loop device for the image
+        std::string loopDevice;
+        {
+            std::string cmd = "sudo losetup --find --show " + filename;
+            FILE* pipe = popen(cmd.c_str(), "r");
+            if (!pipe) {
+                std::cerr << COLOR_RED << "Failed to create loop device" << COLOR_RESET << std::endl;
+                return false;
+            }
+            char buffer[128];
+            if (!fgets(buffer, sizeof(buffer), pipe)) {
+                pclose(pipe);
+                std::cerr << COLOR_RED << "Failed to read loop device" << COLOR_RESET << std::endl;
+                return false;
+            }
+            pclose(pipe);
+            loopDevice = buffer;
+            // Remove trailing newline
+            loopDevice.erase(loopDevice.find_last_not_of("\n") + 1);
+        }
+        
+        // Create ZFS pool with maximum compression
+        std::string poolName = "backup_pool";
+        std::string command = "sudo zpool create -O compression=zstd-19 -O atime=off -O recordsize=1M " + 
+                             poolName + " " + loopDevice;
+        execute_command(command);
+        
+        // Create filesystem
+        execute_command("sudo zfs create " + poolName + "/rootfs");
+        
+        // Set mountpoint
+        execute_command("sudo zfs set mountpoint=legacy " + poolName + "/rootfs");
+        
+        // Export pool (we'll import it when mounting)
+        execute_command("sudo zpool export " + poolName);
+        
+        // Detach loop device
+        execute_command("sudo losetup -d " + loopDevice);
+    }
+    else {
         std::cout << COLOR_CYAN << "Formatting as ext4" << COLOR_RESET << std::endl;
         std::string command = "sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" " + filename;
         execute_command(command);
@@ -281,11 +324,42 @@ bool formatFilesystem(const std::string& fsType, const std::string& filename) {
 
 bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
     execute_command("mkdir -p " + mountPoint);
+    
     if (fsType == "btrfs") {
         std::string options = "loop,compress-force=zstd:" + COMPRESSION_LEVEL + ",discard,noatime,space_cache=v2,autodefrag";
         std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
         execute_command(command);
-    } else {
+    }
+    else if (fsType == "zfs") {
+        // Create loop device
+        std::string loopDevice;
+        {
+            std::string cmd = "sudo losetup --find --show " + filename;
+            FILE* pipe = popen(cmd.c_str(), "r");
+            if (!pipe) {
+                std::cerr << COLOR_RED << "Failed to create loop device" << COLOR_RESET << std::endl;
+                return false;
+            }
+            char buffer[128];
+            if (!fgets(buffer, sizeof(buffer), pipe)) {
+                pclose(pipe);
+                std::cerr << COLOR_RED << "Failed to read loop device" << COLOR_RESET << std::endl;
+                return false;
+            }
+            pclose(pipe);
+            loopDevice = buffer;
+            // Remove trailing newline
+            loopDevice.erase(loopDevice.find_last_not_of("\n") + 1);
+        }
+        
+        // Import ZFS pool
+        std::string poolName = "backup_pool";
+        execute_command("sudo zpool import -d " + loopDevice + " " + poolName);
+        
+        // Mount ZFS filesystem
+        execute_command("sudo mount -t zfs " + poolName + "/rootfs " + mountPoint);
+    }
+    else {
         std::string options = "loop,discard,noatime";
         std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
         execute_command(command);
@@ -345,7 +419,11 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
     std::cout << std::endl;
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
-    } else {
+    } 
+    else if (fsType == "zfs") {
+        std::cout << COLOR_CYAN << "Compressed ZFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
+    }
+    else {
         std::cout << COLOR_CYAN << "Ext4 image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
     }
     std::cout << COLOR_CYAN << "Checksum file: " << squashfsOutput << ".md5" << COLOR_RESET << std::endl;
@@ -459,8 +537,16 @@ void processMainMenuChoice(int choice) {
             std::cout << COLOR_BLUE << "Choose filesystem type:\n" << COLOR_RESET;
             std::cout << COLOR_BLUE << "1) btrfs\n" << COLOR_RESET;
             std::cout << COLOR_BLUE << "2) ext4\n" << COLOR_RESET;
-            std::string fsChoice = getUserInput("Enter choice (1 or 2): ");
-            std::string fsType = (fsChoice == "1") ? "btrfs" : "ext4";
+            std::cout << COLOR_BLUE << "3) zfs (maximum compression)\n" << COLOR_RESET;
+            std::string fsChoice = getUserInput("Enter choice (1, 2 or 3): ");
+            std::string fsType;
+            if (fsChoice == "1") fsType = "btrfs";
+            else if (fsChoice == "2") fsType = "ext4";
+            else if (fsChoice == "3") fsType = "zfs";
+            else {
+                std::cout << COLOR_RED << "Invalid choice, defaulting to ext4" << COLOR_RESET << std::endl;
+                fsType = "ext4";
+            }
 
             if (!createImageFile(imgSize, outputOrigImgPath) ||
                 !formatFilesystem(fsType, outputOrigImgPath) ||
