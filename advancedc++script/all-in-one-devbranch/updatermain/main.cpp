@@ -69,6 +69,8 @@ void* execute_update_thread(void* /*arg*/) {
             strcpy(detected_distro, "ubuntu");
         } else if (distro_output == "debian") {
             strcpy(detected_distro, "debian");
+        } else if (distro_output == "trixie") {
+            strcpy(detected_distro, "trixie");
         } else if (distro_output == "neon") { // KDE Neon detection
             strcpy(detected_distro, "neon");
         }
@@ -114,7 +116,7 @@ void* execute_update_thread(void* /*arg*/) {
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/ubuntu/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-noble.zip -d /home/$USER/.config/cmi/");
-    } else if (strcmp(detected_distro, "debian") == 0) {
+    } else if (strcmp(detected_distro, "debian") == 0) || strcmp(detected_distro, "trixie") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/debian/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
     }
