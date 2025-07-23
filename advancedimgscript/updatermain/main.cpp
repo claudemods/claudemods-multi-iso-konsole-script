@@ -79,7 +79,7 @@ void* execute_update_thread(void* /*arg*/) {
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/arch/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/version/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -97,7 +97,7 @@ void* execute_update_thread(void* /*arg*/) {
         
         // Arch/CachyOS-specific commands
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscrip/cmiimg /usr/bin/cmiimg");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg /usr/bin/cmiimg");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg/calamares /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
