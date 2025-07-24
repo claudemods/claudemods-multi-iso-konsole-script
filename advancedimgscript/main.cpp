@@ -23,8 +23,7 @@ std::string getUserInput(const std::string& prompt);
 void clearScreen();
 int getch();
 int kbhit();
-void showDateTime();
-void showSystemSize();
+std::string getCurrentDateTime();  // Changed from showDateTime to getCurrentDateTime
 
 // Constants
 const std::string ORIG_IMG_NAME = "system.img";
@@ -143,24 +142,12 @@ int kbhit() {
     return 0;
 }
 
-void showDateTime() {
+std::string getCurrentDateTime() {
     time_t now = time(0);
     tm *ltm = localtime(&now);
-    std::cout << COLOR_BLUE << "Date: " << COLOR_CYAN << 1900 + ltm->tm_year << "-" 
-              << 1 + ltm->tm_mon << "-" << ltm->tm_mday << "  "
-              << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec 
-              << COLOR_RESET << std::endl;
-}
-
-void showSystemSize() {
-    struct statvfs stat;
-    if (statvfs("/", &stat) == 0) {
-        double total = (double)stat.f_blocks * stat.f_frsize / (1024 * 1024 * 1024);
-        double available = (double)stat.f_bavail * stat.f_frsize / (1024 * 1024 * 1024);
-        double used = total - available;
-        std::cout << COLOR_BLUE << "System Size: " << COLOR_CYAN << used << "GB used / " 
-                  << total << "GB total (" << (used/total)*100 << "%)" << COLOR_RESET << std::endl;
-    }
+    char buffer[80];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", ltm);
+    return std::string(buffer);
 }
 
 void execute_command(const std::string& cmd) {
@@ -184,9 +171,6 @@ void printCheckbox(bool checked) {
 
 void printBanner() {
     clearScreen();
-    showDateTime();
-    showSystemSize();
-    
     std::cout << COLOR_RED << R"(
 ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
 ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
@@ -195,7 +179,50 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl << std::endl;
+    std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
+    
+    // Show date/time below the title - now using the new function
+    std::cout << COLOR_BLUE << "Date: " << COLOR_CYAN << getCurrentDateTime() << COLOR_RESET << std::endl;
+    std::cout << std::endl;
+    
+    // Show disk usage information
+    std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
+    execute_command("df -h / | tail -1");
+    std::cout << std::endl;
+}
+
+void printConfigStatus() {
+    std::cout << COLOR_CYAN << "Current Configuration:" << COLOR_RESET << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(config.dependenciesInstalled);
+    std::cout << " Dependencies Installed" << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(!config.isoTag.empty());
+    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(!config.isoName.empty());
+    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(!config.outputDir.empty());
+    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(!config.vmlinuzPath.empty());
+    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(config.mkinitcpioGenerated);
+    std::cout << " mkinitcpio Generated" << std::endl;
+    
+    std::cout << " ";
+    printCheckbox(config.grubEdited);
+    std::cout << " GRUB Config Edited" << std::endl;
+    
+    std::cout << std::endl;
 }
 
 void showDiskUsage() {
@@ -386,7 +413,8 @@ void loadConfig() {
 int showMenu(const std::string &title, const std::vector<std::string> &items, int selected) {
     clearScreen();
     printBanner();
-    
+    printConfigStatus();
+
     std::cout << COLOR_CYAN << "  " << title << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "  " << std::string(title.length(), '-') << COLOR_RESET << std::endl;
 
@@ -436,7 +464,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
 int showFilesystemMenu(const std::vector<std::string> &items, int selected) {
     clearScreen();
     printBanner();
-    
+
     std::cout << COLOR_CYAN << "  Choose filesystem type:" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "  ----------------------" << COLOR_RESET << std::endl;
 
@@ -494,13 +522,13 @@ void showSetupMenu() {
         "Edit GRUB Config",
         "Back to Main Menu"
     };
-    
+
     int selected = 0;
     int key;
-    
+
     while (true) {
         key = showMenu("ISO Creation Setup Menu:", items, selected);
-        
+
         switch (key) {
             case 'A': // Up arrow
                 if (selected > 0) selected--;
@@ -519,7 +547,7 @@ void showSetupMenu() {
                     case 6: editGrubCfg(); break;
                     case 7: return;
                 }
-                
+
                 // Pause to show result before returning to menu
                 if (selected != 7) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
@@ -715,10 +743,10 @@ void showMainMenu() {
 
     int selected = 0;
     int key;
-    
+
     while (true) {
         key = showMenu("Main Menu:", items, selected);
-        
+
         switch (key) {
             case 'A': // Up arrow
                 if (selected > 0) selected--;
@@ -745,10 +773,10 @@ void showMainMenu() {
                         int fsSelected = 0;
                         int fsKey;
                         bool fsChosen = false;
-                        
+
                         while (!fsChosen) {
                             fsKey = showFilesystemMenu(fsOptions, fsSelected);
-                            
+
                             switch (fsKey) {
                                 case 'A': // Up arrow
                                     if (fsSelected > 0) fsSelected--;
@@ -761,7 +789,7 @@ void showMainMenu() {
                                     break;
                             }
                         }
-                        
+
                         std::string fsType = (fsSelected == 0) ? "btrfs" : "ext4";
 
                         if (!createImageFile(imgSize, outputOrigImgPath) ||
@@ -769,14 +797,14 @@ void showMainMenu() {
                             !mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT) ||
                             !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
                             break;
-                        }
+                            }
 
-                        unmountAndCleanup(MOUNT_POINT);
+                            unmountAndCleanup(MOUNT_POINT);
                         createSquashFS(outputOrigImgPath, outputCompressedImgPath);
                         deleteOriginalImage(outputOrigImgPath);
                         createChecksum(outputCompressedImgPath);
                         printFinalMessage(fsType, outputCompressedImgPath);
-                        
+
                         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                         getch();
                         break;
@@ -830,8 +858,6 @@ int main() {
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
     printBanner();
-    showDiskUsage();
-
     showMainMenu();
 
     // Restore terminal settings
