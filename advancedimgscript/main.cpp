@@ -54,6 +54,7 @@ const std::vector<std::string> DEPENDENCIES = {
     "grub",
     "dosfstools",
     "unzip",
+    "nano",
     "arch-install-scripts",
     "bash-completion",
     "erofs-utils",
