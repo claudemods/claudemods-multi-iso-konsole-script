@@ -841,7 +841,7 @@ int main() {
     }
 
     // Set BUILD_DIR based on username
-    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img";
+    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
 
     // Create config directory if it doesn't exist
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
