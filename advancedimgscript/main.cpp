@@ -322,10 +322,6 @@ void generateMkinitcpio() {
         return;
     }
 
-    std::string vmlinuzDest = BUILD_DIR + "/boot/vmlinuz-x86_64";
-    std::cout << COLOR_CYAN << "Copying " << config.vmlinuzPath << " to " << vmlinuzDest << COLOR_RESET << std::endl;
-    execute_command("sudo cp " + config.vmlinuzPath + " " + vmlinuzDest);
-
     std::cout << COLOR_CYAN << "Generating initramfs..." << COLOR_RESET << std::endl;
     execute_command("cd " + BUILD_DIR + " && sudo mkinitcpio -c mkinitcpio.conf -g " + BUILD_DIR + "/boot/initramfs-x86_64.img");
 
