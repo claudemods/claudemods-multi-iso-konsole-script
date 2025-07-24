@@ -14,6 +14,9 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <sys/statvfs.h>
+#include <atomic>
+#include <mutex>
+#include <thread>
 
 // Forward declarations
 void saveConfig();
@@ -23,7 +26,12 @@ std::string getUserInput(const std::string& prompt);
 void clearScreen();
 int getch();
 int kbhit();
-std::string getCurrentDateTime();  // Changed from showDateTime to getCurrentDateTime
+
+// Time-related globals
+std::atomic<bool> time_thread_running(true);
+std::mutex time_mutex;
+std::string current_time_str;
+bool should_reset = false;
 
 // Constants
 const std::string ORIG_IMG_NAME = "system.img";
@@ -101,6 +109,22 @@ const std::string COLOR_RESET = "\033[0m";
 const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
 const std::string COLOR_NORMAL = "\033[34m";
 
+void update_time_thread() {
+    while (time_thread_running) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char datetime[50];
+        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+
+        {
+            std::lock_guard<std::mutex> lock(time_mutex);
+            current_time_str = datetime;
+        }
+
+        sleep(1);
+    }
+}
+
 // Terminal control functions
 void clearScreen() {
     std::cout << "\033[2J\033[1;1H";
@@ -143,14 +167,6 @@ int kbhit() {
     return 0;
 }
 
-std::string getCurrentDateTime() {
-    time_t now = time(0);
-    tm *ltm = localtime(&now);
-    char buffer[80];
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", ltm);
-    return std::string(buffer);
-}
-
 void execute_command(const std::string& cmd, bool continueOnError) {
     std::cout << COLOR_CYAN;
     fflush(stdout);
@@ -184,9 +200,11 @@ void printBanner() {
 )" << COLOR_RESET << std::endl;
 std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
 
-// Show date/time below the title - now using the new function
-std::cout << COLOR_BLUE << "Date: " << COLOR_CYAN << getCurrentDateTime() << COLOR_RESET << std::endl;
-std::cout << std::endl;
+// Show current UK time
+{
+    std::lock_guard<std::mutex> lock(time_mutex);
+    std::cout << COLOR_BLUE << "Current UK Time: " << COLOR_CYAN << current_time_str << COLOR_RESET << std::endl;
+}
 
 // Show disk usage information
 std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
@@ -255,7 +273,7 @@ void installDependencies() {
 
     config.dependenciesInstalled = true;
     saveConfig();
-    std::cout << COLOR_GREEN << "\nDependencies installed successfully!\n" << COLOR_RESET;
+    std::cout << COLOR_GREEN << "\nDependencies installed successfully!\n" << COLOR_RESET << std::endl;
 }
 
 void selectVmlinuz() {
@@ -738,11 +756,11 @@ bool createISO() {
 
 void showMainMenu() {
     std::vector<std::string> items = {
-        "Create Image",
-        "Setup Scripts",
-        "Create ISO",
-        "Show Disk Usage",
-        "Exit"
+        "Setup Scripts",  // Now case 0
+        "Create Image",   // Now case 1
+        "Create ISO",     // Now case 2
+        "Show Disk Usage", // Now case 3
+        "Exit"            // Now case 4
     };
 
     int selected = 0;
@@ -760,7 +778,10 @@ void showMainMenu() {
                 break;
             case '\n': // Enter key
                 switch (selected) {
-                    case 0: {
+                    case 0:  // Setup Scripts
+                        showSetupMenu();
+                        break;
+                    case 1: {  // Create Image
                         std::string outputDir = getOutputDirectory();
                         std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
                         std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
@@ -813,20 +834,17 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                                case 1:
-                                    showSetupMenu();
-                                    break;
-                                case 2:
+                                case 2:  // Create ISO
                                     createISO();
                                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                                     getch();
                                     break;
-                                case 3:
+                                case 3:  // Show Disk Usage
                                     showDiskUsage();
                                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                                     getch();
                                     break;
-                                case 4:
+                                case 4:  // Exit
                                     return;
                 }
                 break;
@@ -854,6 +872,9 @@ int main() {
     // Load existing configuration
     loadConfig();
 
+    // Start time update thread
+    std::thread time_thread(update_time_thread);
+
     // Set terminal to raw mode for arrow key detection
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
@@ -863,6 +884,10 @@ int main() {
 
     printBanner();
     showMainMenu();
+
+    // Clean up
+    time_thread_running = false;
+    time_thread.join();
 
     // Restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
