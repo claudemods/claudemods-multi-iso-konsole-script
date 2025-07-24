@@ -1,7 +1,8 @@
 
 new ui in beta v2.01
 
-<img width="2837" height="1601" alt="Screenshot_20250724_012232" src="https://github.com/user-attachments/assets/4d744c64-9ac8-4b9c-9008-8fc872ed2529" />
+<img width="2798" height="1562" alt="Screenshot_20250724_021955" src="https://github.com/user-attachments/assets/697d8dde-81a6-4cb6-93ab-0116137f7beb" />
+
 
 
 
