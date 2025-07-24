@@ -17,7 +17,7 @@
 
 // Forward declarations
 void saveConfig();
-void execute_command(const std::string& cmd);
+void execute_command(const std::string& cmd, bool continueOnError = false);
 void printCheckbox(bool checked);
 std::string getUserInput(const std::string& prompt);
 void clearScreen();
@@ -151,14 +151,16 @@ std::string getCurrentDateTime() {
     return std::string(buffer);
 }
 
-void execute_command(const std::string& cmd) {
+void execute_command(const std::string& cmd, bool continueOnError) {
     std::cout << COLOR_CYAN;
     fflush(stdout);
     int status = system(cmd.c_str());
     std::cout << COLOR_RESET;
-    if (status != 0) {
+    if (status != 0 && !continueOnError) {
         std::cerr << COLOR_RED << "Error executing: " << cmd << COLOR_RESET << std::endl;
         exit(1);
+    } else if (status != 0) {
+        std::cerr << COLOR_YELLOW << "Command failed but continuing: " << cmd << COLOR_RESET << std::endl;
     }
 }
 
@@ -178,51 +180,51 @@ void printBanner() {
 ██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
 ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
-░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
+░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
-    
-    // Show date/time below the title - now using the new function
-    std::cout << COLOR_BLUE << "Date: " << COLOR_CYAN << getCurrentDateTime() << COLOR_RESET << std::endl;
-    std::cout << std::endl;
-    
-    // Show disk usage information
-    std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
-    execute_command("df -h / | tail -1");
-    std::cout << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
+
+// Show date/time below the title - now using the new function
+std::cout << COLOR_BLUE << "Date: " << COLOR_CYAN << getCurrentDateTime() << COLOR_RESET << std::endl;
+std::cout << std::endl;
+
+// Show disk usage information
+std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
+execute_command("df -h / | tail -1");
+std::cout << std::endl;
 }
 
 void printConfigStatus() {
     std::cout << COLOR_CYAN << "Current Configuration:" << COLOR_RESET << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(config.dependenciesInstalled);
     std::cout << " Dependencies Installed" << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(!config.isoTag.empty());
     std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(!config.isoName.empty());
     std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(!config.outputDir.empty());
     std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(!config.vmlinuzPath.empty());
     std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(config.mkinitcpioGenerated);
     std::cout << " mkinitcpio Generated" << std::endl;
-    
+
     std::cout << " ";
     printCheckbox(config.grubEdited);
     std::cout << " GRUB Config Edited" << std::endl;
-    
+
     std::cout << std::endl;
 }
 
@@ -561,7 +563,7 @@ void showSetupMenu() {
 
 bool createImageFile(const std::string& size, const std::string& filename) {
     std::string command = "sudo truncate -s " + size + " " + filename;
-    execute_command(command);
+    execute_command(command, true);
     return true;
 }
 
@@ -570,32 +572,32 @@ bool formatFilesystem(const std::string& fsType, const std::string& filename) {
         std::cout << COLOR_CYAN << "Creating Btrfs filesystem with " << BTRFS_COMPRESSION << " compression" << COLOR_RESET << std::endl;
 
         // Create temporary rootdir
-        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir");
+        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir", true);
 
         std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION +
         " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
-        execute_command(command);
+        execute_command(command, true);
 
         // Cleanup temporary rootdir
-        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir");
+        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir", true);
     } else {
         std::cout << COLOR_CYAN << "Formatting as ext4" << COLOR_RESET << std::endl;
         std::string command = "sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" " + filename;
-        execute_command(command);
+        execute_command(command, true);
     }
     return true;
 }
 
 bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
-    execute_command("sudo mkdir -p " + mountPoint);
+    execute_command("sudo mkdir -p " + mountPoint, true);
 
     if (fsType == "btrfs") {
         std::string command = "sudo mount " + filename + " " + mountPoint;
-        execute_command(command);
+        execute_command(command, true);
     } else {
         std::string options = "loop,discard,noatime";
         std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
-        execute_command(command);
+        execute_command(command, true);
     }
     return true;
 }
@@ -619,16 +621,16 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=system.img "
     "--exclude=rootfs.img " +
     source + " " + destination;
-    execute_command(command);
+    execute_command(command, true);
 
     if (fsType == "btrfs") {
         // Optimize compression after copy
         std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination);
+        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
 
         // Shrink to minimum size
         std::cout << COLOR_CYAN << "Finalizing image..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem resize max " + destination);
+        execute_command("sudo btrfs filesystem resize max " + destination, true);
     }
 
     return true;
@@ -637,8 +639,8 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
 bool unmountAndCleanup(const std::string& mountPoint) {
     sync();
     try {
-        execute_command("sudo umount " + mountPoint);
-        execute_command("sudo rmdir " + mountPoint);
+        execute_command("sudo umount " + mountPoint, true);
+        execute_command("sudo rmdir " + mountPoint, true);
     } catch (...) {
         return false;
     }
@@ -650,13 +652,13 @@ bool createSquashFS(const std::string& inputFile, const std::string& outputFile)
     " -comp " + SQUASHFS_COMPRESSION +
     " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
     " -noappend";
-    execute_command(command);
+    execute_command(command, true);
     return true;
 }
 
 bool createChecksum(const std::string& filename) {
     std::string command = "md5sum " + filename + " > " + filename + ".md5";
-    execute_command(command);
+    execute_command(command, true);
     return true;
 }
 
@@ -669,13 +671,13 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
     }
     std::cout << COLOR_CYAN << "Checksum file: " << squashfsOutput << ".md5" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "Size: ";
-    execute_command("sudo du -h " + squashfsOutput + " | cut -f1");
+    execute_command("sudo du -h " + squashfsOutput + " | cut -f1", true);
     std::cout << COLOR_RESET;
 }
 
 void deleteOriginalImage(const std::string& imgName) {
     std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("sudo rm -f " + imgName);
+    execute_command("sudo rm -f " + imgName, true);
 }
 
 std::string getOutputDirectory() {
@@ -729,7 +731,7 @@ bool createISO() {
     "-o \"" + expandedOutputDir + "/" + config.isoName + "\" " +
     BUILD_DIR;
 
-    execute_command(xorrisoCmd);
+    execute_command(xorrisoCmd, true);
     std::cout << COLOR_CYAN << "ISO created successfully at " << expandedOutputDir << "/" << config.isoName << COLOR_RESET << std::endl;
     return true;
 }
@@ -737,7 +739,7 @@ bool createISO() {
 void showMainMenu() {
     std::vector<std::string> items = {
         "Create Image",
-        "ISO Creation Setup",
+        "Setup Scripts",
         "Create ISO",
         "Show Disk Usage",
         "Exit"
@@ -764,10 +766,10 @@ void showMainMenu() {
                         std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
 
                         // Cleanup old files
-                        execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true");
-                        execute_command("sudo rm -rf " + outputOrigImgPath);
-                        execute_command("sudo mkdir -p " + MOUNT_POINT);
-                        execute_command("sudo mkdir -p " + outputDir);
+                        execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
+                        execute_command("sudo rm -rf " + outputOrigImgPath, true);
+                        execute_command("sudo mkdir -p " + MOUNT_POINT, true);
+                        execute_command("sudo mkdir -p " + outputDir, true);
 
                         std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
 
@@ -811,21 +813,21 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                    case 1:
-                        showSetupMenu();
-                        break;
-                    case 2:
-                        createISO();
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 3:
-                        showDiskUsage();
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 4:
-                        return;
+                                case 1:
+                                    showSetupMenu();
+                                    break;
+                                case 2:
+                                    createISO();
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 3:
+                                    showDiskUsage();
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 4:
+                                    return;
                 }
                 break;
         }
@@ -847,7 +849,7 @@ int main() {
 
     // Create config directory if it doesn't exist
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-    execute_command("mkdir -p " + configDir);
+    execute_command("mkdir -p " + configDir, true);
 
     // Load existing configuration
     loadConfig();
