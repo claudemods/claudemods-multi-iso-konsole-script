@@ -31,7 +31,8 @@
 │ 1️⃣ System Image Creation │
 │ - Select "Create Image" from main menu │
 │ - Enter your username when prompted │
-│ - Specify image size (e.g., "6" for 6GB) │
+│ - Specify image size for ext4 (e.g., "6" for 6GB) │
+│ - Specify image size for btrfs will need to be uncompressed system size i need to fix mechanism but (e.g., "6" for 6GB) │
 │ - Choose filesystem type (btrfs or ext4) │
 │ - The script will automatically: │
 │ • Create blank image file │
