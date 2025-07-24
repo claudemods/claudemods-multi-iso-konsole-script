@@ -50,6 +50,7 @@ const std::vector<std::string> DEPENDENCIES = {
     "bash-completion",
     "erofs-utils",
     "findutils",
+    "unzip",
     "jq",
     "libarchive",
     "libisoburn",
