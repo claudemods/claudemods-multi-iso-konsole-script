@@ -681,12 +681,107 @@ bool createISO() {
     return true;
 }
 
+void showGuide() {
+    std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
+    execute_command("mkdir -p /home/" + USERNAME + "/.config/cmi", true);
+    execute_command("nano " + readmePath, true);
+}
+
+void installISOToUSB() {
+    if (config.outputDir.empty()) {
+        std::cerr << COLOR_RED << "Output directory not set!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    // List available ISO files in output directory
+    DIR *dir;
+    struct dirent *ent;
+    std::vector<std::string> isoFiles;
+
+    std::string expandedOutputDir = expandPath(config.outputDir);
+    if ((dir = opendir(expandedOutputDir.c_str())) != nullptr) {
+        while ((ent = readdir(dir)) != nullptr) {
+            std::string filename = ent->d_name;
+            if (filename.find(".iso") != std::string::npos) {
+                isoFiles.push_back(filename);
+            }
+        }
+        closedir(dir);
+    } else {
+        std::cerr << COLOR_RED << "Could not open output directory: " << expandedOutputDir << COLOR_RESET << std::endl;
+        return;
+    }
+
+    if (isoFiles.empty()) {
+        std::cerr << COLOR_RED << "No ISO files found in output directory!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    // Show available ISO files
+    std::cout << COLOR_GREEN << "Available ISO files:" << COLOR_RESET << std::endl;
+    for (size_t i = 0; i < isoFiles.size(); i++) {
+        std::cout << COLOR_GREEN << (i+1) << ") " << isoFiles[i] << COLOR_RESET << std::endl;
+    }
+
+    // Get user selection
+    std::string selection = getUserInput("Select ISO file (1-" + std::to_string(isoFiles.size()) + "): ");
+    int choice;
+    try {
+        choice = std::stoi(selection);
+        if (choice < 1 || choice > static_cast<int>(isoFiles.size())) {
+            std::cerr << COLOR_RED << "Invalid selection!" << COLOR_RESET << std::endl;
+            return;
+        }
+    } catch (...) {
+        std::cerr << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::string selectedISO = expandedOutputDir + "/" + isoFiles[choice-1];
+
+    // Get target drive
+    std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
+    execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
+
+    std::string targetDrive = getUserInput("\nEnter target drive (e.g., /dev/sda): ");
+    if (targetDrive.empty()) {
+        std::cerr << COLOR_RED << "No drive specified!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    // Confirm before writing
+    std::cout << COLOR_RED << "\nWARNING: This will overwrite all data on " << targetDrive << "!" << COLOR_RESET << std::endl;
+    std::string confirm = getUserInput("Are you sure you want to continue? (y/N): ");
+    if (confirm != "y" && confirm != "Y") {
+        std::cout << COLOR_CYAN << "Operation cancelled." << COLOR_RESET << std::endl;
+        return;
+    }
+
+    // Write ISO to USB
+    std::cout << COLOR_CYAN << "\nWriting " << selectedISO << " to " << targetDrive << "..." << COLOR_RESET << std::endl;
+    std::string ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
+    execute_command(ddCommand, true);
+
+    std::cout << COLOR_GREEN << "\nISO successfully written to USB drive!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
+    getch();
+}
+
+void runCMIInstaller() {
+    execute_command("cmiinstaller", true);
+    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+    getch();
+}
+
 void showMainMenu() {
     std::vector<std::string> items = {
+        "Guide",
         "Setup Scripts",
         "Create Image",
         "Create ISO",
         "Show Disk Usage",
+        "Install ISO to USB",
+        "CMI BTRFS/EXT4 Installer",
         "Exit"
     };
 
@@ -706,9 +801,12 @@ void showMainMenu() {
             case '\n': // Enter key
                 switch (selected) {
                     case 0:
+                        showGuide();
+                        break;
+                    case 1:
                         showSetupMenu();
                         break;
-                    case 1: {
+                    case 2: {
                         std::string outputDir = getOutputDirectory();
                         std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
                         std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
@@ -761,17 +859,23 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                                case 2:
+                                case 3:
                                     createISO();
                                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                                     getch();
                                     break;
-                                case 3:
+                                case 4:
                                     execute_command("df -h");
                                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                                     getch();
                                     break;
-                                case 4:
+                                case 5:
+                                    installISOToUSB();
+                                    break;
+                                case 6:
+                                    runCMIInstaller();
+                                    break;
+                                case 7:
                                     return;
                 }
                 break;
