@@ -77,8 +77,7 @@
 │ ⚠️ Important Notes │
 │ │
 │ • Close all applications before system cloning │
-│ • If you reboot, you'll need to re-select vmlinuz │
-│ • Edit GRUB config to match your kernel name if not default │
+│ • If you reboot, you'll need to re-select vmlinuz and Regenerate │
 │ • Large images will take time to process - be patient │
 │ │
 ╰──────────────────────────────────────────────────────────────────────────────╯
