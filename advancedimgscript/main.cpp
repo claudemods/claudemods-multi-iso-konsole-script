@@ -301,7 +301,14 @@ void selectVmlinuz() {
         int choice = std::stoi(selection);
         if (choice > 0 && choice <= static_cast<int>(vmlinuzFiles.size())) {
             config.vmlinuzPath = vmlinuzFiles[choice-1];
+
+            // Copy the selected kernel to build directory and rename it
+            std::string destPath = BUILD_DIR + "/boot/vmlinuz-x86_64";
+            std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
+            execute_command(copyCmd);
+
             std::cout << COLOR_CYAN << "Selected: " << config.vmlinuzPath << COLOR_RESET << std::endl;
+            std::cout << COLOR_CYAN << "Copied to: " << destPath << COLOR_RESET << std::endl;
             saveConfig();
         } else {
             std::cerr << COLOR_RED << "Invalid selection!" << COLOR_RESET << std::endl;
