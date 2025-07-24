@@ -86,7 +86,7 @@
 
 ## ✨ Features
 
-### Img Creation Features
+### Img Iso Method Supports Arch Only
 - 🚀 Generate bootable ISOs with custom configurations
 - 🛠️ Customizable branding and kernel options
 - 🖼️ Create compressed system images (Btrfs and Ext4)
@@ -98,7 +98,7 @@
 - ⏱️ Real-time updates and status indicators
 - 🎨 Colorful terminal output
 
-### ISO Creation Features
+### My Other ISO Methods Supports
 - 🚀 Generate bootable ISOs with custom configurations
 - 🐧 Multi-Distro Support (Arch, Ubuntu, Debian, CachyOS, KDE Neon)
 - 🛠️ Customizable branding and kernel options
