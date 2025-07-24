@@ -106,7 +106,7 @@
 - Root privileges (sudo access)
 - Most Required packages can be installed through scripts:
 - You Basically need unzip gcc qt6-tools and qt5-tools to install and the rest is to create iso or test:
- - Base Arch Packages: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`, `unzip`, `arch-install-scripts`, `bash-completion`, `erofs-utils`, `findutils`, `jq`, `libarchive`, `libisoburn`, `lsb-release`, `lvm2`, `mkinitcpio-archiso`, `mkinitcpio-nfs-utils`, `mtools`, `nbd`, `pacman-contrib`, `parted`, `procps-ng`, `pv`, `python`, `sshfs`, `syslinux`, `xdg-utils`, `zsh-completions`, `kernel-modules-hook`, `virt-manager` `qt6-tools` `qt5-tools`
+ - Base Arch Packages: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`, `unzip`, `arch-install-scripts`, `bash-completion`, `erofs-utils`, `findutils`, `jq`, `libarchive`, `libisoburn`, `lsb-release`, `lvm2`, `mkinitcpio-archiso`, `mkinitcpio-nfs-utils`, `mtools`, `nbd`, `pacman-contrib`, `unzip`, `parted`, `procps-ng`, `pv`, `python`, `sshfs`, `syslinux`, `xdg-utils`, `zsh-completions`, `kernel-modules-hook`, `virt-manager` `qt6-tools` `qt5-tools`
 - Advanced Arch Packages: `btrfs-progs`, (for v2.01 img iso creator)  
 
 ## 💾 Installation
