@@ -1,4 +1,4 @@
-i need a new last option on main menu called cmi btrfs/ext4 installer when selected execute command cmiinstaller i need a new option to select as option 1 on the main  menu called guide when selected execute command nano /home/$USER/.config/cmi/readme.txt also show .isos in the output dirctorty set if its set and make a new last menu option install iso to usb and when selected also show isos but let user select one then ask for drive e.g /dev/sda and dd iso to the drive i need full code with the changes do not change or remove anything else #include <iostream>
+#include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
