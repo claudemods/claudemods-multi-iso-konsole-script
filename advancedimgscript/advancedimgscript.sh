@@ -549,7 +549,7 @@ copyFilesWithRsync() {
 
     if [ "$fsType" == "btrfs" ]; then
         # Optimize compression after copy
-        echo -e "${COLOR_CYAN}Optimizing compression...${COLOR_RESET}"
+        echo -e "${COLOR_CYAN}Optimizing compression....${COLOR_RESET}"
         execute_command "sudo btrfs filesystem defrag -r -v -c $BTRFS_COMPRESSION $destination" "true"
 
         # Shrink to minimum size
