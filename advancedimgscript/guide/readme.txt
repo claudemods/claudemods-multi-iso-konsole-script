@@ -1,6 +1,6 @@
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │ │
-│ ClaudeMods EXT4 Image ISO Creator v1.0 Guide │
+│ ClaudeMods Img ISO Creator v2.01 Guide │
 │ │
 │ "Create Bootable ISO Images from Your EXT4/BTRFS System Without Separate Partitions" │
 │ │
