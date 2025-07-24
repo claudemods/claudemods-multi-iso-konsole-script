@@ -10,12 +10,21 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <pwd.h>
+#include <ctime>
+#include <termios.h>
+#include <fcntl.h>
+#include <sys/statvfs.h>
 
 // Forward declarations
 void saveConfig();
 void execute_command(const std::string& cmd);
 void printCheckbox(bool checked);
 std::string getUserInput(const std::string& prompt);
+void clearScreen();
+int getch();
+int kbhit();
+void showDateTime();
+void showSystemSize();
 
 // Constants
 const std::string ORIG_IMG_NAME = "system.img";
@@ -89,6 +98,70 @@ const std::string COLOR_BLUE = "\033[34m";
 const std::string COLOR_CYAN = "\033[38;2;0;255;255m";
 const std::string COLOR_YELLOW = "\033[33m";
 const std::string COLOR_RESET = "\033[0m";
+const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
+const std::string COLOR_NORMAL = "\033[34m";
+
+// Terminal control functions
+void clearScreen() {
+    std::cout << "\033[2J\033[1;1H";
+}
+
+int getch() {
+    struct termios oldt, newt;
+    int ch;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    ch = getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return ch;
+}
+
+int kbhit() {
+    struct termios oldt, newt;
+    int ch;
+    int oldf;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if (ch != EOF) {
+        ungetc(ch, stdin);
+        return 1;
+    }
+
+    return 0;
+}
+
+void showDateTime() {
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    std::cout << COLOR_BLUE << "Date: " << COLOR_CYAN << 1900 + ltm->tm_year << "-" 
+              << 1 + ltm->tm_mon << "-" << ltm->tm_mday << "  "
+              << ltm->tm_hour << ":" << ltm->tm_min << ":" << ltm->tm_sec 
+              << COLOR_RESET << std::endl;
+}
+
+void showSystemSize() {
+    struct statvfs stat;
+    if (statvfs("/", &stat) == 0) {
+        double total = (double)stat.f_blocks * stat.f_frsize / (1024 * 1024 * 1024);
+        double available = (double)stat.f_bavail * stat.f_frsize / (1024 * 1024 * 1024);
+        double used = total - available;
+        std::cout << COLOR_BLUE << "System Size: " << COLOR_CYAN << used << "GB used / " 
+                  << total << "GB total (" << (used/total)*100 << "%)" << COLOR_RESET << std::endl;
+    }
+}
 
 void execute_command(const std::string& cmd) {
     std::cout << COLOR_CYAN;
@@ -110,6 +183,10 @@ void printCheckbox(bool checked) {
 }
 
 void printBanner() {
+    clearScreen();
+    showDateTime();
+    showSystemSize();
+    
     std::cout << COLOR_RED << R"(
 ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
 ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
@@ -118,7 +195,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl << std::endl;
+    std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl << std::endl;
 }
 
 void showDiskUsage() {
@@ -306,29 +383,150 @@ void loadConfig() {
     }
 }
 
-void showSetupMenu() {
-    std::cout << COLOR_BLUE << "\nISO Creation Setup Menu:\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "1) Install Dependencies\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "2) Set ISO Tag\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "3) Set ISO Name\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "4) Set Output Directory\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "5) Select vmlinuz\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "6) Generate mkinitcpio\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "7) Edit GRUB Config\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "8) Back to Main Menu\n" << COLOR_RESET;
+int showMenu(const std::string &title, const std::vector<std::string> &items, int selected) {
+    clearScreen();
+    printBanner();
+    
+    std::cout << COLOR_CYAN << "  " << title << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "  " << std::string(title.length(), '-') << COLOR_RESET << std::endl;
+
+    for (size_t i = 0; i < items.size(); i++) {
+        if (i == static_cast<size_t>(selected)) {
+            std::cout << COLOR_HIGHLIGHT << "➤ " << items[i] << COLOR_RESET << "\n";
+        } else {
+            std::cout << COLOR_NORMAL << "  " << items[i] << COLOR_RESET << "\n";
+        }
+    }
+
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000;
+
+    int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+
+    int key = 0;
+    if (retval == -1) {
+        perror("select()");
+    } else if (retval) {
+        int c = getchar();
+        if (c == '\033') {
+            getchar(); // Skip the [
+            key = getchar();
+        } else if (c == '\n') {
+            key = '\n';
+        } else {
+            key = c;
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    return key;
 }
 
-void processSetupChoice(int choice) {
-    switch (choice) {
-        case 1: installDependencies(); break;
-        case 2: setIsoTag(); break;
-        case 3: setIsoName(); break;
-        case 4: setOutputDir(); break;
-        case 5: selectVmlinuz(); break;
-        case 6: generateMkinitcpio(); break;
-        case 7: editGrubCfg(); break;
-        case 8: return;
-        default: std::cout << COLOR_RED << "Invalid choice!" << COLOR_RESET << std::endl;
+int showFilesystemMenu(const std::vector<std::string> &items, int selected) {
+    clearScreen();
+    printBanner();
+    
+    std::cout << COLOR_CYAN << "  Choose filesystem type:" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "  ----------------------" << COLOR_RESET << std::endl;
+
+    for (size_t i = 0; i < items.size(); i++) {
+        if (i == static_cast<size_t>(selected)) {
+            std::cout << COLOR_HIGHLIGHT << "➤ " << items[i] << COLOR_RESET << "\n";
+        } else {
+            std::cout << COLOR_NORMAL << "  " << items[i] << COLOR_RESET << "\n";
+        }
+    }
+
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    struct timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000;
+
+    int retval = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+
+    int key = 0;
+    if (retval == -1) {
+        perror("select()");
+    } else if (retval) {
+        int c = getchar();
+        if (c == '\033') {
+            getchar(); // Skip the [
+            key = getchar();
+        } else if (c == '\n') {
+            key = '\n';
+        } else {
+            key = c;
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    return key;
+}
+
+void showSetupMenu() {
+    std::vector<std::string> items = {
+        "Install Dependencies",
+        "Set ISO Tag",
+        "Set ISO Name",
+        "Set Output Directory",
+        "Select vmlinuz",
+        "Generate mkinitcpio",
+        "Edit GRUB Config",
+        "Back to Main Menu"
+    };
+    
+    int selected = 0;
+    int key;
+    
+    while (true) {
+        key = showMenu("ISO Creation Setup Menu:", items, selected);
+        
+        switch (key) {
+            case 'A': // Up arrow
+                if (selected > 0) selected--;
+                break;
+            case 'B': // Down arrow
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
+                break;
+            case '\n': // Enter key
+                switch (selected) {
+                    case 0: installDependencies(); break;
+                    case 1: setIsoTag(); break;
+                    case 2: setIsoName(); break;
+                    case 3: setOutputDir(); break;
+                    case 4: selectVmlinuz(); break;
+                    case 5: generateMkinitcpio(); break;
+                    case 6: editGrubCfg(); break;
+                    case 7: return;
+                }
+                
+                // Pause to show result before returning to menu
+                if (selected != 7) {
+                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                    getch();
+                }
+                break;
+        }
     }
 }
 
@@ -507,100 +705,100 @@ bool createISO() {
 }
 
 void showMainMenu() {
-    std::cout << COLOR_BLUE << "\nMain Menu:\n" << COLOR_RESET;
+    std::vector<std::string> items = {
+        "Create Image",
+        "ISO Creation Setup",
+        "Create ISO",
+        "Show Disk Usage",
+        "Exit"
+    };
 
-    // Show configuration status at the top
-    std::cout << COLOR_BLUE << "Current Configuration:\n" << COLOR_RESET;
-    std::cout << " "; printCheckbox(config.dependenciesInstalled);
-    std::cout << " Dependencies Installed\n";
+    int selected = 0;
+    int key;
+    
+    while (true) {
+        key = showMenu("Main Menu:", items, selected);
+        
+        switch (key) {
+            case 'A': // Up arrow
+                if (selected > 0) selected--;
+                break;
+            case 'B': // Down arrow
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
+                break;
+            case '\n': // Enter key
+                switch (selected) {
+                    case 0: {
+                        std::string outputDir = getOutputDirectory();
+                        std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
+                        std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
 
-    std::cout << " "; printCheckbox(!config.isoTag.empty());
-    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << "\n";
+                        // Cleanup old files
+                        execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true");
+                        execute_command("sudo rm -rf " + outputOrigImgPath);
+                        execute_command("sudo mkdir -p " + MOUNT_POINT);
+                        execute_command("sudo mkdir -p " + outputDir);
 
-    std::cout << " "; printCheckbox(!config.isoName.empty());
-    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << "\n";
+                        std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
 
-    std::cout << " "; printCheckbox(!config.outputDir.empty());
-    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << "\n";
+                        std::vector<std::string> fsOptions = {"btrfs", "ext4"};
+                        int fsSelected = 0;
+                        int fsKey;
+                        bool fsChosen = false;
+                        
+                        while (!fsChosen) {
+                            fsKey = showFilesystemMenu(fsOptions, fsSelected);
+                            
+                            switch (fsKey) {
+                                case 'A': // Up arrow
+                                    if (fsSelected > 0) fsSelected--;
+                                    break;
+                                case 'B': // Down arrow
+                                    if (fsSelected < static_cast<int>(fsOptions.size()) - 1) fsSelected++;
+                                    break;
+                                case '\n': // Enter key
+                                    fsChosen = true;
+                                    break;
+                            }
+                        }
+                        
+                        std::string fsType = (fsSelected == 0) ? "btrfs" : "ext4";
 
-    std::cout << " "; printCheckbox(!config.vmlinuzPath.empty());
-    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << "\n";
+                        if (!createImageFile(imgSize, outputOrigImgPath) ||
+                            !formatFilesystem(fsType, outputOrigImgPath) ||
+                            !mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT) ||
+                            !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
+                            break;
+                        }
 
-    std::cout << " "; printCheckbox(config.mkinitcpioGenerated);
-    std::cout << " mkinitcpio Generated\n";
-
-    std::cout << " "; printCheckbox(config.grubEdited);
-    std::cout << " GRUB Config Edited\n";
-
-    std::cout << COLOR_BLUE << "\nOptions:\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "1) Create Image\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "2) ISO Creation Setup\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "3) Create ISO\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "4) Show Disk Usage\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "5) Exit\n" << COLOR_RESET;
-    std::cout << COLOR_CYAN << "Enter your choice (1-5): " << COLOR_RESET;
-}
-
-void processMainMenuChoice(int choice) {
-    switch (choice) {
-        case 1: {
-            std::string outputDir = getOutputDirectory();
-            std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
-            std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
-
-            // Cleanup old files
-            execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true");
-            execute_command("sudo rm -rf " + outputOrigImgPath);
-            execute_command("sudo mkdir -p " + MOUNT_POINT);
-            execute_command("sudo mkdir -p " + outputDir);
-
-            std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
-
-            std::cout << COLOR_BLUE << "Choose filesystem type:\n" << COLOR_RESET;
-            std::cout << COLOR_BLUE << "1) btrfs\n" << COLOR_RESET;
-            std::cout << COLOR_BLUE << "2) ext4\n" << COLOR_RESET;
-            std::string fsChoice = getUserInput("Enter choice (1 or 2): ");
-            std::string fsType = (fsChoice == "1") ? "btrfs" : "ext4";
-
-            if (!createImageFile(imgSize, outputOrigImgPath) ||
-                !formatFilesystem(fsType, outputOrigImgPath) ||
-                !mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT) ||
-                !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
-                return;
+                        unmountAndCleanup(MOUNT_POINT);
+                        createSquashFS(outputOrigImgPath, outputCompressedImgPath);
+                        deleteOriginalImage(outputOrigImgPath);
+                        createChecksum(outputCompressedImgPath);
+                        printFinalMessage(fsType, outputCompressedImgPath);
+                        
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    }
+                    case 1:
+                        showSetupMenu();
+                        break;
+                    case 2:
+                        createISO();
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 3:
+                        showDiskUsage();
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 4:
+                        return;
                 }
-
-                unmountAndCleanup(MOUNT_POINT);
-            createSquashFS(outputOrigImgPath, outputCompressedImgPath);
-            deleteOriginalImage(outputOrigImgPath);
-            createChecksum(outputCompressedImgPath);
-            printFinalMessage(fsType, outputCompressedImgPath);
-            break;
+                break;
         }
-        case 2: {
-            while (true) {
-                showSetupMenu();
-                std::string input;
-                std::getline(std::cin, input);
-                try {
-                    int setupChoice = std::stoi(input);
-                    if (setupChoice == 8) break;
-                    processSetupChoice(setupChoice);
-                } catch (...) {
-                    std::cout << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
-                }
-            }
-            break;
-        }
-        case 3:
-            createISO();
-            break;
-        case 4:
-            showDiskUsage();
-            break;
-        case 5:
-            exit(0);
-        default:
-            std::cout << COLOR_RED << "Invalid choice!" << COLOR_RESET << std::endl;
     }
 }
 
@@ -624,20 +822,20 @@ int main() {
     // Load existing configuration
     loadConfig();
 
+    // Set terminal to raw mode for arrow key detection
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
     printBanner();
     showDiskUsage();
 
-    while (true) {
-        showMainMenu();
-        std::string input;
-        std::getline(std::cin, input);
-        try {
-            int choice = std::stoi(input);
-            processMainMenuChoice(choice);
-        } catch (...) {
-            std::cout << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
-        }
-    }
+    showMainMenu();
+
+    // Restore terminal settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 
     return 0;
 }
