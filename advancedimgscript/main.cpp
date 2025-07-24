@@ -134,7 +134,7 @@ int getch() {
     int ch;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
+    newt.c_lflag &= ~(ICANON); // Keep ECHO enabled to see what we type
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
     ch = getchar();
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
@@ -371,6 +371,10 @@ void setOutputDir() {
     if (config.outputDir.empty()) {
         config.outputDir = defaultDir;
     }
+
+    // Create directory if it doesn't exist
+    execute_command("mkdir -p " + config.outputDir, true);
+
     saveConfig();
 }
 
@@ -650,6 +654,9 @@ bool createISO() {
 
     std::string expandedOutputDir = expandPath(config.outputDir);
 
+    // Ensure output directory exists
+    execute_command("mkdir -p " + expandedOutputDir, true);
+
     std::string xorrisoCmd = "sudo xorriso -as mkisofs "
     "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
     "--protective-msdos-label "
@@ -681,7 +688,11 @@ bool createISO() {
 void showGuide() {
     std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
     execute_command("mkdir -p /home/" + USERNAME + "/.config/cmi", true);
+
+    // Set guide output color to cyan
+    std::cout << COLOR_CYAN;
     execute_command("nano " + readmePath, true);
+    std::cout << COLOR_RESET;
 }
 
 void installISOToUSB() {
@@ -739,7 +750,7 @@ void installISOToUSB() {
     // Get target drive
     std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
     execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
-    
+
     std::string targetDrive = getUserInput("\nEnter target drive (e.g., /dev/sda): ");
     if (targetDrive.empty()) {
         std::cerr << COLOR_RED << "No drive specified!" << COLOR_RESET << std::endl;
@@ -856,24 +867,24 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                    case 3:
-                        createISO();
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 4:
-                        execute_command("df -h");
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 5:
-                        installISOToUSB();
-                        break;
-                    case 6:
-                        runCMIInstaller();
-                        break;
-                    case 7:
-                        return;
+                                case 3:
+                                    createISO();
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 4:
+                                    execute_command("df -h");
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 5:
+                                    installISOToUSB();
+                                    break;
+                                case 6:
+                                    runCMIInstaller();
+                                    break;
+                                case 7:
+                                    return;
                 }
                 break;
         }
@@ -903,11 +914,11 @@ int main() {
     // Start time update thread
     std::thread time_thread(update_time_thread);
 
-    // Set terminal to raw mode for arrow key detection
+    // Set terminal to raw mode for arrow key detection (but keep ECHO on)
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
+    newt.c_lflag &= ~ICANON; // Keep ECHO enabled to see what we type
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
     showMainMenu();
