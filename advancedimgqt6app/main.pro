@@ -1,5 +1,5 @@
 # Project name
-TARGET = AppLaunchr
+TARGET = cmiimggui
 
 # Required Qt modules
 QT += core gui widgets
