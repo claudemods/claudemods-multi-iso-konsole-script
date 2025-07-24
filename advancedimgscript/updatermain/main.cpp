@@ -95,6 +95,7 @@ void* execute_update_thread(void* /*arg*/) {
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/version/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/buildimages/v1.01/build-image-arch-img.zip -d /home/$USER/.config/cmi/");
+        silent_command("sudo cp -r /home/$USER/.config/cmi/build-image-arch-img/working-hooks-btrfs-ext4 /etc/initcpio/");
         
         // Arch/CachyOS-specific commands
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript && qmake6 && make >/dev/null 2>&1");
