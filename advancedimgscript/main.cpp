@@ -677,7 +677,7 @@ void deleteOriginalImage(const std::string& imgName) {
 }
 
 std::string getOutputDirectory() {
-    std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img/LiveOS";
+    std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS";
     return dir;
 }
 
