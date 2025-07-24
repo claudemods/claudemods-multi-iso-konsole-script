@@ -569,9 +569,10 @@ private:
         menuLayout->addWidget(titleLabel);
 
         menuList = new QListWidget;
+        // Changed order to put Setup first
         menuList->addItems({
+            "Setup Up Scripts",
             "Create Image",
-            "ISO Creation Setup",
             "Create ISO",
             "Show Disk Usage",
             "Exit"
@@ -613,12 +614,12 @@ private:
 
         setCentralWidget(centralWidget);
 
-        // Connect menu
+        // Connect menu - updated to match new order
         connect(menuList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
             int row = menuList->row(item);
             switch(row) {
-                case 0: onCreateImage(); break;
-                case 1: showSetupMenu(); break;
+                case 0: showSetupMenu(); break;
+                case 1: onCreateImage(); break;
                 case 2: onCreateISO(); break;
                 case 3: onShowDiskUsage(); break;
                 case 4: close(); break;
@@ -789,7 +790,7 @@ private:
     }
 
     std::string getOutputDirectory() {
-        std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img/LiveOS";
+        std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS";
         return dir;
     }
 
