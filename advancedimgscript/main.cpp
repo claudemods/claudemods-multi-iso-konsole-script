@@ -642,7 +642,7 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
 
 void deleteOriginalImage(const std::string& imgName) {
     std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("sudo rm -f " + imgName, true);
+    execute_command("sudo rm -rf system.img");
 }
 
 std::string getOutputDirectory() {
