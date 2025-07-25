@@ -601,11 +601,27 @@ bool unmountAndCleanup(const std::string& mountPoint) {
 }
 
 bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
-    std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
-    " -comp " + SQUASHFS_COMPRESSION +
-    " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
-    " -noappend";
-    execute_command(command, true);
+    // For Btrfs, rename system.img to rootfs.img before creating SquashFS
+    if (inputFile.find("system.img") != std::string::npos) {
+        std::string newName = inputFile;
+        size_t pos = newName.find("system.img");
+        newName.replace(pos, std::string("system.img").length(), "rootfs.img");
+
+        std::cout << COLOR_CYAN << "Renaming " << inputFile << " to " << newName << COLOR_RESET << std::endl;
+        execute_command("sudo mv " + inputFile + " " + newName, true);
+
+        std::string command = "sudo mksquashfs " + newName + " " + outputFile +
+        " -comp " + SQUASHFS_COMPRESSION +
+        " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
+        " -noappend";
+        execute_command(command, true);
+    } else {
+        std::string command = "sudo mksquashfs " + newName + " " + outputFile +
+        " -comp " + SQUASHFS_COMPRESSION +
+        " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
+        " -noappend";
+        execute_command(command, true);
+    }
     return true;
 }
 
@@ -865,6 +881,28 @@ void showMainMenu() {
                             }
 
                             unmountAndCleanup(MOUNT_POINT);
+
+                        if (fsType == "ext4") {
+                            std::string newName = outputOrigImgPath;
+                            size_t pos = newName.find("system.img");
+                            newName.replace(pos, std::string("system.img").length(), "rootfs.img");
+
+                            std::cout << COLOR_CYAN << "Renaming " << outputOrigImgPath << " to " << newName << COLOR_RESET << std::endl;
+                            execute_command("sudo mv " + outputOrigImgPath + " " + newName, true);
+                            outputOrigImgPath = newName;
+                        }
+
+                        if (fsType == "btrfs") {
+                            std::string newName = outputOrigImgPath;
+                            size_t pos = newName.find("system.img");
+                            newName.replace(pos, std::string("system.img").length(), "rootfs.img");
+
+                            std::cout << COLOR_CYAN << "Renaming " << outputOrigImgPath << " to " << newName << COLOR_RESET << std::endl;
+                            execute_command("sudo mv " + outputOrigImgPath + " " + newName, true);
+                            outputOrigImgPath = newName;
+                        }
+                        
+
                         createSquashFS(outputOrigImgPath, outputCompressedImgPath);
                         deleteOriginalImage(outputOrigImgPath);
                         createChecksum(outputCompressedImgPath);
