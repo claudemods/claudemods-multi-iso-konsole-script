@@ -601,27 +601,23 @@ bool unmountAndCleanup(const std::string& mountPoint) {
 }
 
 bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
-    // For Btrfs, rename system.img to rootfs.img before creating SquashFS
+    std::string newName = inputFile;
+
+    // For both Btrfs and ext4, rename system.img to rootfs.img before creating SquashFS
     if (inputFile.find("system.img") != std::string::npos) {
-        std::string newName = inputFile;
         size_t pos = newName.find("system.img");
         newName.replace(pos, std::string("system.img").length(), "rootfs.img");
 
         std::cout << COLOR_CYAN << "Renaming " << inputFile << " to " << newName << COLOR_RESET << std::endl;
         execute_command("sudo mv " + inputFile + " " + newName, true);
-
-        std::string command = "sudo mksquashfs " + newName + " " + outputFile +
-        " -comp " + SQUASHFS_COMPRESSION +
-        " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
-        " -noappend";
-        execute_command(command, true);
-    } else {
-        std::string command = "sudo mksquashfs " + newName + " " + outputFile +
-        " -comp " + SQUASHFS_COMPRESSION +
-        " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
-        " -noappend";
-        execute_command(command, true);
     }
+
+    std::string command = "sudo mksquashfs " + newName + " " + outputFile +
+    " -comp " + SQUASHFS_COMPRESSION +
+    " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
+    " -noappend";
+    execute_command(command, true);
+
     return true;
 }
 
@@ -804,6 +800,14 @@ void runCMIInstaller() {
     getch();
 }
 
+void updateScript() {
+    std::cout << COLOR_CYAN << "\nUpdating script from GitHub..." << COLOR_RESET << std::endl;
+    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
+    std::cout << COLOR_GREEN << "\nScript updated successfully!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
+    getch();
+}
+
 void showMainMenu() {
     std::vector<std::string> items = {
         "Guide",
@@ -813,6 +817,7 @@ void showMainMenu() {
         "Show Disk Usage",
         "Install ISO to USB",
         "CMI BTRFS/EXT4 Installer",
+        "Update Script",
         "Exit"
     };
 
@@ -901,7 +906,7 @@ void showMainMenu() {
                             execute_command("sudo mv " + outputOrigImgPath + " " + newName, true);
                             outputOrigImgPath = newName;
                         }
-                        
+
 
                         createSquashFS(outputOrigImgPath, outputCompressedImgPath);
                         deleteOriginalImage(outputOrigImgPath);
@@ -929,6 +934,9 @@ void showMainMenu() {
                                     runCMIInstaller();
                                     break;
                                 case 7:
+                                    updateScript();
+                                    break;
+                                case 8:
                                     return;
                 }
                 break;
