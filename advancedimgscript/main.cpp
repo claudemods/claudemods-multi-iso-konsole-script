@@ -319,6 +319,7 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=/lost+found "
     "--exclude=*rootfs1.img "
     "--exclude=btrfs_temp "
+    "--exclude=system.img "
     "--exclude=rootfs.img " +
     source + " " + destination;
     execute_command(command);
