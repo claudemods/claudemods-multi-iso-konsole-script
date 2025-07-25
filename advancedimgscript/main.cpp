@@ -10,6 +10,28 @@
 #include <sys/wait.h>
 #include <dirent.h>
 #include <pwd.h>
+#include <ctime>
+#include <termios.h>
+#include <fcntl.h>
+#include <sys/statvfs.h>
+#include <atomic>
+#include <mutex>
+#include <thread>
+
+// Forward declarations
+void saveConfig();
+void execute_command(const std::string& cmd, bool continueOnError = false);
+void printCheckbox(bool checked);
+std::string getUserInput(const std::string& prompt);
+void clearScreen();
+int getch();
+int kbhit();
+
+// Time-related globals
+std::atomic<bool> time_thread_running(true);
+std::mutex time_mutex;
+std::string current_time_str;
+bool should_reset = false;
 
 // Constants
 const std::string ORIG_IMG_NAME = "rootfs.img";
@@ -24,6 +46,44 @@ std::string USERNAME = "";
 const std::string BTRFS_LABEL = "LIVE_SYSTEM";
 const std::string BTRFS_COMPRESSION = "zstd";
 
+// Dependencies list
+const std::vector<std::string> DEPENDENCIES = {
+    "rsync",
+    "squashfs-tools",
+    "xorriso",
+    "grub",
+    "dosfstools",
+    "unzip",
+    "nano",
+    "arch-install-scripts",
+    "bash-completion",
+    "erofs-utils",
+    "findutils",
+    "unzip",
+    "jq",
+    "libarchive",
+    "libisoburn",
+    "lsb-release",
+    "lvm2",
+    "mkinitcpio-archiso",
+    "mkinitcpio-nfs-utils",
+    "mtools",
+    "nbd",
+    "pacman-contrib",
+    "parted",
+    "procps-ng",
+    "pv",
+    "python",
+    "sshfs",
+    "syslinux",
+    "xdg-utils",
+    "zsh-completions",
+    "kernel-modules-hook",
+    "virt-manager",
+    "qt6-tools",
+    "qt5-tools"
+};
+
 // Configuration state
 struct ConfigState {
     std::string isoTag;
@@ -32,10 +92,11 @@ struct ConfigState {
     std::string vmlinuzPath;
     bool mkinitcpioGenerated = false;
     bool grubEdited = false;
+    bool dependenciesInstalled = false;
 
     bool isReadyForISO() const {
         return !isoTag.empty() && !isoName.empty() && !outputDir.empty() &&
-        !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited;
+        !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited && dependenciesInstalled;
     }
 } config;
 
@@ -46,15 +107,75 @@ const std::string COLOR_BLUE = "\033[34m";
 const std::string COLOR_CYAN = "\033[38;2;0;255;255m";
 const std::string COLOR_YELLOW = "\033[33m";
 const std::string COLOR_RESET = "\033[0m";
+const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
+const std::string COLOR_NORMAL = "\033[34m";
 
-void execute_command(const std::string& cmd, bool continue_on_failure = false) {
+void update_time_thread() {
+    while (time_thread_running) {
+        time_t now = time(NULL);
+        struct tm *t = localtime(&now);
+        char datetime[50];
+        strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
+
+        {
+            std::lock_guard<std::mutex> lock(time_mutex);
+            current_time_str = datetime;
+        }
+        sleep(1);
+    }
+}
+
+void clearScreen() {
+    std::cout << "\033[2J\033[1;1H";
+}
+
+int getch() {
+    struct termios oldt, newt;
+    int ch;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    ch = getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return ch;
+}
+
+int kbhit() {
+    struct termios oldt, newt;
+    int ch;
+    int oldf;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if (ch != EOF) {
+        ungetc(ch, stdin);
+        return 1;
+    }
+
+    return 0;
+}
+
+void execute_command(const std::string& cmd, bool continueOnError) {
     std::cout << COLOR_CYAN;
     fflush(stdout);
     int status = system(cmd.c_str());
     std::cout << COLOR_RESET;
-    if (status != 0 && !continue_on_failure) {
+    if (status != 0 && !continueOnError) {
         std::cerr << COLOR_RED << "Error executing: " << cmd << COLOR_RESET << std::endl;
         exit(1);
+    } else if (status != 0) {
+        std::cerr << COLOR_YELLOW << "Command failed but continuing: " << cmd << COLOR_RESET << std::endl;
     }
 }
 
@@ -67,6 +188,8 @@ void printCheckbox(bool checked) {
 }
 
 void printBanner() {
+    clearScreen();
+
     std::cout << COLOR_RED << R"(
 ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
 ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
@@ -75,20 +198,71 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << "claudemods arch btrfs/ext4 img iso creator v2.01 23-07-2025" << COLOR_RESET << std::endl << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
+
+{
+    std::lock_guard<std::mutex> lock(time_mutex);
+    std::cout << COLOR_BLUE << "Current UK Time: " << COLOR_CYAN << current_time_str << COLOR_RESET << std::endl;
 }
 
-void showDiskUsage() {
-    std::cout << COLOR_GREEN << "\nCurrent system disk usage:\n" << COLOR_RESET;
-    execute_command("df -h /");
-    std::cout << std::endl;
+std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
+execute_command("df -h / | tail -1");
+std::cout << std::endl;
+}
+
+void printConfigStatus() {
+    std::cout << COLOR_CYAN << "Current Configuration:" << COLOR_RESET << std::endl;
+
+    std::cout << " ";
+    printCheckbox(config.dependenciesInstalled);
+    std::cout << " Dependencies Installed" << std::endl;
+
+    std::cout << " ";
+    printCheckbox(!config.isoTag.empty());
+    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << std::endl;
+
+    std::cout << " ";
+    printCheckbox(!config.isoName.empty());
+    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << std::endl;
+
+    std::cout << " ";
+    printCheckbox(!config.outputDir.empty());
+    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << std::endl;
+
+    std::cout << " ";
+    printCheckbox(!config.vmlinuzPath.empty());
+    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
+
+    std::cout << " ";
+    printCheckbox(config.mkinitcpioGenerated);
+    std::cout << " mkinitcpio Generated" << std::endl;
+
+    std::cout << " ";
+    printCheckbox(config.grubEdited);
+    std::cout << " GRUB Config Edited" << std::endl;
 }
 
 std::string getUserInput(const std::string& prompt) {
-    std::string input;
     std::cout << COLOR_GREEN << prompt << COLOR_RESET;
+    std::string input;
     std::getline(std::cin, input);
     return input;
+}
+
+void installDependencies() {
+    std::cout << COLOR_CYAN << "\nInstalling required dependencies...\n" << COLOR_RESET;
+
+    std::string packages;
+    for (const auto& pkg : DEPENDENCIES) {
+        packages += pkg + " ";
+    }
+
+    std::string command = "sudo pacman -Sy --needed --noconfirm " + packages;
+    execute_command(command);
+
+    config.dependenciesInstalled = true;
+    saveConfig();
+    std::cout << COLOR_GREEN << "\nDependencies installed successfully!\n" << COLOR_RESET << std::endl;
 }
 
 void selectVmlinuz() {
@@ -124,7 +298,14 @@ void selectVmlinuz() {
         int choice = std::stoi(selection);
         if (choice > 0 && choice <= static_cast<int>(vmlinuzFiles.size())) {
             config.vmlinuzPath = vmlinuzFiles[choice-1];
+
+            std::string destPath = BUILD_DIR + "/boot/vmlinuz-x86_64";
+            std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
+            execute_command(copyCmd);
+
             std::cout << COLOR_CYAN << "Selected: " << config.vmlinuzPath << COLOR_RESET << std::endl;
+            std::cout << COLOR_CYAN << "Copied to: " << destPath << COLOR_RESET << std::endl;
+            saveConfig();
         } else {
             std::cerr << COLOR_RED << "Invalid selection!" << COLOR_RESET << std::endl;
         }
@@ -144,14 +325,11 @@ void generateMkinitcpio() {
         return;
     }
 
-    std::string vmlinuzDest = BUILD_DIR + "/boot/vmlinuz-x86_64";
-    std::cout << COLOR_CYAN << "Copying " << config.vmlinuzPath << " to " << vmlinuzDest << COLOR_RESET << std::endl;
-    execute_command("sudo cp " + config.vmlinuzPath + " " + vmlinuzDest);
-
     std::cout << COLOR_CYAN << "Generating initramfs..." << COLOR_RESET << std::endl;
     execute_command("cd " + BUILD_DIR + " && sudo mkinitcpio -c mkinitcpio.conf -g " + BUILD_DIR + "/boot/initramfs-x86_64.img");
 
     config.mkinitcpioGenerated = true;
+    saveConfig();
     std::cout << COLOR_GREEN << "mkinitcpio generated successfully!" << COLOR_RESET << std::endl;
 }
 
@@ -166,15 +344,18 @@ void editGrubCfg() {
     execute_command("sudo nano " + grubCfgPath);
 
     config.grubEdited = true;
+    saveConfig();
     std::cout << COLOR_GREEN << "GRUB config edited!" << COLOR_RESET << std::endl;
 }
 
 void setIsoTag() {
     config.isoTag = getUserInput("Enter ISO tag (e.g., 2025): ");
+    saveConfig();
 }
 
 void setIsoName() {
     config.isoName = getUserInput("Enter ISO name (e.g., claudemods.iso): ");
+    saveConfig();
 }
 
 void setOutputDir() {
@@ -183,16 +364,18 @@ void setOutputDir() {
     std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
     config.outputDir = getUserInput("Enter output directory (e.g., " + defaultDir + " or $USER/Downloads): ");
 
-    // Replace $USER with actual username
     size_t user_pos;
     if ((user_pos = config.outputDir.find("$USER")) != std::string::npos) {
         config.outputDir.replace(user_pos, 5, USERNAME);
     }
 
-    // If empty, use default
     if (config.outputDir.empty()) {
         config.outputDir = defaultDir;
     }
+
+    execute_command("mkdir -p " + config.outputDir, true);
+
+    saveConfig();
 }
 
 std::string getConfigFilePath() {
@@ -209,6 +392,7 @@ void saveConfig() {
         configFile << "vmlinuzPath=" << config.vmlinuzPath << "\n";
         configFile << "mkinitcpioGenerated=" << (config.mkinitcpioGenerated ? "1" : "0") << "\n";
         configFile << "grubEdited=" << (config.grubEdited ? "1" : "0") << "\n";
+        configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
         configFile.close();
     } else {
         std::cerr << COLOR_RED << "Failed to save configuration to " << configPath << COLOR_RESET << std::endl;
@@ -232,39 +416,99 @@ void loadConfig() {
                 else if (key == "vmlinuzPath") config.vmlinuzPath = value;
                 else if (key == "mkinitcpioGenerated") config.mkinitcpioGenerated = (value == "1");
                 else if (key == "grubEdited") config.grubEdited = (value == "1");
+                else if (key == "dependenciesInstalled") config.dependenciesInstalled = (value == "1");
             }
         }
         configFile.close();
     }
 }
 
-void showSetupMenu() {
-    std::cout << COLOR_BLUE << "\nISO Creation Setup Menu:\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "1) Set ISO Tag\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "2) Set ISO Name\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "3) Set Output Directory\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "4) Select vmlinuz\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "5) Generate mkinitcpio\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "6) Edit GRUB Config\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "7) Back to Main Menu\n" << COLOR_RESET;
+int showMenu(const std::string &title, const std::vector<std::string> &items, int selected) {
+    clearScreen();
+    printBanner();
+    printConfigStatus();
+
+    std::cout << COLOR_CYAN << "\n  " << title << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "  " << std::string(title.length(), '-') << COLOR_RESET << std::endl;
+
+    for (size_t i = 0; i < items.size(); i++) {
+        if (i == static_cast<size_t>(selected)) {
+            std::cout << COLOR_HIGHLIGHT << "➤ " << items[i] << COLOR_RESET << "\n";
+        } else {
+            std::cout << COLOR_NORMAL << "  " << items[i] << COLOR_RESET << "\n";
+        }
+    }
+
+    return getch();
 }
 
-void processSetupChoice(int choice) {
-    switch (choice) {
-        case 1: setIsoTag(); saveConfig(); break;
-        case 2: setIsoName(); saveConfig(); break;
-        case 3: setOutputDir(); saveConfig(); break;
-        case 4: selectVmlinuz(); saveConfig(); break;
-        case 5: generateMkinitcpio(); saveConfig(); break;
-        case 6: editGrubCfg(); saveConfig(); break;
-        case 7: return;
-        default: std::cout << COLOR_RED << "Invalid choice!" << COLOR_RESET << std::endl;
+int showFilesystemMenu(const std::vector<std::string> &items, int selected) {
+    clearScreen();
+    printBanner();
+
+    std::cout << COLOR_CYAN << "\n  Choose filesystem type:" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "  ----------------------" << COLOR_RESET << std::endl;
+
+    for (size_t i = 0; i < items.size(); i++) {
+        if (i == static_cast<size_t>(selected)) {
+            std::cout << COLOR_HIGHLIGHT << "➤ " << items[i] << COLOR_RESET << "\n";
+        } else {
+            std::cout << COLOR_NORMAL << "  " << items[i] << COLOR_RESET << "\n";
+        }
+    }
+
+    return getch();
+}
+
+void showSetupMenu() {
+    std::vector<std::string> items = {
+        "Install Dependencies",
+        "Set ISO Tag",
+        "Set ISO Name",
+        "Set Output Directory",
+        "Select vmlinuz",
+        "Generate mkinitcpio",
+        "Edit GRUB Config",
+        "Back to Main Menu"
+    };
+
+    int selected = 0;
+    int key;
+
+    while (true) {
+        key = showMenu("ISO Creation Setup Menu:", items, selected);
+
+        switch (key) {
+            case 'A':
+                if (selected > 0) selected--;
+                break;
+            case 'B':
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
+                break;
+            case '\n':
+                switch (selected) {
+                    case 0: installDependencies(); break;
+                    case 1: setIsoTag(); break;
+                    case 2: setIsoName(); break;
+                    case 3: setOutputDir(); break;
+                    case 4: selectVmlinuz(); break;
+                    case 5: generateMkinitcpio(); break;
+                    case 6: editGrubCfg(); break;
+                    case 7: return;
+                }
+
+                if (selected != 7) {
+                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                    getch();
+                }
+                break;
+        }
     }
 }
 
 bool createImageFile(const std::string& size, const std::string& filename) {
     std::string command = "sudo truncate -s " + size + " " + filename;
-    execute_command(command, true);  // Continue on failure
+    execute_command(command, true);
     return true;
 }
 
@@ -272,14 +516,12 @@ bool formatFilesystem(const std::string& fsType, const std::string& filename) {
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Creating Btrfs filesystem with " << BTRFS_COMPRESSION << " compression" << COLOR_RESET << std::endl;
 
-        // Create temporary rootdir
         execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir", true);
 
         std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION +
         " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
         execute_command(command, true);
 
-        // Cleanup temporary rootdir
         execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir", true);
     } else {
         std::cout << COLOR_CYAN << "Formatting as ext4" << COLOR_RESET << std::endl;
@@ -319,17 +561,14 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=/lost+found "
     "--exclude=*rootfs1.img "
     "--exclude=btrfs_temp "
-    "--exclude=system.img "
     "--exclude=rootfs.img " +
     source + " " + destination;
     execute_command(command, true);
 
     if (fsType == "btrfs") {
-        // Optimize compression after copy
         std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
         execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
 
-        // Shrink to minimum size
         std::cout << COLOR_CYAN << "Finalizing image..." << COLOR_RESET << std::endl;
         execute_command("sudo btrfs filesystem resize max " + destination, true);
     }
@@ -354,6 +593,7 @@ bool createSquashFS(const std::string& inputFile, const std::string& outputFile)
     " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
     " -noappend";
     execute_command(command, true);
+
     return true;
 }
 
@@ -409,6 +649,8 @@ bool createISO() {
 
     std::string expandedOutputDir = expandPath(config.outputDir);
 
+    execute_command("mkdir -p " + expandedOutputDir, true);
+
     std::string xorrisoCmd = "sudo xorriso -as mkisofs "
     "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
     "--protective-msdos-label "
@@ -432,106 +674,221 @@ bool createISO() {
     "-o \"" + expandedOutputDir + "/" + config.isoName + "\" " +
     BUILD_DIR;
 
-    execute_command(xorrisoCmd);
+    execute_command(xorrisoCmd, true);
     std::cout << COLOR_CYAN << "ISO created successfully at " << expandedOutputDir << "/" << config.isoName << COLOR_RESET << std::endl;
     return true;
 }
 
-void showMainMenu() {
-    std::cout << COLOR_BLUE << "\nMain Menu:\n" << COLOR_RESET;
+void showGuide() {
+    std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
+    execute_command("mkdir -p /home/" + USERNAME + "/.config/cmi", true);
 
-    // Show configuration status at the top
-    std::cout << COLOR_BLUE << "Current Configuration:\n" << COLOR_RESET;
-    std::cout << " "; printCheckbox(!config.isoTag.empty());
-    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(!config.isoName.empty());
-    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(!config.outputDir.empty());
-    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(!config.vmlinuzPath.empty());
-    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << "\n";
-
-    std::cout << " "; printCheckbox(config.mkinitcpioGenerated);
-    std::cout << " mkinitcpio Generated\n";
-
-    std::cout << " "; printCheckbox(config.grubEdited);
-    std::cout << " GRUB Config Edited\n";
-
-    std::cout << COLOR_BLUE << "\nOptions:\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "1) Create Image\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "2) ISO Creation Setup\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "3) Create ISO\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "4) Show Disk Usage\n" << COLOR_RESET;
-    std::cout << COLOR_BLUE << "5) Exit\n" << COLOR_RESET;
-    std::cout << COLOR_CYAN << "Enter your choice (1-5): " << COLOR_RESET;
+    std::cout << COLOR_CYAN;
+    execute_command("nano " + readmePath, true);
+    std::cout << COLOR_RESET;
 }
 
-void processMainMenuChoice(int choice) {
-    switch (choice) {
-        case 1: {
-            std::string outputDir = getOutputDirectory();
-            std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
-            std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
+void installISOToUSB() {
+    if (config.outputDir.empty()) {
+        std::cerr << COLOR_RED << "Output directory not set!" << COLOR_RESET << std::endl;
+        return;
+    }
 
-            // Cleanup old files
-            execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
-            execute_command("sudo rm -rf " + outputOrigImgPath, true);
-            execute_command("sudo mkdir -p " + MOUNT_POINT, true);
-            execute_command("sudo mkdir -p " + outputDir, true);
+    DIR *dir;
+    struct dirent *ent;
+    std::vector<std::string> isoFiles;
 
-            std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
-
-            std::cout << COLOR_BLUE << "Choose filesystem type:\n" << COLOR_RESET;
-            std::cout << COLOR_BLUE << "1) btrfs\n" << COLOR_RESET;
-            std::cout << COLOR_BLUE << "2) ext4\n" << COLOR_RESET;
-            std::string fsChoice = getUserInput("Enter choice (1 or 2): ");
-            std::string fsType = (fsChoice == "1") ? "btrfs" : "ext4";
-
-            createImageFile(imgSize, outputOrigImgPath);
-            formatFilesystem(fsType, outputOrigImgPath);
-            mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT);
-            copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType);
-
-            unmountAndCleanup(MOUNT_POINT);
-            createSquashFS(outputOrigImgPath, outputCompressedImgPath);
-            deleteOriginalImage(outputOrigImgPath);
-            createChecksum(outputCompressedImgPath);
-            printFinalMessage(fsType, outputCompressedImgPath);
-            break;
-        }
-        case 2: {
-            while (true) {
-                showSetupMenu();
-                std::string input;
-                std::getline(std::cin, input);
-                try {
-                    int setupChoice = std::stoi(input);
-                    if (setupChoice == 7) break;
-                    processSetupChoice(setupChoice);
-                } catch (...) {
-                    std::cout << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
-                }
+    std::string expandedOutputDir = expandPath(config.outputDir);
+    if ((dir = opendir(expandedOutputDir.c_str())) != nullptr) {
+        while ((ent = readdir(dir)) != nullptr) {
+            std::string filename = ent->d_name;
+            if (filename.find(".iso") != std::string::npos) {
+                isoFiles.push_back(filename);
             }
-            break;
         }
-        case 3:
-            createISO();
-            break;
-        case 4:
-            showDiskUsage();
-            break;
-        case 5:
-            exit(0);
-        default:
-            std::cout << COLOR_RED << "Invalid choice!" << COLOR_RESET << std::endl;
+        closedir(dir);
+    } else {
+        std::cerr << COLOR_RED << "Could not open output directory: " << expandedOutputDir << COLOR_RESET << std::endl;
+        return;
+    }
+
+    if (isoFiles.empty()) {
+        std::cerr << COLOR_RED << "No ISO files found in output directory!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::cout << COLOR_GREEN << "Available ISO files:" << COLOR_RESET << std::endl;
+    for (size_t i = 0; i < isoFiles.size(); i++) {
+        std::cout << COLOR_GREEN << (i+1) << ") " << isoFiles[i] << COLOR_RESET << std::endl;
+    }
+
+    std::string selection = getUserInput("Select ISO file (1-" + std::to_string(isoFiles.size()) + "): ");
+    int choice;
+    try {
+        choice = std::stoi(selection);
+        if (choice < 1 || choice > static_cast<int>(isoFiles.size())) {
+            std::cerr << COLOR_RED << "Invalid selection!" << COLOR_RESET << std::endl;
+            return;
+        }
+    } catch (...) {
+        std::cerr << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::string selectedISO = expandedOutputDir + "/" + isoFiles[choice-1];
+
+    std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
+    execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
+
+    std::string targetDrive = getUserInput("\nEnter target drive (e.g., /dev/sda): ");
+    if (targetDrive.empty()) {
+        std::cerr << COLOR_RED << "No drive specified!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::cout << COLOR_RED << "\nWARNING: This will overwrite all data on " << targetDrive << "!" << COLOR_RESET << std::endl;
+    std::string confirm = getUserInput("Are you sure you want to continue? (y/N): ");
+    if (confirm != "y" && confirm != "Y") {
+        std::cout << COLOR_CYAN << "Operation cancelled." << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::cout << COLOR_CYAN << "\nWriting " << selectedISO << " to " << targetDrive << "..." << COLOR_RESET << std::endl;
+    std::string ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
+    execute_command(ddCommand, true);
+
+    std::cout << COLOR_GREEN << "\nISO successfully written to USB drive!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
+    getch();
+}
+
+void runCMIInstaller() {
+    execute_command("cmiinstaller", true);
+    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+    getch();
+}
+
+void updateScript() {
+    std::cout << COLOR_CYAN << "\nUpdating script from GitHub..." << COLOR_RESET << std::endl;
+    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
+    std::cout << COLOR_GREEN << "\nScript updated successfully!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
+    getch();
+}
+
+void showMainMenu() {
+    std::vector<std::string> items = {
+        "Guide",
+        "Setup Scripts",
+        "Create Image",
+        "Create ISO",
+        "Show Disk Usage",
+        "Install ISO to USB",
+        "CMI BTRFS/EXT4 Installer",
+        "Update Script",
+        "Exit"
+    };
+
+    int selected = 0;
+    int key;
+
+    while (true) {
+        key = showMenu("Main Menu:", items, selected);
+
+        switch (key) {
+            case 'A':
+                if (selected > 0) selected--;
+                break;
+            case 'B':
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
+                break;
+            case '\n':
+                switch (selected) {
+                    case 0:
+                        showGuide();
+                        break;
+                    case 1:
+                        showSetupMenu();
+                        break;
+                    case 2: {
+                        std::string outputDir = getOutputDirectory();
+                        std::string outputImgPath = outputDir + "/" + ORIG_IMG_NAME;
+
+                        execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
+                        execute_command("sudo rm -rf " + outputImgPath, true);
+                        execute_command("sudo mkdir -p " + MOUNT_POINT, true);
+                        execute_command("sudo mkdir -p " + outputDir, true);
+
+                        std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
+
+                        std::vector<std::string> fsOptions = {"btrfs", "ext4"};
+                        int fsSelected = 0;
+                        int fsKey;
+                        bool fsChosen = false;
+
+                        while (!fsChosen) {
+                            fsKey = showFilesystemMenu(fsOptions, fsSelected);
+
+                            switch (fsKey) {
+                                case 'A':
+                                    if (fsSelected > 0) fsSelected--;
+                                    break;
+                                case 'B':
+                                    if (fsSelected < static_cast<int>(fsOptions.size()) - 1) fsSelected++;
+                                    break;
+                                case '\n':
+                                    fsChosen = true;
+                                    break;
+                            }
+                        }
+
+                        std::string fsType = (fsSelected == 0) ? "btrfs" : "ext4";
+
+                        if (!createImageFile(imgSize, outputImgPath) ||
+                            !formatFilesystem(fsType, outputImgPath) ||
+                            !mountFilesystem(fsType, outputImgPath, MOUNT_POINT) ||
+                            !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
+                            break;
+                            }
+
+                            unmountAndCleanup(MOUNT_POINT);
+
+                        createSquashFS(outputImgPath, outputImgPath);
+                        createChecksum(outputImgPath);
+                        printFinalMessage(fsType, outputImgPath);
+
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    }
+                    case 3:
+                        createISO();
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 4:
+                        execute_command("df -h");
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 5:
+                        installISOToUSB();
+                        break;
+                    case 6:
+                        runCMIInstaller();
+                        break;
+                    case 7:
+                        updateScript();
+                        break;
+                    case 8:
+                        return;
+                }
+                break;
+        }
     }
 }
 
 int main() {
-    // Get current username
     struct passwd *pw = getpwuid(getuid());
     if (pw) {
         USERNAME = pw->pw_name;
@@ -540,30 +897,27 @@ int main() {
         return 1;
     }
 
-    // Set BUILD_DIR based on username
     BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
 
-    // Create config directory if it doesn't exist
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-    execute_command("mkdir -p " + configDir);
+    execute_command("mkdir -p " + configDir, true);
 
-    // Load existing configuration
     loadConfig();
 
-    printBanner();
-    showDiskUsage();
+    std::thread time_thread(update_time_thread);
 
-    while (true) {
-        showMainMenu();
-        std::string input;
-        std::getline(std::cin, input);
-        try {
-            int choice = std::stoi(input);
-            processMainMenuChoice(choice);
-        } catch (...) {
-            std::cout << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
-        }
-    }
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~ICANON;
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    showMainMenu();
+
+    time_thread_running = false;
+    time_thread.join();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 
     return 0;
 }
