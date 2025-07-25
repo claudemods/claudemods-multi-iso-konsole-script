@@ -34,8 +34,8 @@ std::string current_time_str;
 bool should_reset = false;
 
 // Constants
-const std::string ORIG_IMG_NAME = "system.img";
-const std::string COMPRESSED_IMG_NAME = "rootfs.img";
+const std::string BTRFS_IMG_NAME = "rootfs.img";
+const std::string EXT4_IMG_NAME = "system.img";
 std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
@@ -809,8 +809,8 @@ void showMainMenu() {
                         break;
                     case 2: {
                         std::string outputDir = getOutputDirectory();
-                        std::string outputOrigImgPath = outputDir + "/" + ORIG_IMG_NAME;
-                        std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
+                        std::string outputOrigImgPath = outputDir + "/" + EXT4_IMG_NAME;  // Changed from ORIG_IMG_NAME to EXT4_IMG_NAME
+                        std::string outputCompressedImgPath = outputDir + "/" + BTRFS_IMG_NAME;  // Changed from COMPRESSED_IMG_NAME to BTRFS_IMG_NAME
 
                         // Cleanup old files
                         execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
@@ -853,25 +853,18 @@ void showMainMenu() {
                             unmountAndCleanup(MOUNT_POINT);
 
                         if (fsType == "ext4") {
+                            // For ext4, we keep the original name (system.img)
+                            std::cout << COLOR_CYAN << "Keeping ext4 image as: " << outputOrigImgPath << COLOR_RESET << std::endl;
+                        } else {
+                            // For btrfs, we rename to rootfs.img
                             std::string newName = outputOrigImgPath;
-                            size_t pos = newName.find("system.img");
-                            newName.replace(pos, std::string("system.img").length(), "rootfs.img");
+                            size_t pos = newName.find(EXT4_IMG_NAME);
+                            newName.replace(pos, EXT4_IMG_NAME.length(), BTRFS_IMG_NAME);
 
                             std::cout << COLOR_CYAN << "Renaming " << outputOrigImgPath << " to " << newName << COLOR_RESET << std::endl;
                             execute_command("sudo mv " + outputOrigImgPath + " " + newName, true);
                             outputOrigImgPath = newName;
                         }
-
-                        if (fsType == "btrfs") {
-                            std::string newName = outputOrigImgPath;
-                            size_t pos = newName.find("system.img");
-                            newName.replace(pos, std::string("system.img").length(), "rootfs.img");
-
-                            std::cout << COLOR_CYAN << "Renaming " << outputOrigImgPath << " to " << newName << COLOR_RESET << std::endl;
-                            execute_command("sudo mv " + outputOrigImgPath + " " + newName, true);
-                            outputOrigImgPath = newName;
-                        }
-
 
                         createSquashFS(outputOrigImgPath, outputCompressedImgPath);
                         deleteOriginalImage(outputOrigImgPath);
@@ -909,44 +902,44 @@ void showMainMenu() {
     }
 }
 
-int main() {
-    // Get current username
-    struct passwd *pw = getpwuid(getuid());
-    if (pw) {
-        USERNAME = pw->pw_name;
-    } else {
-        std::cerr << COLOR_RED << "Failed to get username!" << COLOR_RESET << std::endl;
-        return 1;
+    int main() {
+        // Get current username
+        struct passwd *pw = getpwuid(getuid());
+        if (pw) {
+            USERNAME = pw->pw_name;
+        } else {
+            std::cerr << COLOR_RED << "Failed to get username!" << COLOR_RESET << std::endl;
+            return 1;
+        }
+
+        // Set BUILD_DIR based on username
+        BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+
+        // Create config directory if it doesn't exist
+        std::string configDir = "/home/" + USERNAME + "/.config/cmi";
+        execute_command("mkdir -p " + configDir, true);
+
+        // Load existing configuration
+        loadConfig();
+
+        // Start time update thread
+        std::thread time_thread(update_time_thread);
+
+        // Set terminal to raw mode for arrow key detection (but keep ECHO on)
+        struct termios oldt, newt;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~ICANON; // Keep ECHO enabled to see what we type
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+        showMainMenu();
+
+        // Clean up
+        time_thread_running = false;
+        time_thread.join();
+
+        // Restore terminal settings
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+        return 0;
     }
-
-    // Set BUILD_DIR based on username
-    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
-
-    // Create config directory if it doesn't exist
-    std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-    execute_command("mkdir -p " + configDir, true);
-
-    // Load existing configuration
-    loadConfig();
-
-    // Start time update thread
-    std::thread time_thread(update_time_thread);
-
-    // Set terminal to raw mode for arrow key detection (but keep ECHO on)
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~ICANON; // Keep ECHO enabled to see what we type
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
-    showMainMenu();
-
-    // Clean up
-    time_thread_running = false;
-    time_thread.join();
-
-    // Restore terminal settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-
-    return 0;
-}
