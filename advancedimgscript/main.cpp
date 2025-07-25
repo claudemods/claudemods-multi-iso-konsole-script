@@ -12,7 +12,7 @@
 #include <pwd.h>
 
 // Constants
-const std::string ORIG_IMG_NAME = "system.img";
+const std::string ORIG_IMG_NAME = "rootfs.img";
 const std::string COMPRESSED_IMG_NAME = "rootfs.img";
 std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
