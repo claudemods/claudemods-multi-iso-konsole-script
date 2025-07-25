@@ -134,7 +134,7 @@ int getch() {
     int ch;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    newt.c_lflag &= ~(ICANON); // Keep ECHO enabled to see what we type
+    newt.c_lflag &= ~(ICANON);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
     ch = getchar();
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
@@ -200,13 +200,11 @@ void printBanner() {
 )" << COLOR_RESET << std::endl;
 std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 25-07-2025" << COLOR_RESET << std::endl;
 
-// Show current UK time
 {
     std::lock_guard<std::mutex> lock(time_mutex);
     std::cout << COLOR_BLUE << "Current UK Time: " << COLOR_CYAN << current_time_str << COLOR_RESET << std::endl;
 }
 
-// Show disk usage information
 std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
 execute_command("df -h / | tail -1");
 std::cout << std::endl;
@@ -254,7 +252,6 @@ std::string getUserInput(const std::string& prompt) {
 void installDependencies() {
     std::cout << COLOR_CYAN << "\nInstalling required dependencies...\n" << COLOR_RESET;
 
-    // Build package list string
     std::string packages;
     for (const auto& pkg : DEPENDENCIES) {
         packages += pkg + " ";
@@ -302,7 +299,6 @@ void selectVmlinuz() {
         if (choice > 0 && choice <= static_cast<int>(vmlinuzFiles.size())) {
             config.vmlinuzPath = vmlinuzFiles[choice-1];
 
-            // Copy the selected kernel to build directory and rename it
             std::string destPath = BUILD_DIR + "/boot/vmlinuz-x86_64";
             std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
             execute_command(copyCmd);
@@ -368,20 +364,16 @@ void setOutputDir() {
     std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
     config.outputDir = getUserInput("Enter output directory (e.g., " + defaultDir + " or $USER/Downloads): ");
 
-    // Replace $USER with actual username
     size_t user_pos;
     if ((user_pos = config.outputDir.find("$USER")) != std::string::npos) {
         config.outputDir.replace(user_pos, 5, USERNAME);
     }
 
-    // If empty, use default
     if (config.outputDir.empty()) {
         config.outputDir = defaultDir;
     }
 
-    // Create directory if it doesn't exist
     execute_command("mkdir -p " + config.outputDir, true);
-
     saveConfig();
 }
 
@@ -504,7 +496,6 @@ void showSetupMenu() {
                     case 7: return;
                 }
 
-                // Pause to show result before returning to menu
                 if (selected != 7) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                     getch();
@@ -516,7 +507,7 @@ void showSetupMenu() {
 
 bool createImageFile(const std::string& size, const std::string& filename) {
     std::string command = "sudo truncate -s " + size + " " + filename;
-    execute_command(command, true);
+    execute_command(command);
     return true;
 }
 
@@ -524,33 +515,31 @@ bool formatFilesystem(const std::string& fsType, const std::string& filename) {
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Creating Btrfs filesystem with " << BTRFS_COMPRESSION << " compression" << COLOR_RESET << std::endl;
 
-        // Create temporary rootdir
-        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir", true);
+        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir");
 
         std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION +
         " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
-        execute_command(command, true);
+        execute_command(command);
 
-        // Cleanup temporary rootdir
-        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir", true);
+        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir");
     } else {
         std::cout << COLOR_CYAN << "Formatting as ext4" << COLOR_RESET << std::endl;
         std::string command = "sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" " + filename;
-        execute_command(command, true);
+        execute_command(command);
     }
     return true;
 }
 
 bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
-    execute_command("sudo mkdir -p " + mountPoint, true);
+    execute_command("sudo mkdir -p " + mountPoint);
 
     if (fsType == "btrfs") {
         std::string command = "sudo mount " + filename + " " + mountPoint;
-        execute_command(command, true);
+        execute_command(command);
     } else {
         std::string options = "loop,discard,noatime";
         std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
-        execute_command(command, true);
+        execute_command(command);
     }
     return true;
 }
@@ -571,19 +560,16 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=/lost+found "
     "--exclude=*rootfs1.img "
     "--exclude=btrfs_temp "
-    "--exclude=system.img "
     "--exclude=rootfs.img " +
     source + " " + destination;
-    execute_command(command, true);
+    execute_command(command);
 
     if (fsType == "btrfs") {
-        // Optimize compression after copy
         std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
+        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination);
 
-        // Shrink to minimum size
         std::cout << COLOR_CYAN << "Finalizing image..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem resize max " + destination, true);
+        execute_command("sudo btrfs filesystem resize max " + destination);
     }
 
     return true;
@@ -592,8 +578,8 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
 bool unmountAndCleanup(const std::string& mountPoint) {
     sync();
     try {
-        execute_command("sudo umount " + mountPoint, true);
-        execute_command("sudo rmdir " + mountPoint, true);
+        execute_command("sudo umount " + mountPoint);
+        execute_command("sudo rmdir " + mountPoint);
     } catch (...) {
         return false;
     }
@@ -601,23 +587,11 @@ bool unmountAndCleanup(const std::string& mountPoint) {
 }
 
 bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
-    std::string newName = inputFile;
-
-    // For both Btrfs and ext4, rename system.img to rootfs.img before creating SquashFS
-    if (inputFile.find("system.img") != std::string::npos) {
-        size_t pos = newName.find("system.img");
-        newName.replace(pos, std::string("system.img").length(), "rootfs.img");
-
-        std::cout << COLOR_CYAN << "Renaming " << inputFile << " to " << newName << COLOR_RESET << std::endl;
-        execute_command("sudo mv " + inputFile + " " + newName, true);
-    }
-
-    std::string command = "sudo mksquashfs " + newName + " " + outputFile +
+    std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
     " -comp " + SQUASHFS_COMPRESSION +
     " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
     " -noappend";
-    execute_command(command, true);
-
+    execute_command(command);
     return true;
 }
 
@@ -642,7 +616,7 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
 
 void deleteOriginalImage(const std::string& imgName) {
     std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("sudo rm -rf system.img");
+    execute_command("sudo rm -f " + imgName);
 }
 
 std::string getOutputDirectory() {
@@ -672,8 +646,6 @@ bool createISO() {
     std::cout << COLOR_CYAN << "\nStarting ISO creation process...\n" << COLOR_RESET;
 
     std::string expandedOutputDir = expandPath(config.outputDir);
-
-    // Ensure output directory exists
     execute_command("mkdir -p " + expandedOutputDir, true);
 
     std::string xorrisoCmd = "sudo xorriso -as mkisofs "
@@ -708,7 +680,6 @@ void showGuide() {
     std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
     execute_command("mkdir -p /home/" + USERNAME + "/.config/cmi", true);
 
-    // Set guide output color to cyan
     std::cout << COLOR_CYAN;
     execute_command("nano " + readmePath, true);
     std::cout << COLOR_RESET;
@@ -720,7 +691,6 @@ void installISOToUSB() {
         return;
     }
 
-    // List available ISO files in output directory
     DIR *dir;
     struct dirent *ent;
     std::vector<std::string> isoFiles;
@@ -744,13 +714,11 @@ void installISOToUSB() {
         return;
     }
 
-    // Show available ISO files
     std::cout << COLOR_GREEN << "Available ISO files:" << COLOR_RESET << std::endl;
     for (size_t i = 0; i < isoFiles.size(); i++) {
         std::cout << COLOR_GREEN << (i+1) << ") " << isoFiles[i] << COLOR_RESET << std::endl;
     }
 
-    // Get user selection
     std::string selection = getUserInput("Select ISO file (1-" + std::to_string(isoFiles.size()) + "): ");
     int choice;
     try {
@@ -766,7 +734,6 @@ void installISOToUSB() {
 
     std::string selectedISO = expandedOutputDir + "/" + isoFiles[choice-1];
 
-    // Get target drive
     std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
     execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
 
@@ -776,7 +743,6 @@ void installISOToUSB() {
         return;
     }
 
-    // Confirm before writing
     std::cout << COLOR_RED << "\nWARNING: This will overwrite all data on " << targetDrive << "!" << COLOR_RESET << std::endl;
     std::string confirm = getUserInput("Are you sure you want to continue? (y/N): ");
     if (confirm != "y" && confirm != "Y") {
@@ -784,7 +750,6 @@ void installISOToUSB() {
         return;
     }
 
-    // Write ISO to USB
     std::cout << COLOR_CYAN << "\nWriting " << selectedISO << " to " << targetDrive << "..." << COLOR_RESET << std::endl;
     std::string ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
     execute_command(ddCommand, true);
