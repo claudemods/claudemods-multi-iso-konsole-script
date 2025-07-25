@@ -34,8 +34,9 @@ std::string current_time_str;
 bool should_reset = false;
 
 // Constants
-const std::string ORIG_IMG_NAME = "rootfs1.img";
-const std::string COMPRESSED_IMG_NAME = "rootfs.img";
+const std::string ORIG_IMG_NAME = "rootfs.img";
+const std::string SQUASHFS_IMG_NAME = "rootfs.squashfs";
+const std::string FINAL_IMG_NAME = "rootfs.img";
 std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
@@ -245,7 +246,34 @@ void printConfigStatus() {
 std::string getUserInput(const std::string& prompt) {
     std::cout << COLOR_GREEN << prompt << COLOR_RESET;
     std::string input;
-    std::getline(std::cin, input);
+    char ch;
+    struct termios oldt, newt;
+    
+    // Get current terminal settings
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    // Disable canonical mode and echo
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    
+    while (1) {
+        ch = getchar();
+        if (ch == '\n') {  // Enter key pressed
+            break;
+        } else if (ch == 127 || ch == 8) {  // Backspace key pressed
+            if (!input.empty()) {
+                input.pop_back();
+                std::cout << "\b \b";  // Move cursor back, overwrite with space, move back again
+            }
+        } else if (ch >= 32 && ch <= 126) {  // Printable characters
+            input += ch;
+            std::cout << ch;
+        }
+    }
+    
+    // Restore terminal settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    std::cout << std::endl;
     return input;
 }
 
@@ -594,6 +622,10 @@ bool createSquashFS(const std::string& inputFile, const std::string& outputFile)
     " -noappend";
     execute_command(command, true);
 
+    // Rename the compressed file back to rootfs.img
+    std::string renameCmd = "sudo mv " + outputFile + " " + inputFile;
+    execute_command(renameCmd, true);
+
     return true;
 }
 
@@ -603,16 +635,16 @@ bool createChecksum(const std::string& filename) {
     return true;
 }
 
-void printFinalMessage(const std::string& fsType, const std::string& squashfsOutput) {
+void printFinalMessage(const std::string& fsType, const std::string& outputFile) {
     std::cout << std::endl;
     if (fsType == "btrfs") {
-        std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << outputFile << COLOR_RESET << std::endl;
     } else {
-        std::cout << COLOR_CYAN << "Ext4 image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "Ext4 image created successfully: " << outputFile << COLOR_RESET << std::endl;
     }
-    std::cout << COLOR_CYAN << "Checksum file: " << squashfsOutput << ".md5" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Checksum file: " << outputFile << ".md5" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "Size: ";
-    execute_command("sudo du -h " + squashfsOutput + " | cut -f1", true);
+    execute_command("sudo du -h " + outputFile + " | cut -f1", true);
     std::cout << COLOR_RESET;
 }
 
@@ -853,7 +885,9 @@ void showMainMenu() {
 
                             unmountAndCleanup(MOUNT_POINT);
 
-                        createSquashFS(outputImgPath, outputImgPath);
+                        // Create squashfs with temporary name then rename back
+                        std::string squashfsPath = outputDir + "/" + SQUASHFS_IMG_NAME;
+                        createSquashFS(outputImgPath, squashfsPath);
                         createChecksum(outputImgPath);
                         printFinalMessage(fsType, outputImgPath);
 
