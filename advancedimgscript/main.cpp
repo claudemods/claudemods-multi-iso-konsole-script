@@ -896,13 +896,7 @@ void showMainMenu() {
                             std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
                             createSquashFS(outputImgPath, squashPath);
                         }
-                        if (fsType == "btrfs") {
-                            // For ext4, create SquashFS version
-                            std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
-                            createSquashFS(outputImgPath, squashPath);
-                        }
-
-
+                        
                         createChecksum(outputImgPath);
                         printFinalMessage(fsType, outputImgPath);
 
