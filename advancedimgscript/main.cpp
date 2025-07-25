@@ -19,7 +19,7 @@ const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
 const std::string SQUASHFS_COMPRESSION = "zstd";
 const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
-std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-ext4img";
+std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-img";
 std::string USERNAME = "";
 const std::string BTRFS_LABEL = "LIVE_SYSTEM";
 const std::string BTRFS_COMPRESSION = "zstd";
@@ -47,12 +47,12 @@ const std::string COLOR_CYAN = "\033[38;2;0;255;255m";
 const std::string COLOR_YELLOW = "\033[33m";
 const std::string COLOR_RESET = "\033[0m";
 
-void execute_command(const std::string& cmd) {
+void execute_command(const std::string& cmd, bool continue_on_failure = false) {
     std::cout << COLOR_CYAN;
     fflush(stdout);
     int status = system(cmd.c_str());
     std::cout << COLOR_RESET;
-    if (status != 0) {
+    if (status != 0 && !continue_on_failure) {
         std::cerr << COLOR_RED << "Error executing: " << cmd << COLOR_RESET << std::endl;
         exit(1);
     }
@@ -73,7 +73,7 @@ void printBanner() {
 ██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
 ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
-░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
+░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
 std::cout << COLOR_CYAN << "claudemods arch btrfs/ext4 img iso creator v2.01 23-07-2025" << COLOR_RESET << std::endl << std::endl;
 }
@@ -264,41 +264,41 @@ void processSetupChoice(int choice) {
 
 bool createImageFile(const std::string& size, const std::string& filename) {
     std::string command = "sudo truncate -s " + size + " " + filename;
-    execute_command(command);
+    execute_command(command, true);  // Continue on failure
     return true;
 }
 
 bool formatFilesystem(const std::string& fsType, const std::string& filename) {
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Creating Btrfs filesystem with " << BTRFS_COMPRESSION << " compression" << COLOR_RESET << std::endl;
-        
+
         // Create temporary rootdir
-        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir");
-        
-        std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION + 
-                             " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
-        execute_command(command);
-        
+        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir", true);
+
+        std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION +
+        " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
+        execute_command(command, true);
+
         // Cleanup temporary rootdir
-        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir");
+        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir", true);
     } else {
         std::cout << COLOR_CYAN << "Formatting as ext4" << COLOR_RESET << std::endl;
         std::string command = "sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" " + filename;
-        execute_command(command);
+        execute_command(command, true);
     }
     return true;
 }
 
 bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
-    execute_command("sudo mkdir -p " + mountPoint);
-    
+    execute_command("sudo mkdir -p " + mountPoint, true);
+
     if (fsType == "btrfs") {
         std::string command = "sudo mount " + filename + " " + mountPoint;
-        execute_command(command);
+        execute_command(command, true);
     } else {
         std::string options = "loop,discard,noatime";
         std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
-        execute_command(command);
+        execute_command(command, true);
     }
     return true;
 }
@@ -322,26 +322,26 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=system.img "
     "--exclude=rootfs.img " +
     source + " " + destination;
-    execute_command(command);
-    
+    execute_command(command, true);
+
     if (fsType == "btrfs") {
         // Optimize compression after copy
         std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination);
-        
+        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
+
         // Shrink to minimum size
         std::cout << COLOR_CYAN << "Finalizing image..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem resize max " + destination);
+        execute_command("sudo btrfs filesystem resize max " + destination, true);
     }
-    
+
     return true;
 }
 
 bool unmountAndCleanup(const std::string& mountPoint) {
     sync();
     try {
-        execute_command("sudo umount " + mountPoint);
-        execute_command("sudo rmdir " + mountPoint);
+        execute_command("sudo umount " + mountPoint, true);
+        execute_command("sudo rmdir " + mountPoint, true);
     } catch (...) {
         return false;
     }
@@ -353,13 +353,13 @@ bool createSquashFS(const std::string& inputFile, const std::string& outputFile)
     " -comp " + SQUASHFS_COMPRESSION +
     " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
     " -noappend";
-    execute_command(command);
+    execute_command(command, true);
     return true;
 }
 
 bool createChecksum(const std::string& filename) {
     std::string command = "md5sum " + filename + " > " + filename + ".md5";
-    execute_command(command);
+    execute_command(command, true);
     return true;
 }
 
@@ -372,17 +372,17 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
     }
     std::cout << COLOR_CYAN << "Checksum file: " << squashfsOutput << ".md5" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "Size: ";
-    execute_command("sudo du -h " + squashfsOutput + " | cut -f1");
+    execute_command("sudo du -h " + squashfsOutput + " | cut -f1", true);
     std::cout << COLOR_RESET;
 }
 
 void deleteOriginalImage(const std::string& imgName) {
     std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("sudo rm -f " + imgName);
+    execute_command("sudo rm -f " + imgName, true);
 }
 
 std::string getOutputDirectory() {
-    std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img/LiveOS";
+    std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS";
     return dir;
 }
 
@@ -477,10 +477,10 @@ void processMainMenuChoice(int choice) {
             std::string outputCompressedImgPath = outputDir + "/" + COMPRESSED_IMG_NAME;
 
             // Cleanup old files
-            execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true");
-            execute_command("sudo rm -rf " + outputOrigImgPath);
-            execute_command("sudo mkdir -p " + MOUNT_POINT);
-            execute_command("sudo mkdir -p " + outputDir);
+            execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
+            execute_command("sudo rm -rf " + outputOrigImgPath, true);
+            execute_command("sudo mkdir -p " + MOUNT_POINT, true);
+            execute_command("sudo mkdir -p " + outputDir, true);
 
             std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
 
@@ -490,12 +490,10 @@ void processMainMenuChoice(int choice) {
             std::string fsChoice = getUserInput("Enter choice (1 or 2): ");
             std::string fsType = (fsChoice == "1") ? "btrfs" : "ext4";
 
-            if (!createImageFile(imgSize, outputOrigImgPath) ||
-                !formatFilesystem(fsType, outputOrigImgPath) ||
-                !mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT) ||
-                !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
-                return;
-            }
+            createImageFile(imgSize, outputOrigImgPath);
+            formatFilesystem(fsType, outputOrigImgPath);
+            mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT);
+            copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType);
 
             unmountAndCleanup(MOUNT_POINT);
             createSquashFS(outputOrigImgPath, outputCompressedImgPath);
@@ -543,7 +541,7 @@ int main() {
     }
 
     // Set BUILD_DIR based on username
-    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-ext4img";
+    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
 
     // Create config directory if it doesn't exist
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
