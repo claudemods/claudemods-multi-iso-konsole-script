@@ -26,6 +26,36 @@ std::string getUserInput(const std::string& prompt);
 void clearScreen();
 int getch();
 int kbhit();
+std::string getOutputDirectory();
+bool createSquashFS(const std::string& inputFile, const std::string& outputFile);
+bool createImageFile(const std::string& size, const std::string& filename);
+bool formatFilesystem(const std::string& fsType, const std::string& filename);
+bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint);
+bool copyFilesWithRsync(const std::string& source, const std::string& destination, const std::string& fsType);
+bool unmountAndCleanup(const std::string& mountPoint);
+bool createChecksum(const std::string& filename);
+void printFinalMessage(const std::string& fsType, const std::string& outputFile);
+void deleteOriginalImage(const std::string& imgName);
+std::string expandPath(const std::string& path);
+bool createISO();
+void showGuide();
+void installISOToUSB();
+void runCMIInstaller();
+void updateScript();
+void showMainMenu();
+void showSetupMenu();
+int showMenu(const std::string &title, const std::vector<std::string> &items, int selected);
+int showFilesystemMenu(const std::vector<std::string> &items, int selected);
+void installDependencies();
+void selectVmlinuz();
+void generateMkinitcpio();
+void editGrubCfg();
+void setIsoTag();
+void setIsoName();
+void setOutputDir();
+void loadConfig();
+void printBanner();
+void printConfigStatus();
 
 // Time-related globals
 std::atomic<bool> time_thread_running(true);
@@ -198,7 +228,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 25-07-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
@@ -248,29 +278,26 @@ std::string getUserInput(const std::string& prompt) {
     char ch;
     struct termios oldt, newt;
 
-    // Get current terminal settings
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    // Disable canonical mode and echo
     newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
     while (1) {
         ch = getchar();
-        if (ch == '\n') {  // Enter key pressed
+        if (ch == '\n') {
             break;
-        } else if (ch == 127 || ch == 8) {  // Backspace key pressed
+        } else if (ch == 127 || ch == 8) {
             if (!input.empty()) {
                 input.pop_back();
-                std::cout << "\b \b";  // Move cursor back, overwrite with space, move back again
+                std::cout << "\b \b";
             }
-        } else if (ch >= 32 && ch <= 126) {  // Printable characters
+        } else if (ch >= 32 && ch <= 126) {
             input += ch;
             std::cout << ch;
         }
     }
 
-    // Restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     std::cout << std::endl;
     return input;
@@ -536,15 +563,12 @@ void showSetupMenu() {
 bool createImageFile(const std::string& size, const std::string& filename) {
     std::cout << COLOR_CYAN << "Creating optimized ext4 image..." << COLOR_RESET << std::endl;
 
-    // Create empty image file
     std::string command = "sudo truncate -s " + size + " " + filename;
     execute_command(command, true);
 
-    // Format with ext4 optimizations
     std::string mkfs_cmd = "sudo mkfs.ext4 -O ^has_journal,^resize_inode -E lazy_itable_init=0 -m 0 -F " + filename;
     execute_command(mkfs_cmd, true);
 
-    // Disable journaling features
     std::string tune_cmd = "sudo tune2fs -c 0 -i 0 " + filename;
     execute_command(tune_cmd, true);
 
@@ -604,6 +628,12 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     source + " " + destination;
     execute_command(command, true);
 
+    // Always create SquashFS for both filesystems
+    std::cout << COLOR_CYAN << "Creating SquashFS image..." << COLOR_RESET << std::endl;
+    std::string outputDir = getOutputDirectory();
+    std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
+    createSquashFS(destination, squashPath);
+
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
         execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
@@ -648,8 +678,10 @@ void printFinalMessage(const std::string& fsType, const std::string& outputFile)
     std::cout << std::endl;
     if (fsType == "btrfs") {
         std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << outputFile << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "SquashFS version created successfully: " << outputFile << ".squashfs" << COLOR_RESET << std::endl;
     } else {
         std::cout << COLOR_CYAN << "Ext4 image created successfully: " << outputFile << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "SquashFS version created successfully: " << outputFile << ".squashfs" << COLOR_RESET << std::endl;
     }
     std::cout << COLOR_CYAN << "Checksum file: " << outputFile << ".md5" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "Size: ";
@@ -893,12 +925,6 @@ void showMainMenu() {
                             }
 
                             unmountAndCleanup(MOUNT_POINT);
-
-                        if (fsType == "ext4") {
-                            // For ext4, create SquashFS version
-                            std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
-                            createSquashFS(outputImgPath, squashPath);
-                        }
 
                         createChecksum(outputImgPath);
                         printFinalMessage(fsType, outputImgPath);
