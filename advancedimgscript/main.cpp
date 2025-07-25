@@ -459,52 +459,6 @@ int showFilesystemMenu(const std::vector<std::string> &items, int selected) {
     return getch();
 }
 
-void showSetupMenu() {
-    std::vector<std::string> items = {
-        "Install Dependencies",
-        "Set ISO Tag",
-        "Set ISO Name",
-        "Set Output Directory",
-        "Select vmlinuz",
-        "Generate mkinitcpio",
-        "Edit GRUB Config",
-        "Back to Main Menu"
-    };
-
-    int selected = 0;
-    int key;
-
-    while (true) {
-        key = showMenu("ISO Creation Setup Menu:", items, selected);
-
-        switch (key) {
-            case 'A': // Up arrow
-                if (selected > 0) selected--;
-                break;
-            case 'B': // Down arrow
-                if (selected < static_cast<int>(items.size()) - 1) selected++;
-                break;
-            case '\n': // Enter key
-                switch (selected) {
-                    case 0: installDependencies(); break;
-                    case 1: setIsoTag(); break;
-                    case 2: setIsoName(); break;
-                    case 3: setOutputDir(); break;
-                    case 4: selectVmlinuz(); break;
-                    case 5: generateMkinitcpio(); break;
-                    case 6: editGrubCfg(); break;
-                    case 7: return;
-                }
-
-                if (selected != 7) {
-                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                    getch();
-                }
-                break;
-        }
-    }
-}
-
 bool createImageFile(const std::string& size, const std::string& filename) {
     std::string command = "sudo truncate -s " + size + " " + filename;
     execute_command(command);
@@ -604,7 +558,7 @@ bool createChecksum(const std::string& filename) {
 void printFinalMessage(const std::string& fsType, const std::string& squashfsOutput) {
     std::cout << std::endl;
     if (fsType == "btrfs") {
-        std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "BTRFS image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
     } else {
         std::cout << COLOR_CYAN << "Ext4 image created successfully: " << squashfsOutput << COLOR_RESET << std::endl;
     }
@@ -614,27 +568,50 @@ void printFinalMessage(const std::string& fsType, const std::string& squashfsOut
     std::cout << COLOR_RESET;
 }
 
-void deleteOriginalImage(const std::string& imgName) {
-    std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("sudo rm -f " + imgName);
-}
+void showSetupMenu() {
+    std::vector<std::string> items = {
+        "Install Dependencies",
+        "Set ISO Tag",
+        "Set ISO Name",
+        "Set Output Directory",
+        "Select vmlinuz",
+        "Generate mkinitcpio",
+        "Edit GRUB Config",
+        "Back to Main Menu"
+    };
 
-std::string getOutputDirectory() {
-    std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS";
-    return dir;
-}
+    int selected = 0;
+    int key;
 
-std::string expandPath(const std::string& path) {
-    std::string result = path;
-    size_t pos;
-    if ((pos = result.find("~")) != std::string::npos) {
-        const char* home = getenv("HOME");
-        if (home) result.replace(pos, 1, home);
+    while (true) {
+        key = showMenu("ISO Creation Setup Menu:", items, selected);
+
+        switch (key) {
+            case 'A': // Up arrow
+                if (selected > 0) selected--;
+                break;
+            case 'B': // Down arrow
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
+                break;
+            case '\n': // Enter key
+                switch (selected) {
+                    case 0: installDependencies(); break;
+                    case 1: setIsoTag(); break;
+                    case 2: setIsoName(); break;
+                    case 3: setOutputDir(); break;
+                    case 4: selectVmlinuz(); break;
+                    case 5: generateMkinitcpio(); break;
+                    case 6: editGrubCfg(); break;
+                    case 7: return;
+                }
+
+                if (selected != 7) {
+                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                    getch();
+                }
+                break;
+        }
     }
-    if ((pos = result.find("$USER")) != std::string::npos) {
-        result.replace(pos, 5, USERNAME);
-    }
-    return result;
 }
 
 bool createISO() {
@@ -809,8 +786,8 @@ void showMainMenu() {
                         break;
                     case 2: {
                         std::string outputDir = getOutputDirectory();
-                        std::string outputOrigImgPath = outputDir + "/" + EXT4_IMG_NAME;  // Changed from ORIG_IMG_NAME to EXT4_IMG_NAME
-                        std::string outputCompressedImgPath = outputDir + "/" + BTRFS_IMG_NAME;  // Changed from COMPRESSED_IMG_NAME to BTRFS_IMG_NAME
+                        std::string outputOrigImgPath = outputDir + "/" + EXT4_IMG_NAME;
+                        std::string outputCompressedImgPath = outputDir + "/" + BTRFS_IMG_NAME;
 
                         // Cleanup old files
                         execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
@@ -842,104 +819,100 @@ void showMainMenu() {
                         }
 
                         std::string fsType = (fsSelected == 0) ? "btrfs" : "ext4";
+                        std::string outputImgPath = (fsType == "btrfs") ? 
+                            outputDir + "/" + BTRFS_IMG_NAME : 
+                            outputDir + "/" + EXT4_IMG_NAME;
 
-                        if (!createImageFile(imgSize, outputOrigImgPath) ||
-                            !formatFilesystem(fsType, outputOrigImgPath) ||
-                            !mountFilesystem(fsType, outputOrigImgPath, MOUNT_POINT) ||
+                        if (!createImageFile(imgSize, outputImgPath) ||
+                            !formatFilesystem(fsType, outputImgPath) ||
+                            !mountFilesystem(fsType, outputImgPath, MOUNT_POINT) ||
                             !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
                             break;
-                            }
-
-                            unmountAndCleanup(MOUNT_POINT);
-
-                        if (fsType == "ext4") {
-                            // For ext4, we keep the original name (system.img)
-                            std::cout << COLOR_CYAN << "Keeping ext4 image as: " << outputOrigImgPath << COLOR_RESET << std::endl;
-                        } else {
-                            // For btrfs, we rename to rootfs.img
-                            std::string newName = outputOrigImgPath;
-                            size_t pos = newName.find(EXT4_IMG_NAME);
-                            newName.replace(pos, EXT4_IMG_NAME.length(), BTRFS_IMG_NAME);
-
-                            std::cout << COLOR_CYAN << "Renaming " << outputOrigImgPath << " to " << newName << COLOR_RESET << std::endl;
-                            execute_command("sudo mv " + outputOrigImgPath + " " + newName, true);
-                            outputOrigImgPath = newName;
                         }
 
-                        createSquashFS(outputOrigImgPath, outputCompressedImgPath);
-                        deleteOriginalImage(outputOrigImgPath);
-                        createChecksum(outputCompressedImgPath);
-                        printFinalMessage(fsType, outputCompressedImgPath);
+                        unmountAndCleanup(MOUNT_POINT);
+
+                        if (fsType == "btrfs") {
+                            
+                            createSquashFS(outputImgPath, outputCompressedImgPath);
+                            createChecksum(outputCompressedImgPath);
+                            printFinalMessage(fsType, outputCompressedImgPath);
+                        } else {
+                            // For ext4, create squashfs
+                            createSquashFS(outputImgPath, outputCompressedImgPath);
+                            createChecksum(outputCompressedImgPath);
+                            printFinalMessage(fsType, outputCompressedImgPath);
+                        }
 
                         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                         getch();
                         break;
                     }
-                                case 3:
-                                    createISO();
-                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                                    getch();
-                                    break;
-                                case 4:
-                                    execute_command("df -h");
-                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                                    getch();
-                                    break;
-                                case 5:
-                                    installISOToUSB();
-                                    break;
-                                case 6:
-                                    runCMIInstaller();
-                                    break;
-                                case 7:
-                                    updateScript();
-                                    break;
-                                case 8:
-                                    return;
+                    case 3:
+                        createISO();
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 4:
+                        execute_command("df -h");
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 5:
+                        installISOToUSB();
+                        break;
+                    case 6:
+                        runCMIInstaller();
+                        break;
+                    case 7:
+                        updateScript();
+                        break;
+                    case 8:
+                        return;
                 }
                 break;
         }
     }
 }
 
-    int main() {
-        // Get current username
-        struct passwd *pw = getpwuid(getuid());
-        if (pw) {
-            USERNAME = pw->pw_name;
-        } else {
-            std::cerr << COLOR_RED << "Failed to get username!" << COLOR_RESET << std::endl;
-            return 1;
-        }
-
-        // Set BUILD_DIR based on username
-        BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
-
-        // Create config directory if it doesn't exist
-        std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-        execute_command("mkdir -p " + configDir, true);
-
-        // Load existing configuration
-        loadConfig();
-
-        // Start time update thread
-        std::thread time_thread(update_time_thread);
-
-        // Set terminal to raw mode for arrow key detection (but keep ECHO on)
-        struct termios oldt, newt;
-        tcgetattr(STDIN_FILENO, &oldt);
-        newt = oldt;
-        newt.c_lflag &= ~ICANON; // Keep ECHO enabled to see what we type
-        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
-        showMainMenu();
-
-        // Clean up
-        time_thread_running = false;
-        time_thread.join();
-
-        // Restore terminal settings
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-
-        return 0;
+int main() {
+    // Get current username
+    struct passwd *pw = getpwuid(getuid());
+    if (pw) {
+        USERNAME = pw->pw_name;
+    } else {
+        std::cerr << COLOR_RED << "Failed to get username!" << COLOR_RESET << std::endl;
+        return 1;
     }
+
+    // Set BUILD_DIR based on username
+    BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+
+    // Create config directory if it doesn't exist
+    std::string configDir = "/home/" + USERNAME + "/.config/cmi";
+    execute_command("mkdir -p " + configDir, true);
+
+    // Load existing configuration
+    loadConfig();
+
+    // Start time update thread
+    std::thread time_thread(update_time_thread);
+
+    // Set terminal to raw mode for arrow key detection (but keep ECHO on)
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~ICANON; // Keep ECHO enabled to see what we type
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    showMainMenu();
+
+    // Clean up
+    time_thread_running = false;
+    time_thread.join();
+
+    // Restore terminal settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    return 0;
+}
