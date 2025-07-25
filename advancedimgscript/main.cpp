@@ -34,7 +34,7 @@ std::string current_time_str;
 bool should_reset = false;
 
 // Constants
-const std::string ORIG_IMG_NAME = "rootfs.img";
+const std::string ORIG_IMG_NAME = "rootfs1.img";
 const std::string COMPRESSED_IMG_NAME = "rootfs.img";
 std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
