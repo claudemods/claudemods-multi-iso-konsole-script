@@ -35,7 +35,6 @@ bool should_reset = false;
 
 // Constants
 const std::string ORIG_IMG_NAME = "rootfs.img";
-const std::string SQUASHFS_IMG_NAME = "rootfs.squashfs";
 const std::string FINAL_IMG_NAME = "rootfs.img";
 std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
@@ -248,14 +247,14 @@ std::string getUserInput(const std::string& prompt) {
     std::string input;
     char ch;
     struct termios oldt, newt;
-    
+
     // Get current terminal settings
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
     // Disable canonical mode and echo
     newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    
+
     while (1) {
         ch = getchar();
         if (ch == '\n') {  // Enter key pressed
@@ -270,7 +269,7 @@ std::string getUserInput(const std::string& prompt) {
             std::cout << ch;
         }
     }
-    
+
     // Restore terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     std::cout << std::endl;
@@ -535,8 +534,20 @@ void showSetupMenu() {
 }
 
 bool createImageFile(const std::string& size, const std::string& filename) {
+    std::cout << COLOR_CYAN << "Creating optimized ext4 image..." << COLOR_RESET << std::endl;
+
+    // Create empty image file
     std::string command = "sudo truncate -s " + size + " " + filename;
     execute_command(command, true);
+
+    // Format with ext4 optimizations
+    std::string mkfs_cmd = "sudo mkfs.ext4 -O ^has_journal,^resize_inode -E lazy_itable_init=0 -m 0 -F " + filename;
+    execute_command(mkfs_cmd, true);
+
+    // Disable journaling features
+    std::string tune_cmd = "sudo tune2fs -c 0 -i 0 " + filename;
+    execute_command(tune_cmd, true);
+
     return true;
 }
 
@@ -616,16 +627,14 @@ bool unmountAndCleanup(const std::string& mountPoint) {
 }
 
 bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
+    std::cout << COLOR_CYAN << "Creating optimized SquashFS image..." << COLOR_RESET << std::endl;
+
     std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
     " -comp " + SQUASHFS_COMPRESSION +
     " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
-    " -noappend";
+    " -noappend -b 256K -Xbcj x86";
+
     execute_command(command, true);
-
-    // Rename the compressed file back to rootfs.img
-    std::string renameCmd = "sudo mv " + outputFile + " " + inputFile;
-    execute_command(renameCmd, true);
-
     return true;
 }
 
@@ -885,9 +894,12 @@ void showMainMenu() {
 
                             unmountAndCleanup(MOUNT_POINT);
 
-                        // Create squashfs with temporary name then rename back
-                        std::string squashfsPath = outputDir + "/" + SQUASHFS_IMG_NAME;
-                        createSquashFS(outputImgPath, squashfsPath);
+                        if (fsType == "ext4") {
+                            // For ext4, create SquashFS version
+                            std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
+                            createSquashFS(outputImgPath, squashPath);
+                        }
+
                         createChecksum(outputImgPath);
                         printFinalMessage(fsType, outputImgPath);
 
@@ -895,27 +907,27 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                    case 3:
-                        createISO();
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 4:
-                        execute_command("df -h");
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 5:
-                        installISOToUSB();
-                        break;
-                    case 6:
-                        runCMIInstaller();
-                        break;
-                    case 7:
-                        updateScript();
-                        break;
-                    case 8:
-                        return;
+                                case 3:
+                                    createISO();
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 4:
+                                    execute_command("df -h");
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 5:
+                                    installISOToUSB();
+                                    break;
+                                case 6:
+                                    runCMIInstaller();
+                                    break;
+                                case 7:
+                                    updateScript();
+                                    break;
+                                case 8:
+                                    return;
                 }
                 break;
         }
