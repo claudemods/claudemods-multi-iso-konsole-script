@@ -801,7 +801,7 @@ void installISOToUSB() {
 }
 
 void runCMIInstaller() {
-    execute_command("cmiinstaller", true);
+    execute_command("cmirsyncinstaller", true);
     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
     getch();
 }
