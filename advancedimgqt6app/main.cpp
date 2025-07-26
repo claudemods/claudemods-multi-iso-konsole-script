@@ -1,7 +1,7 @@
 #include <QApplication>
 #include <QMainWindow>
-#include <QMenuBar>  // Added missing include
-#include <QStatusBar> // Added missing include
+#include <QMenuBar>
+#include <QStatusBar>
 #include <QDialog>
 #include <QMessageBox>
 #include <QInputDialog>
@@ -28,6 +28,8 @@
 #include <QComboBox>
 #include <QProgressDialog>
 #include <QThread>
+#include <QSplitter>
+#include <QScrollBar>
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -44,7 +46,7 @@
 #include <thread>
 #include <sstream>
 #include <iomanip>
-#include <fstream>  // Added for file operations
+#include <fstream>
 
 // Constants
 const std::string ORIG_IMG_NAME = "rootfs.img";
@@ -113,6 +115,43 @@ struct ConfigState {
     }
 } config;
 
+// Password Dialog
+class PasswordDialog : public QDialog {
+    Q_OBJECT
+public:
+    PasswordDialog(QWidget *parent = nullptr) : QDialog(parent) {
+        setWindowTitle("Authentication Required");
+        setFixedSize(300, 150);
+
+        QVBoxLayout *layout = new QVBoxLayout(this);
+
+        QLabel *label = new QLabel("Enter your sudo password:", this);
+        passwordEdit = new QLineEdit(this);
+        passwordEdit->setEchoMode(QLineEdit::Password);
+
+        QPushButton *okButton = new QPushButton("OK", this);
+        QPushButton *cancelButton = new QPushButton("Cancel", this);
+
+        QHBoxLayout *buttonLayout = new QHBoxLayout();
+        buttonLayout->addWidget(okButton);
+        buttonLayout->addWidget(cancelButton);
+
+        layout->addWidget(label);
+        layout->addWidget(passwordEdit);
+        layout->addLayout(buttonLayout);
+
+        connect(okButton, &QPushButton::clicked, this, &PasswordDialog::accept);
+        connect(cancelButton, &QPushButton::clicked, this, &PasswordDialog::reject);
+    }
+
+    QString password() const {
+        return passwordEdit->text();
+    }
+
+private:
+    QLineEdit *passwordEdit;
+};
+
 // Main Application Window
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -133,13 +172,18 @@ public:
 
         loadConfig();
 
+        // Ask for password before proceeding
+        if (!askPassword()) {
+            exit(0);
+        }
+
         setupUI();
         setupMenuBar();
         setupStatusBar();
         setupConnections();
 
         setWindowTitle("ClaudeMods Image Builder");
-        resize(900, 600);
+        resize(1200, 800); // Larger initial size
 
         // Start time update thread
         timeThread = std::thread(&MainWindow::updateTimeThread, this);
@@ -155,42 +199,49 @@ public:
 private:
     void setupUI() {
         QWidget *centralWidget = new QWidget(this);
-        QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+        QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget); // Changed to HBox for side-by-side layout
+
+        // Create splitter for resizable panels
+        QSplitter *splitter = new QSplitter(Qt::Horizontal, centralWidget);
+
+        // Left panel for configuration
+        QWidget *leftPanel = new QWidget(splitter);
+        QVBoxLayout *leftLayout = new QVBoxLayout(leftPanel);
 
         // Banner
-        bannerLabel = new QLabel(this);
+        bannerLabel = new QLabel(leftPanel);
         bannerLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
         bannerLabel->setAlignment(Qt::AlignCenter);
-        bannerLabel->setStyleSheet("font-family: monospace; color: #FF0000;");
-        mainLayout->addWidget(bannerLabel);
+        bannerLabel->setStyleSheet("font-family: monospace; color: cyan;");
+        leftLayout->addWidget(bannerLabel);
 
         updateBanner();
 
         // Time and disk info
-        timeLabel = new QLabel(this);
+        timeLabel = new QLabel(leftPanel);
         timeLabel->setAlignment(Qt::AlignCenter);
-        timeLabel->setStyleSheet("color: #0000FF;");
-        mainLayout->addWidget(timeLabel);
+        timeLabel->setStyleSheet("color: cyan;");
+        leftLayout->addWidget(timeLabel);
 
-        diskInfoLabel = new QLabel(this);
+        diskInfoLabel = new QLabel(leftPanel);
         diskInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
         diskInfoLabel->setAlignment(Qt::AlignCenter);
-        diskInfoLabel->setStyleSheet("font-family: monospace; color: #00FF00;");
-        mainLayout->addWidget(diskInfoLabel);
+        diskInfoLabel->setStyleSheet("font-family: monospace; color: cyan;");
+        leftLayout->addWidget(diskInfoLabel);
 
         updateDiskInfo();
 
         // Config status
-        configGroup = new QGroupBox("Current Configuration", this);
+        configGroup = new QGroupBox("Current Configuration", leftPanel);
         QVBoxLayout *configLayout = new QVBoxLayout(configGroup);
 
-        dependenciesCheck = new QCheckBox("Dependencies Installed", this);
-        isoTagLabel = new QLabel("ISO Tag: Not set", this);
-        isoNameLabel = new QLabel("ISO Name: Not set", this);
-        outputDirLabel = new QLabel("Output Directory: Not set", this);
-        vmlinuzLabel = new QLabel("vmlinuz Selected: Not selected", this);
-        mkinitcpioCheck = new QCheckBox("mkinitcpio Generated", this);
-        grubCheck = new QCheckBox("GRUB Config Edited", this);
+        dependenciesCheck = new QCheckBox("Dependencies Installed", configGroup);
+        isoTagLabel = new QLabel("ISO Tag: Not set", configGroup);
+        isoNameLabel = new QLabel("ISO Name: Not set", configGroup);
+        outputDirLabel = new QLabel("Output Directory: Not set", configGroup);
+        vmlinuzLabel = new QLabel("vmlinuz Selected: Not selected", configGroup);
+        mkinitcpioCheck = new QCheckBox("mkinitcpio Generated", configGroup);
+        grubCheck = new QCheckBox("GRUB Config Edited", configGroup);
 
         configLayout->addWidget(dependenciesCheck);
         configLayout->addWidget(isoTagLabel);
@@ -200,39 +251,62 @@ private:
         configLayout->addWidget(mkinitcpioCheck);
         configLayout->addWidget(grubCheck);
 
-        mainLayout->addWidget(configGroup);
+        leftLayout->addWidget(configGroup);
 
         // Main menu buttons
-        QHBoxLayout *buttonLayout = new QHBoxLayout();
+        QGridLayout *buttonLayout = new QGridLayout();
+        buttonLayout->setSpacing(5);
 
-        QPushButton *guideButton = new QPushButton("Guide", this);
-        QPushButton *setupButton = new QPushButton("Setup", this);
-        QPushButton *createImageButton = new QPushButton("Create Image", this);
-        QPushButton *createIsoButton = new QPushButton("Create ISO", this);
-        QPushButton *diskUsageButton = new QPushButton("Disk Usage", this);
-        QPushButton *installUsbButton = new QPushButton("Install to USB", this);
-        QPushButton *installerButton = new QPushButton("CMI Installer", this);
-        QPushButton *updateButton = new QPushButton("Update Script", this);
-        QPushButton *exitButton = new QPushButton("Exit", this);
+        QPushButton *guideButton = new QPushButton("Guide", leftPanel);
+        QPushButton *setupButton = new QPushButton("Setup", leftPanel);
+        QPushButton *createImageButton = new QPushButton("Create Image", leftPanel);
+        QPushButton *createIsoButton = new QPushButton("Create ISO", leftPanel);
+        QPushButton *diskUsageButton = new QPushButton("Disk Usage", leftPanel);
+        QPushButton *installUsbButton = new QPushButton("Install to USB", leftPanel);
+        QPushButton *installerButton = new QPushButton("CMI Installer", leftPanel);
+        QPushButton *updateButton = new QPushButton("Update Script", leftPanel);
+        QPushButton *exitButton = new QPushButton("Exit", leftPanel);
 
-        buttonLayout->addWidget(guideButton);
-        buttonLayout->addWidget(setupButton);
-        buttonLayout->addWidget(createImageButton);
-        buttonLayout->addWidget(createIsoButton);
-        buttonLayout->addWidget(diskUsageButton);
-        buttonLayout->addWidget(installUsbButton);
-        buttonLayout->addWidget(installerButton);
-        buttonLayout->addWidget(updateButton);
-        buttonLayout->addWidget(exitButton);
+        buttonLayout->addWidget(guideButton, 0, 0);
+        buttonLayout->addWidget(setupButton, 0, 1);
+        buttonLayout->addWidget(createImageButton, 1, 0);
+        buttonLayout->addWidget(createIsoButton, 1, 1);
+        buttonLayout->addWidget(diskUsageButton, 2, 0);
+        buttonLayout->addWidget(installUsbButton, 2, 1);
+        buttonLayout->addWidget(installerButton, 3, 0);
+        buttonLayout->addWidget(updateButton, 3, 1);
+        buttonLayout->addWidget(exitButton, 4, 0, 1, 2);
 
-        mainLayout->addLayout(buttonLayout);
+        leftLayout->addLayout(buttonLayout);
+        leftLayout->addStretch();
+
+        // Right panel for console output
+        QWidget *rightPanel = new QWidget(splitter);
+        QVBoxLayout *rightLayout = new QVBoxLayout(rightPanel);
 
         // Output console
-        console = new QTextEdit(this);
+        console = new QTextEdit(rightPanel);
         console->setReadOnly(true);
-        console->setStyleSheet("font-family: monospace;");
-        mainLayout->addWidget(console);
+        console->setStyleSheet("font-family: monospace; background-color: #000033; color: cyan;");
+        console->setMinimumWidth(600); // Make console wider
 
+        // Add scrollbar that always stays at bottom
+        QScrollBar *scrollBar = console->verticalScrollBar();
+        connect(console, &QTextEdit::textChanged, [scrollBar]() {
+            scrollBar->setValue(scrollBar->maximum());
+        });
+
+        rightLayout->addWidget(console);
+
+        // Add both panels to splitter
+        splitter->addWidget(leftPanel);
+        splitter->addWidget(rightPanel);
+
+        // Set splitter sizes (1:3 ratio)
+        splitter->setStretchFactor(0, 1);
+        splitter->setStretchFactor(1, 3);
+
+        mainLayout->addWidget(splitter);
         setCentralWidget(centralWidget);
 
         // Connect buttons
@@ -404,15 +478,9 @@ bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01
     }
 
     bool askPassword() {
-        bool ok;
-        QString password = QInputDialog::getText(this, "Authentication Required",
-                                                 "Enter your sudo password:",
-                                                 QLineEdit::Password,
-                                                 "",
-                                                 &ok);
-
-        if (ok && !password.isEmpty()) {
-            sudoPassword = password;
+        PasswordDialog dialog(this);
+        if (dialog.exec() == QDialog::Accepted) {
+            sudoPassword = dialog.password();
 
             // Verify the password works with a simple command
             QProcess testProcess;
@@ -998,23 +1066,23 @@ private:
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    // Set application style and palette
+    // Set application style and palette with blue background and cyan text
     app.setStyle("Fusion");
 
     QPalette palette;
-    palette.setColor(QPalette::Window, QColor(53, 53, 53));
-    palette.setColor(QPalette::WindowText, Qt::white);
-    palette.setColor(QPalette::Base, QColor(25, 25, 25));
-    palette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
-    palette.setColor(QPalette::ToolTipBase, Qt::white);
-    palette.setColor(QPalette::ToolTipText, Qt::white);
-    palette.setColor(QPalette::Text, Qt::white);
-    palette.setColor(QPalette::Button, QColor(53, 53, 53));
-    palette.setColor(QPalette::ButtonText, Qt::white);
+    palette.setColor(QPalette::Window, QColor(0, 0, 51)); // Dark blue background
+    palette.setColor(QPalette::WindowText, QColor(0, 255, 255)); // Cyan text
+    palette.setColor(QPalette::Base, QColor(0, 0, 25)); // Darker blue for input fields
+    palette.setColor(QPalette::AlternateBase, QColor(0, 0, 51));
+    palette.setColor(QPalette::ToolTipBase, Qt::black);
+    palette.setColor(QPalette::ToolTipText, QColor(0, 255, 255));
+    palette.setColor(QPalette::Text, QColor(0, 255, 255)); // Cyan text
+    palette.setColor(QPalette::Button, QColor(0, 0, 102)); // Blue buttons
+    palette.setColor(QPalette::ButtonText, QColor(0, 255, 255)); // Cyan button text
     palette.setColor(QPalette::BrightText, Qt::red);
-    palette.setColor(QPalette::Link, QColor(42, 130, 218));
-    palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
-    palette.setColor(QPalette::HighlightedText, Qt::black);
+    palette.setColor(QPalette::Link, QColor(0, 200, 255));
+    palette.setColor(QPalette::Highlight, QColor(0, 100, 200));
+    palette.setColor(QPalette::HighlightedText, Qt::white);
     app.setPalette(palette);
 
     MainWindow mainWindow;
