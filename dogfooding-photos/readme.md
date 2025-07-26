@@ -9,11 +9,7 @@ bit buggy ui needs to be changed and made to be more responsive with better outp
 
 Advanced C++ Arch Img Iso Script Beta MainBranch v2.01 26-07-2025
 
-btrfs cloning works and new rsync installer works a treat also
-
-<img width="1280" height="800" alt="Screenshot_linux2024-clone_2025-07-26_14:24:10" src="https://github.com/user-attachments/assets/6a91dc0b-c9f3-475a-82b8-beb2cbed9532" />
-
-
+btrfs cloning works 
 
 
 01/07/2025 Advanced C++ Script v2.0 DevBranch
