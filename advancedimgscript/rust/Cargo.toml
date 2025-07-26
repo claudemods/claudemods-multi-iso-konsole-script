@@ -1,0 +1,13 @@
+[package]
+name = "cmiimg"
+version = "0.1.0"
+edition = "2021"
+authors = ["claudemods"]
+license = "GPL-3.0-or-later"
+
+
+[dependencies]
+nix = { version = "0.27", features = ["user", "mount"] }
+termios = "0.3"
+chrono = "0.4"
+libc = "0.2"
