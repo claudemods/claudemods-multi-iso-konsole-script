@@ -368,7 +368,11 @@ void editGrubCfg() {
 
     std::string grubCfgPath = BUILD_DIR + "/boot/grub/grub.cfg";
     std::cout << COLOR_CYAN << "Editing GRUB config: " << grubCfgPath << COLOR_RESET << std::endl;
+    
+    // Set the terminal color to cyan before opening nano
+    std::cout << COLOR_CYAN;
     execute_command("sudo nano " + grubCfgPath);
+    std::cout << COLOR_RESET;
 
     config.grubEdited = true;
     saveConfig();
@@ -857,7 +861,9 @@ void showMainMenu() {
                         execute_command("sudo mkdir -p " + MOUNT_POINT, true);
                         execute_command("sudo mkdir -p " + outputDir, true);
 
-                        std::string imgSize = getUserInput("Enter the image size in GB (e.g., 6 for 6GB): ") + "G";
+                        // Modified to accept decimal sizes
+                        std::string sizeInput = getUserInput("Enter the image size in GB (e.g., 6 or 6.5 for 6.5GB): ");
+                        std::string imgSize = sizeInput + "G";
 
                         std::vector<std::string> fsOptions = {"btrfs", "ext4"};
                         int fsSelected = 0;
@@ -904,27 +910,27 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                                case 3:
-                                    createISO();
-                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                                    getch();
-                                    break;
-                                case 4:
-                                    execute_command("df -h");
-                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                                    getch();
-                                    break;
-                                case 5:
-                                    installISOToUSB();
-                                    break;
-                                case 6:
-                                    runCMIInstaller();
-                                    break;
-                                case 7:
-                                    updateScript();
-                                    break;
-                                case 8:
-                                    return;
+                    case 3:
+                        createISO();
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 4:
+                        execute_command("df -h");
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 5:
+                        installISOToUSB();
+                        break;
+                    case 6:
+                        runCMIInstaller();
+                        break;
+                    case 7:
+                        updateScript();
+                        break;
+                    case 8:
+                        return;
                 }
                 break;
         }
