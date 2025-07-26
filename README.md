@@ -117,9 +117,21 @@
  - Base Arch Packages: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`, `unzip`, `arch-install-scripts`, `bash-completion`, `erofs-utils`, `findutils`, `jq`, `libarchive`, `libisoburn`, `lsb-release`, `lvm2`, `mkinitcpio-archiso`, `mkinitcpio-nfs-utils`, `mtools`, `nbd`, `pacman-contrib`, `nano`, `unzip`, `wget`, `parted`, `procps-ng`, `pv`, `python`, `sshfs`, `syslinux`, `xdg-utils`, `zsh-completions`, `kernel-modules-hook`, `virt-manager` `qt6-tools` `qt5-tools`
 - Advanced Arch Packages: `btrfs-progs`, (for v2.01 img iso creator)  
 
+
+
 ## 💾 Installation
 
-### Main Installation Methods:
+### Main Iso Installation Methods:
+
+```bash
+# google drive link https://drive.google.com/drive/folders/1tJjOWo-qTJukAz8zadRgTrwM9ORRDAOI
+
+
+```
+
+## 💾 Installation
+
+### Main Script Installation Methods:
 
 ```bash
 # All-in-one cmi commander and tui advanced c++ DevBranch:
