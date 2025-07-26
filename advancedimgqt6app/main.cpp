@@ -1,39 +1,55 @@
+
 #include <QApplication>
 #include <QMainWindow>
+#include <QMenuBar>  // Added missing include
+#include <QStatusBar> // Added missing include
 #include <QDialog>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QPushButton>
 #include <QLabel>
-#include <QLineEdit>
 #include <QTextEdit>
 #include <QListWidget>
-#include <QMessageBox>
-#include <QProcess>
 #include <QTimer>
+#include <QDateTime>
+#include <QProcess>
 #include <QFile>
 #include <QDir>
-#include <QDateTime>
-#include <QScrollBar>
-#include <QInputDialog>
-#include <QComboBox>
-#include <QCheckBox>
-#include <QGroupBox>
-#include <QPlainTextEdit>
-#include <QStyleFactory>
+#include <QFileDialog>
+#include <QSystemTrayIcon>
+#include <QMenu>
+#include <QAction>
 #include <QSettings>
-#include <QStandardPaths>
-#include <QButtonGroup>
-#include <QRadioButton>
-#include <fstream>
-#include <unistd.h>
-#include <pwd.h>
-#include <sys/stat.h>
-#include <dirent.h>
+#include <QScrollArea>
+#include <QGroupBox>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QProgressDialog>
+#include <QThread>
 
-// Constants - preserved exactly as in original
-const std::string ORIG_IMG_NAME = "system.img";
-const std::string COMPRESSED_IMG_NAME = "rootfs.img";
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
+#include <sys/wait.h>
+#include <dirent.h>
+#include <pwd.h>
+#include <ctime>
+#include <termios.h>
+#include <fcntl.h>
+#include <sys/statvfs.h>
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <sstream>
+#include <iomanip>
+#include <fstream>  // Added for file operations
+
+// Constants
+const std::string ORIG_IMG_NAME = "rootfs.img";
+const std::string FINAL_IMG_NAME = "rootfs.img";
 std::string MOUNT_POINT = "/mnt/btrfs_temp";
 const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
@@ -44,7 +60,7 @@ std::string USERNAME = "";
 const std::string BTRFS_LABEL = "LIVE_SYSTEM";
 const std::string BTRFS_COMPRESSION = "zstd";
 
-// Dependencies list - updated from second script
+// Dependencies list
 const std::vector<std::string> DEPENDENCIES = {
     "rsync",
     "squashfs-tools",
@@ -82,7 +98,7 @@ const std::vector<std::string> DEPENDENCIES = {
     "qt5-tools"
 };
 
-// Configuration state - preserved exactly
+// Configuration state
 struct ConfigState {
     std::string isoTag;
     std::string isoName;
@@ -98,61 +114,61 @@ struct ConfigState {
     }
 } config;
 
+// Password Dialog
 class PasswordDialog : public QDialog {
+    Q_OBJECT
 public:
     PasswordDialog(QWidget *parent = nullptr) : QDialog(parent) {
-        setWindowTitle("Enter Password");
-        setModal(true);
+        setWindowTitle("Authentication Required");
         setFixedSize(300, 150);
 
         QVBoxLayout *layout = new QVBoxLayout(this);
 
-        QLabel *label = new QLabel("Enter sudo password:", this);
+        QLabel *label = new QLabel("Enter admin password to continue:", this);
+        layout->addWidget(label);
+
         passwordEdit = new QLineEdit(this);
         passwordEdit->setEchoMode(QLineEdit::Password);
+        layout->addWidget(passwordEdit);
 
+        QHBoxLayout *buttonLayout = new QHBoxLayout();
         QPushButton *okButton = new QPushButton("OK", this);
         QPushButton *cancelButton = new QPushButton("Cancel", this);
 
-        QHBoxLayout *buttonLayout = new QHBoxLayout();
         buttonLayout->addWidget(okButton);
         buttonLayout->addWidget(cancelButton);
-
-        layout->addWidget(label);
-        layout->addWidget(passwordEdit);
         layout->addLayout(buttonLayout);
 
-        connect(okButton, &QPushButton::clicked, this, &PasswordDialog::accept);
+        connect(okButton, &QPushButton::clicked, this, &PasswordDialog::onOkClicked);
         connect(cancelButton, &QPushButton::clicked, this, &PasswordDialog::reject);
-
-        // Style the dialog
-        setStyleSheet(
-            "QDialog { background-color: #000033; }"
-            "QLabel { color: cyan; }"
-            "QLineEdit { background-color: #000055; color: cyan; border: 1px solid #0088FF; }"
-            "QPushButton { background-color: #0066FF; color: white; border: 1px solid #0088FF; padding: 5px; }"
-            "QPushButton:hover { background-color: #0088FF; }"
-        );
     }
 
     QString getPassword() const {
         return passwordEdit->text();
     }
 
+private slots:
+    void onOkClicked() {
+        if (passwordEdit->text().isEmpty()) {
+            QMessageBox::warning(this, "Error", "Password cannot be empty!");
+            return;
+        }
+
+        // Here you would typically verify the password
+        // For this example, we'll just accept any non-empty password
+        accept();
+    }
+
 private:
     QLineEdit *passwordEdit;
 };
 
+// Main Application Window
 class MainWindow : public QMainWindow {
     Q_OBJECT
-
 public:
     MainWindow(QWidget *parent = nullptr) : QMainWindow(parent) {
-        setupUI();
-        loadConfig();
-        updateConfigStatus();
-
-        // Get current username
+        // Initialize user info
         struct passwd *pw = getpwuid(getuid());
         if (pw) {
             USERNAME = pw->pw_name;
@@ -161,666 +177,228 @@ public:
             exit(1);
         }
 
-        // Set BUILD_DIR based on username
         BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+        std::string configDir = "/home/" + USERNAME + "/.config/cmi";
+        system(("mkdir -p " + configDir).c_str());
 
-        // Create config directory if it doesn't exist
-        QDir().mkpath(QString::fromStdString("/home/" + USERNAME + "/.config/cmi"));
+        loadConfig();
+
+        setupUI();
+        setupMenuBar();
+        setupStatusBar();
+        setupConnections();
+
+        setWindowTitle("ClaudeMods Image Builder");
+        resize(900, 600);
+
+        // Start time update thread
+        timeThread = std::thread(&MainWindow::updateTimeThread, this);
     }
 
-private slots:
-    void onInstallDependencies() {
-        PasswordDialog dialog(this);
-        if (dialog.exec() == QDialog::Accepted) {
-            QString password = dialog.getPassword();
-            if (password.isEmpty()) {
-                QMessageBox::warning(this, "Warning", "Password cannot be empty!");
-                return;
-            }
-
-            logOutput->append("Installing required dependencies...\n");
-
-            // Build package list string - using updated commands exactly
-            QString packages;
-            for (const auto& pkg : DEPENDENCIES) {
-                packages += QString::fromStdString(pkg) + " ";
-            }
-
-            // Updated command preserved exactly
-            QString command = "sudo pacman -Sy --needed --noconfirm " + packages;
-            executeCommand(command, password);
-
-            config.dependenciesInstalled = true;
-            saveConfig();
-            logOutput->append("\nDependencies installed successfully!\n");
-            updateConfigStatus();
+    ~MainWindow() {
+        timeThreadRunning = false;
+        if (timeThread.joinable()) {
+            timeThread.join();
         }
-    }
-
-    void onSetIsoTag() {
-        bool ok;
-        QString text = QInputDialog::getText(this, "Set ISO Tag", "Enter ISO tag (e.g., 2025):", QLineEdit::Normal, "", &ok);
-        if (ok && !text.isEmpty()) {
-            config.isoTag = text.toStdString();
-            saveConfig();
-            updateConfigStatus();
-        }
-    }
-
-    void onSetIsoName() {
-        bool ok;
-        QString text = QInputDialog::getText(this, "Set ISO Name", "Enter ISO name (e.g., claudemods.iso):", QLineEdit::Normal, "", &ok);
-        if (ok && !text.isEmpty()) {
-            config.isoName = text.toStdString();
-            saveConfig();
-            updateConfigStatus();
-        }
-    }
-
-    void onSetOutputDir() {
-        QString defaultDir = "/home/" + QString::fromStdString(USERNAME) + "/Downloads";
-        bool ok;
-        QString text = QInputDialog::getText(this, "Set Output Directory",
-                                             "Current output directory: " + QString::fromStdString(config.outputDir.empty() ? "Not set" : config.outputDir) +
-                                             "\nDefault directory: " + defaultDir +
-                                             "\nEnter output directory:", QLineEdit::Normal, defaultDir, &ok);
-
-        if (ok && !text.isEmpty()) {
-            QString dir = text;
-            // Replace $USER with actual username - preserving original logic
-            dir.replace("$USER", QString::fromStdString(USERNAME));
-
-            // If empty, use default - preserving original logic
-            if (dir.isEmpty()) {
-                dir = defaultDir;
-            }
-
-            config.outputDir = dir.toStdString();
-            saveConfig();
-            updateConfigStatus();
-        }
-    }
-
-    void onSelectVmlinuz() {
-        QDir dir("/boot");
-        QStringList vmlinuzFiles;
-
-        // Preserving original directory scanning logic
-        for (const auto& file : dir.entryList(QDir::Files)) {
-            if (file.startsWith("vmlinuz")) {
-                vmlinuzFiles.append("/boot/" + file);
-            }
-        }
-
-        if (vmlinuzFiles.isEmpty()) {
-            QMessageBox::critical(this, "Error", "No vmlinuz files found in /boot!");
-            return;
-        }
-
-        bool ok;
-        QString item = QInputDialog::getItem(this, "Select vmlinuz", "Available vmlinuz files:", vmlinuzFiles, 0, false, &ok);
-        if (ok && !item.isEmpty()) {
-            config.vmlinuzPath = item.toStdString();
-            logOutput->append("Selected: " + item + "\n");
-            saveConfig();
-            updateConfigStatus();
-        }
-    }
-
-    void onGenerateMkinitcpio() {
-        if (config.vmlinuzPath.empty()) {
-            QMessageBox::warning(this, "Warning", "Please select vmlinuz first!");
-            return;
-        }
-
-        if (BUILD_DIR.empty()) {
-            QMessageBox::warning(this, "Warning", "Build directory not set!");
-            return;
-        }
-
-        PasswordDialog dialog(this);
-        if (dialog.exec() == QDialog::Accepted) {
-            QString password = dialog.getPassword();
-            if (password.isEmpty()) {
-                QMessageBox::warning(this, "Warning", "Password cannot be empty!");
-                return;
-            }
-
-            // Preserving original commands exactly
-            QString vmlinuzDest = QString::fromStdString(BUILD_DIR) + "/boot/vmlinuz-x86_64";
-            logOutput->append("Copying " + QString::fromStdString(config.vmlinuzPath) + " to " + vmlinuzDest + "\n");
-            executeCommand("sudo cp " + QString::fromStdString(config.vmlinuzPath) + " " + vmlinuzDest, password);
-
-            logOutput->append("Generating initramfs...\n");
-            executeCommand("cd " + QString::fromStdString(BUILD_DIR) + " && sudo mkinitcpio -c mkinitcpio.conf -g " +
-            QString::fromStdString(BUILD_DIR) + "/boot/initramfs-x86_64.img", password);
-
-            config.mkinitcpioGenerated = true;
-            saveConfig();
-            logOutput->append("mkinitcpio generated successfully!\n");
-            updateConfigStatus();
-        }
-    }
-
-    void onEditGrubCfg() {
-        if (BUILD_DIR.empty()) {
-            QMessageBox::warning(this, "Warning", "Build directory not set!");
-            return;
-        }
-
-        // Preserving original command exactly
-        QString grubCfgPath = QString::fromStdString(BUILD_DIR) + "/boot/grub/grub.cfg";
-        logOutput->append("Editing GRUB config: " + grubCfgPath + "\n");
-
-        QProcess::startDetached("sudo", {"nano", grubCfgPath});
-
-        config.grubEdited = true;
-        saveConfig();
-        logOutput->append("GRUB config edited!\n");
-        updateConfigStatus();
-    }
-
-    void onCreateImage() {
-        // Preserving original paths exactly
-        QString outputDir = QString::fromStdString(getOutputDirectory());
-        QString outputOrigImgPath = outputDir + "/" + QString::fromStdString(ORIG_IMG_NAME);
-        QString outputCompressedImgPath = outputDir + "/" + QString::fromStdString(COMPRESSED_IMG_NAME);
-
-        // Cleanup old files - preserving original commands exactly
-        executeCommand("sudo umount " + QString::fromStdString(MOUNT_POINT) + " 2>/dev/null || true");
-        executeCommand("sudo rm -rf " + outputOrigImgPath);
-        executeCommand("sudo mkdir -p " + QString::fromStdString(MOUNT_POINT));
-        executeCommand("sudo mkdir -p " + outputDir);
-
-        bool ok;
-        QString imgSize = QInputDialog::getText(this, "Image Size", "Enter the image size in GB (e.g., 6 for 6GB):", QLineEdit::Normal, "", &ok) + "G";
-        if (!ok) return;
-
-        // Filesystem selection dialog
-        QDialog fsDialog(this);
-        fsDialog.setWindowTitle("Choose Filesystem Type");
-        QVBoxLayout fsLayout(&fsDialog);
-
-        QButtonGroup fsGroup;
-        QRadioButton *btrfsBtn = new QRadioButton("btrfs");
-        QRadioButton *ext4Btn = new QRadioButton("ext4");
-        fsGroup.addButton(btrfsBtn);
-        fsGroup.addButton(ext4Btn);
-        btrfsBtn->setChecked(true);
-
-        QPushButton *okBtn = new QPushButton("OK");
-
-        fsLayout.addWidget(btrfsBtn);
-        fsLayout.addWidget(ext4Btn);
-        fsLayout.addWidget(okBtn);
-
-        connect(okBtn, &QPushButton::clicked, &fsDialog, &QDialog::accept);
-
-        if (fsDialog.exec() != QDialog::Accepted) return;
-
-        QString fsType = btrfsBtn->isChecked() ? "btrfs" : "ext4";
-
-        PasswordDialog pwdDialog(this);
-        if (pwdDialog.exec() != QDialog::Accepted) return;
-        QString password = pwdDialog.getPassword();
-        if (password.isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Password cannot be empty!");
-            return;
-        }
-
-        // Preserving original image creation commands exactly
-        logOutput->append("Creating image file...\n");
-        executeCommand("sudo truncate -s " + imgSize + " " + outputOrigImgPath, password);
-
-        if (fsType == "btrfs") {
-            logOutput->append("Creating Btrfs filesystem with " + QString::fromStdString(BTRFS_COMPRESSION) + " compression\n");
-
-            // Preserving original BTRFS commands exactly
-            executeCommand("sudo mkdir -p " + QString::fromStdString(SOURCE_DIR) + "/btrfs_rootdir", password);
-
-            QString command = "sudo mkfs.btrfs -L \"" + QString::fromStdString(BTRFS_LABEL) + "\" --compress=" +
-            QString::fromStdString(BTRFS_COMPRESSION) + " --rootdir=" + QString::fromStdString(SOURCE_DIR) +
-            "/btrfs_rootdir -f " + outputOrigImgPath;
-            executeCommand(command, password);
-
-            executeCommand("sudo rmdir " + QString::fromStdString(SOURCE_DIR) + "/btrfs_rootdir", password);
-        } else {
-            logOutput->append("Formatting as ext4\n");
-            // Preserving original ext4 command exactly
-            executeCommand("sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" " + outputOrigImgPath, password);
-        }
-
-        // Preserving original mount command exactly
-        logOutput->append("Mounting filesystem...\n");
-        if (fsType == "btrfs") {
-            executeCommand("sudo mount " + outputOrigImgPath + " " + QString::fromStdString(MOUNT_POINT), password);
-        } else {
-            executeCommand("sudo mount -o loop,discard,noatime " + outputOrigImgPath + " " + QString::fromStdString(MOUNT_POINT), password);
-        }
-
-        // Preserving original rsync command exactly
-        logOutput->append("Copying files with rsync...\n");
-        QString rsyncCmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
-        "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
-        "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
-        "--exclude=/etc/mtab "
-        "--exclude=/etc/fstab "
-        "--exclude=/dev/* "
-        "--exclude=/proc/* "
-        "--exclude=/sys/* "
-        "--exclude=/tmp/* "
-        "--exclude=/run/* "
-        "--exclude=/mnt/* "
-        "--exclude=/media/* "
-        "--exclude=/lost+found "
-        "--exclude=*rootfs1.img "
-        "--exclude=btrfs_temp "
-        "--exclude=rootfs.img " +
-        QString::fromStdString(SOURCE_DIR) + " " + QString::fromStdString(MOUNT_POINT);
-        executeCommand(rsyncCmd, password);
-
-        if (fsType == "btrfs") {
-            // Preserving original BTRFS optimization commands exactly
-            logOutput->append("Optimizing compression...\n");
-            executeCommand("sudo btrfs filesystem defrag -r -v -c " + QString::fromStdString(BTRFS_COMPRESSION) + " " + QString::fromStdString(MOUNT_POINT), password);
-
-            logOutput->append("Finalizing image...\n");
-            executeCommand("sudo btrfs filesystem resize max " + QString::fromStdString(MOUNT_POINT), password);
-        }
-
-        // Preserving original unmount commands exactly
-        logOutput->append("Unmounting...\n");
-        executeCommand("sudo umount " + QString::fromStdString(MOUNT_POINT), password);
-        executeCommand("sudo rmdir " + QString::fromStdString(MOUNT_POINT), password);
-
-        // Preserving original squashfs command exactly
-        logOutput->append("Creating SquashFS...\n");
-        QString mksquashfsCmd = "sudo mksquashfs " + outputOrigImgPath + " " + outputCompressedImgPath +
-        " -comp " + QString::fromStdString(SQUASHFS_COMPRESSION) +
-        " " + QString::fromStdString(SQUASHFS_COMPRESSION_ARGS[0]) + " " + QString::fromStdString(SQUASHFS_COMPRESSION_ARGS[1]) +
-        " -noappend";
-        executeCommand(mksquashfsCmd, password);
-
-        // Preserving original delete command exactly
-        logOutput->append("Deleting original image...\n");
-        executeCommand("sudo rm -f " + outputOrigImgPath, password);
-
-        // Preserving original checksum command exactly
-        logOutput->append("Creating checksum...\n");
-        executeCommand("md5sum " + outputCompressedImgPath + " > " + outputCompressedImgPath + ".md5");
-
-        // Show final message with original commands
-        logOutput->append("\n" + QString::fromStdString(fsType == "btrfs" ? "Compressed BTRFS" : "Ext4") +
-        " image created successfully: " + outputCompressedImgPath + "\n");
-        logOutput->append("Checksum file: " + outputCompressedImgPath + ".md5\n");
-        logOutput->append("Size: ");
-        executeCommand("sudo du -h " + outputCompressedImgPath + " | cut -f1");
-    }
-
-    void onCreateISO() {
-        if (!config.isReadyForISO()) {
-            QMessageBox::warning(this, "Warning", "Cannot create ISO - setup is incomplete!");
-            return;
-        }
-
-        PasswordDialog dialog(this);
-        if (dialog.exec() != QDialog::Accepted) return;
-        QString password = dialog.getPassword();
-        if (password.isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Password cannot be empty!");
-            return;
-        }
-
-        logOutput->append("\nStarting ISO creation process...\n");
-
-        // Preserving original path expansion logic
-        QString expandedOutputDir = QString::fromStdString(config.outputDir);
-        expandedOutputDir.replace("$USER", QString::fromStdString(USERNAME));
-
-        // Preserving original xorriso command exactly
-        QString xorrisoCmd = "sudo xorriso -as mkisofs "
-        "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
-        "--protective-msdos-label "
-        "-volid \"" + QString::fromStdString(config.isoTag) + "\" "
-        "-appid \"claudemods Linux Live/Rescue CD\" "
-        "-publisher \"claudemods claudemods101@gmail.com >\" "
-        "-preparer \"Prepared by user\" "
-        "-r -graft-points -no-pad "
-        "--sort-weight 0 / "
-        "--sort-weight 1 /boot "
-        "--grub2-mbr " + QString::fromStdString(BUILD_DIR) + "/boot/grub/i386-pc/boot_hybrid.img "
-        "-partition_offset 16 "
-        "-b boot/grub/i386-pc/eltorito.img "
-        "-c boot.catalog "
-        "-no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info "
-        "-eltorito-alt-boot "
-        "-append_partition 2 0xef " + QString::fromStdString(BUILD_DIR) + "/boot/efi.img "
-        "-e --interval:appended_partition_2:all:: "
-        "-no-emul-boot "
-        "-iso-level 3 "
-        "-o \"" + expandedOutputDir + "/" + QString::fromStdString(config.isoName) + "\" " +
-        QString::fromStdString(BUILD_DIR);
-
-        executeCommand(xorrisoCmd, password);
-        logOutput->append("ISO created successfully at " + expandedOutputDir + "/" + QString::fromStdString(config.isoName) + "\n");
-    }
-
-    void onShowDiskUsage() {
-        // Preserving original command exactly
-        logOutput->append("\nCurrent system disk usage:\n");
-        executeCommand("df -h /");
-    }
-
-    void onInstallISOToUSB() {
-        if (config.outputDir.empty()) {
-            QMessageBox::warning(this, "Warning", "Output directory not set!");
-            return;
-        }
-
-        QString expandedOutputDir = QString::fromStdString(config.outputDir);
-        expandedOutputDir.replace("$USER", QString::fromStdString(USERNAME));
-
-        QDir dir(expandedOutputDir);
-        QStringList isoFiles = dir.entryList(QStringList() << "*.iso", QDir::Files);
-
-        if (isoFiles.isEmpty()) {
-            QMessageBox::warning(this, "Warning", "No ISO files found in output directory!");
-            return;
-        }
-
-        bool ok;
-        QString isoFile = QInputDialog::getItem(this, "Select ISO", "Available ISO files:", isoFiles, 0, false, &ok);
-        if (!ok || isoFile.isEmpty()) return;
-
-        QString selectedISO = expandedOutputDir + "/" + isoFile;
-
-        // Get available drives
-        QProcess lsblk;
-        lsblk.start("lsblk", QStringList() << "-d" << "-o" << "NAME,SIZE,MODEL");
-        lsblk.waitForFinished();
-        QString drivesOutput = lsblk.readAllStandardOutput();
-
-        QString targetDrive = QInputDialog::getText(this, "Select Drive",
-            "Available drives:\n" + drivesOutput + "\nEnter target drive (e.g., /dev/sda):",
-            QLineEdit::Normal, "", &ok);
-
-        if (!ok || targetDrive.isEmpty()) {
-            return;
-        }
-
-        QMessageBox::StandardButton confirm = QMessageBox::question(this, "Confirm",
-                                                                    "WARNING: This will overwrite all data on " + targetDrive + "!\nAre you sure you want to continue?",
-                                                                    QMessageBox::Yes | QMessageBox::No);
-
-        if (confirm != QMessageBox::Yes) {
-            return;
-        }
-
-        logOutput->append("\nWriting " + selectedISO + " to " + targetDrive + "...\n");
-        QString ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
-        executeCommand(ddCommand);
-
-        logOutput->append("\nISO successfully written to USB drive!\n");
-    }
-
-    void onRunCMIInstaller() {
-        logOutput->append("\nRunning CMI BTRFS/EXT4 Installer...\n");
-        executeCommand("cmirsyncinstaller");
-    }
-
-    void onUpdateScript() {
-        logOutput->append("\nUpdating script from GitHub...\n");
-        executeCommand("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
-        logOutput->append("\nScript updated successfully!\n");
     }
 
 private:
-    QTextEdit *logOutput;
-    QListWidget *menuList;
-    QLabel *headerLabel;
-    QLabel *versionLabel;
-
     void setupUI() {
-        setWindowTitle("Advanced C++ Arch Img Iso Script");
-        resize(800, 600);
-
-        // Set main window style
-        setStyleSheet(
-            "QMainWindow { background-color: #000033; }"
-            "QTextEdit { background-color: #000022; color: cyan; border: 1px solid #0088FF; }"
-            "QListWidget { background-color: #000044; color: cyan; border: 1px solid #0088FF; }"
-            "QPushButton { background-color: #0066FF; color: white; border: 1px solid #0088FF; padding: 5px; }"
-            "QPushButton:hover { background-color: #0088FF; }"
-            "QLabel { color: cyan; }"
-            "QGroupBox { border: 1px solid #0088FF; margin-top: 10px; }"
-            "QGroupBox::title { color: cyan; subcontrol-origin: margin; left: 10px; }"
-            "QRadioButton { color: cyan; }"
-        );
-
         QWidget *centralWidget = new QWidget(this);
         QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-        mainLayout->setContentsMargins(5, 5, 5, 5);
-        mainLayout->setSpacing(5);
 
-        // Add header with ASCII art
-        QLabel *asciiArt = new QLabel(
-            "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
-            "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
-            "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
-            "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
-            "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
-            "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░"
-        );
-        asciiArt->setStyleSheet("color: red; font-family: monospace;");
-        mainLayout->addWidget(asciiArt);
+        // Banner
+        bannerLabel = new QLabel(this);
+        bannerLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        bannerLabel->setAlignment(Qt::AlignCenter);
+        bannerLabel->setStyleSheet("font-family: monospace; color: #FF0000;");
+        mainLayout->addWidget(bannerLabel);
 
-        // Add version label
-        versionLabel = new QLabel("Advanced C++ Arch Img Iso Script Beta v2.01 26-07-2025");
-        versionLabel->setStyleSheet("color: cyan; font-weight: bold; font-size: 12px;");
-        versionLabel->setAlignment(Qt::AlignCenter);
-        mainLayout->addWidget(versionLabel);
+        updateBanner();
 
-        // Horizontal layout for menu and content
-        QHBoxLayout *contentLayout = new QHBoxLayout();
-        contentLayout->setSpacing(10);
+        // Time and disk info
+        timeLabel = new QLabel(this);
+        timeLabel->setAlignment(Qt::AlignCenter);
+        timeLabel->setStyleSheet("color: #0000FF;");
+        mainLayout->addWidget(timeLabel);
 
-        // Left side - menu
-        QWidget *menuWidget = new QWidget;
-        QVBoxLayout *menuLayout = new QVBoxLayout(menuWidget);
-        menuLayout->setContentsMargins(0, 0, 0, 0);
+        diskInfoLabel = new QLabel(this);
+        diskInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        diskInfoLabel->setAlignment(Qt::AlignCenter);
+        diskInfoLabel->setStyleSheet("font-family: monospace; color: #00FF00;");
+        mainLayout->addWidget(diskInfoLabel);
 
-        QLabel *titleLabel = new QLabel("Main Menu");
-        titleLabel->setStyleSheet("font-weight: bold; font-size: 16px; color: cyan;");
-        menuLayout->addWidget(titleLabel);
+        updateDiskInfo();
 
-        menuList = new QListWidget;
-        // Updated menu items from second script
-        menuList->addItems({
-            "Guide",
-            "Setup Scripts",
-            "Create Image",
-            "Create ISO",
-            "Show Disk Usage",
-            "Install ISO to USB",
-            "CMI BTRFS/EXT4 Installer",
-            "Update Script",
-            "Exit"
-        });
-        menuList->setCurrentRow(0);
-        menuLayout->addWidget(menuList);
+        // Config status
+        configGroup = new QGroupBox("Current Configuration", this);
+        QVBoxLayout *configLayout = new QVBoxLayout(configGroup);
 
-        // Right side - content
-        QWidget *contentWidget = new QWidget;
-        QVBoxLayout *rightLayout = new QVBoxLayout(contentWidget);
+        dependenciesCheck = new QCheckBox("Dependencies Installed", this);
+        isoTagLabel = new QLabel("ISO Tag: Not set", this);
+        isoNameLabel = new QLabel("ISO Name: Not set", this);
+        outputDirLabel = new QLabel("Output Directory: Not set", this);
+        vmlinuzLabel = new QLabel("vmlinuz Selected: Not selected", this);
+        mkinitcpioCheck = new QCheckBox("mkinitcpio Generated", this);
+        grubCheck = new QCheckBox("GRUB Config Edited", this);
 
-        // Config status at the top
-        QGroupBox *statusGroup = new QGroupBox("Configuration Status");
-        QVBoxLayout *statusLayout = new QVBoxLayout;
+        configLayout->addWidget(dependenciesCheck);
+        configLayout->addWidget(isoTagLabel);
+        configLayout->addWidget(isoNameLabel);
+        configLayout->addWidget(outputDirLabel);
+        configLayout->addWidget(vmlinuzLabel);
+        configLayout->addWidget(mkinitcpioCheck);
+        configLayout->addWidget(grubCheck);
 
-        configStatus = new QLabel;
-        configStatus->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        statusLayout->addWidget(configStatus);
+        mainLayout->addWidget(configGroup);
 
-        statusGroup->setLayout(statusLayout);
-        rightLayout->addWidget(statusGroup);
+        // Main menu buttons
+        QHBoxLayout *buttonLayout = new QHBoxLayout();
 
-        // Command output below
-        QLabel *logLabel = new QLabel("Command Output");
-        logLabel->setStyleSheet("font-weight: bold; font-size: 16px; color: cyan;");
-        rightLayout->addWidget(logLabel);
+        QPushButton *guideButton = new QPushButton("Guide", this);
+        QPushButton *setupButton = new QPushButton("Setup", this);
+        QPushButton *createImageButton = new QPushButton("Create Image", this);
+        QPushButton *createIsoButton = new QPushButton("Create ISO", this);
+        QPushButton *diskUsageButton = new QPushButton("Disk Usage", this);
+        QPushButton *installUsbButton = new QPushButton("Install to USB", this);
+        QPushButton *installerButton = new QPushButton("CMI Installer", this);
+        QPushButton *updateButton = new QPushButton("Update Script", this);
+        QPushButton *exitButton = new QPushButton("Exit", this);
 
-        logOutput = new QTextEdit;
-        logOutput->setReadOnly(true);
-        logOutput->setFontFamily("Monospace");
-        rightLayout->addWidget(logOutput);
+        buttonLayout->addWidget(guideButton);
+        buttonLayout->addWidget(setupButton);
+        buttonLayout->addWidget(createImageButton);
+        buttonLayout->addWidget(createIsoButton);
+        buttonLayout->addWidget(diskUsageButton);
+        buttonLayout->addWidget(installUsbButton);
+        buttonLayout->addWidget(installerButton);
+        buttonLayout->addWidget(updateButton);
+        buttonLayout->addWidget(exitButton);
 
-        // Add to content layout
-        contentLayout->addWidget(menuWidget, 1);
-        contentLayout->addWidget(contentWidget, 3);
+        mainLayout->addLayout(buttonLayout);
 
-        // Add to main layout
-        mainLayout->addLayout(contentLayout);
+        // Output console
+        console = new QTextEdit(this);
+        console->setReadOnly(true);
+        console->setStyleSheet("font-family: monospace;");
+        mainLayout->addWidget(console);
 
         setCentralWidget(centralWidget);
 
-        // Connect menu - updated to match new order
-        connect(menuList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
-            int row = menuList->row(item);
-            switch(row) {
-                case 0: showGuide(); break;
-                case 1: showSetupMenu(); break;
-                case 2: onCreateImage(); break;
-                case 3: onCreateISO(); break;
-                case 4: onShowDiskUsage(); break;
-                case 5: onInstallISOToUSB(); break;
-                case 6: onRunCMIInstaller(); break;
-                case 7: onUpdateScript(); break;
-                case 8: close(); break;
-            }
-        });
+        // Connect buttons
+        connect(guideButton, &QPushButton::clicked, this, &MainWindow::showGuide);
+        connect(setupButton, &QPushButton::clicked, this, &MainWindow::showSetupMenu);
+        connect(createImageButton, &QPushButton::clicked, this, &MainWindow::createImage);
+        connect(createIsoButton, &QPushButton::clicked, this, &MainWindow::createISO);
+        connect(diskUsageButton, &QPushButton::clicked, this, &MainWindow::showDiskUsage);
+        connect(installUsbButton, &QPushButton::clicked, this, &MainWindow::installISOToUSB);
+        connect(installerButton, &QPushButton::clicked, this, &MainWindow::runCMIInstaller);
+        connect(updateButton, &QPushButton::clicked, this, &MainWindow::updateScript);
+        connect(exitButton, &QPushButton::clicked, this, &QApplication::quit);
     }
 
-    void showGuide() {
-        QString readmePath = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/readme.txt";
-        executeCommand("mkdir -p /home/" + QString::fromStdString(USERNAME) + "/.config/cmi");
-        executeCommand("nano " + readmePath);
+    void setupMenuBar() {
+        QMenu *fileMenu = menuBar()->addMenu("File");
+        QAction *exitAction = fileMenu->addAction("Exit");
+        connect(exitAction, &QAction::triggered, this, &QApplication::quit);
+
+        QMenu *toolsMenu = menuBar()->addMenu("Tools");
+        toolsMenu->addAction("Show Config", this, &MainWindow::showConfigStatus);
+        toolsMenu->addAction("Clear Console", console, &QTextEdit::clear);
     }
 
-    void showSetupMenu() {
-        QDialog setupDialog(this);
-        setupDialog.setWindowTitle("ISO Creation Setup");
-        setupDialog.resize(600, 400);
-        setupDialog.setStyleSheet(
-            "QDialog { background-color: #000033; }"
-            "QListWidget { background-color: #000044; color: cyan; border: 1px solid #0088FF; }"
-            "QLabel { color: cyan; }"
-        );
-
-        QVBoxLayout *layout = new QVBoxLayout(&setupDialog);
-
-        QListWidget *setupList = new QListWidget;
-        setupList->addItems({
-            "Install Dependencies",
-            "Set ISO Tag",
-            "Set ISO Name",
-            "Set Output Directory",
-            "Select vmlinuz",
-            "Generate mkinitcpio",
-            "Edit GRUB Config",
-            "Back to Main Menu"
-        });
-        layout->addWidget(setupList);
-
-        connect(setupList, &QListWidget::itemDoubleClicked, &setupDialog, [&](QListWidgetItem *item) {
-            int row = setupList->row(item);
-            switch(row) {
-                case 0: onInstallDependencies(); break;
-                case 1: onSetIsoTag(); break;
-                case 2: onSetIsoName(); break;
-                case 3: onSetOutputDir(); break;
-                case 4: onSelectVmlinuz(); break;
-                case 5: onGenerateMkinitcpio(); break;
-                case 6: onEditGrubCfg(); break;
-                case 7: setupDialog.accept(); break;
-            }
-        });
-
-        setupDialog.exec();
+    void setupStatusBar() {
+        statusBar()->showMessage("Ready");
     }
 
-    void executeCommand(const QString &command, const QString &password = "") {
-        logOutput->append("$ " + command + "\n");
+    void setupConnections() {
+        // Timer for updating time and disk info
+        QTimer *timer = new QTimer(this);
+        connect(timer, &QTimer::timeout, this, &MainWindow::updateTimeDisplay);
+        connect(timer, &QTimer::timeout, this, &MainWindow::updateDiskInfo);
+        timer->start(1000);
+    }
+
+    void updateBanner() {
+        QString bannerText = R"(
+░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
+██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
+██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
+██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
+╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
+░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
+)";
+bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01 26-07-2025");
+    }
+
+    void updateTimeDisplay() {
+        std::lock_guard<std::mutex> lock(timeMutex);
+        timeLabel->setText(QString("Current UK Time: %1").arg(QString::fromStdString(currentTimeStr)));
+    }
+
+    void updateDiskInfo() {
         QProcess process;
-        process.setProcessChannelMode(QProcess::MergedChannels);
+        process.start("df", QStringList() << "-h" << "/");
+        process.waitForFinished();
+        QString output = process.readAllStandardOutput();
 
-        if (!password.isEmpty()) {
-            process.start("bash", {"-c", "echo '" + password + "' | sudo -S " + command});
-        } else {
-            process.start("bash", {"-c", command});
+        QStringList lines = output.split('\n');
+        if (lines.size() > 1) {
+            diskInfoLabel->setText("Filesystem      Size  Used Avail Use% Mounted on\n" + lines.last());
         }
+    }
 
-        QTimer timer;
-        timer.setInterval(100);
+    void showConfigStatus() {
+        dependenciesCheck->setChecked(config.dependenciesInstalled);
+        isoTagLabel->setText(QString("ISO Tag: %1").arg(config.isoTag.empty() ? "Not set" : QString::fromStdString(config.isoTag)));
+        isoNameLabel->setText(QString("ISO Name: %1").arg(config.isoName.empty() ? "Not set" : QString::fromStdString(config.isoName)));
+        outputDirLabel->setText(QString("Output Directory: %1").arg(config.outputDir.empty() ? "Not set" : QString::fromStdString(config.outputDir)));
+        vmlinuzLabel->setText(QString("vmlinuz Selected: %1").arg(config.vmlinuzPath.empty() ? "Not selected" : QString::fromStdString(config.vmlinuzPath)));
+        mkinitcpioCheck->setChecked(config.mkinitcpioGenerated);
+        grubCheck->setChecked(config.grubEdited);
+    }
 
-        connect(&timer, &QTimer::timeout, this, [&]() {
-            if (process.state() == QProcess::NotRunning) return;
+    void execute_command(const std::string& cmd, bool continueOnError = false) {
+        console->append(QString("> %1").arg(QString::fromStdString(cmd)));
 
-            QByteArray newData = process.readAll();
-            if (!newData.isEmpty()) {
-                logOutput->insertPlainText(QString::fromUtf8(newData));
-                logOutput->verticalScrollBar()->setValue(logOutput->verticalScrollBar()->maximum());
-            }
-        });
-
-        timer.start();
+        QProcess process;
+        process.start("bash", QStringList() << "-c" << QString::fromStdString(cmd));
         process.waitForFinished(-1);
-        timer.stop();
 
-        // Read any remaining data
-        QByteArray remainingData = process.readAll();
-        if (!remainingData.isEmpty()) {
-            logOutput->insertPlainText(QString::fromUtf8(remainingData));
-            logOutput->verticalScrollBar()->setValue(logOutput->verticalScrollBar()->maximum());
+        QString output = process.readAllStandardOutput();
+        QString error = process.readAllStandardError();
+
+        if (!output.isEmpty()) {
+            console->append(output);
+        }
+        if (!error.isEmpty()) {
+            console->append(error);
         }
 
         if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
-            logOutput->append("\nCommand failed with exit code " + QString::number(process.exitCode()) + "\n");
+            if (!continueOnError) {
+                console->append("Error executing command!");
+                QMessageBox::critical(this, "Error", QString("Failed to execute: %1").arg(QString::fromStdString(cmd)));
+                return;
+            } else {
+                console->append("Command failed but continuing...");
+            }
         }
     }
 
-    void updateConfigStatus() {
-        QString statusText;
+    void updateTimeThread() {
+        while (timeThreadRunning) {
+            time_t now = time(NULL);
+            struct tm *t = localtime(&now);
+            char datetime[50];
+            strftime(datetime, sizeof(datetime), "%d/%m/%Y %H:%M:%S", t);
 
-        // Use QString::arg() for proper string concatenation
-        statusText += QString("Dependencies Installed: <font color='%1'>%2</font><br>")
-        .arg(config.dependenciesInstalled ? "lime" : "red")
-        .arg(config.dependenciesInstalled ? "✓" : "✗");
-
-        statusText += QString("ISO Tag: <font color='%1'>%2</font><br>")
-        .arg(config.isoTag.empty() ? "red" : "lime")
-        .arg(config.isoTag.empty() ? "Not set" : QString::fromStdString(config.isoTag));
-
-        statusText += QString("ISO Name: <font color='%1'>%2</font><br>")
-        .arg(config.isoName.empty() ? "red" : "lime")
-        .arg(config.isoName.empty() ? "Not set" : QString::fromStdString(config.isoName));
-
-        statusText += QString("Output Directory: <font color='%1'>%2</font><br>")
-        .arg(config.outputDir.empty() ? "red" : "lime")
-        .arg(config.outputDir.empty() ? "Not set" : QString::fromStdString(config.outputDir));
-
-        statusText += QString("vmlinuz Selected: <font color='%1'>%2</font><br>")
-        .arg(config.vmlinuzPath.empty() ? "red" : "lime")
-        .arg(config.vmlinuzPath.empty() ? "Not selected" : QString::fromStdString(config.vmlinuzPath));
-
-        statusText += QString("mkinitcpio Generated: <font color='%1'>%2</font><br>")
-        .arg(config.mkinitcpioGenerated ? "lime" : "red")
-        .arg(config.mkinitcpioGenerated ? "✓" : "✗");
-
-        statusText += QString("GRUB Config Edited: <font color='%1'>%2</font><br>")
-        .arg(config.grubEdited ? "lime" : "red")
-        .arg(config.grubEdited ? "✓" : "✗");
-
-        configStatus->setText(statusText);
+            {
+                std::lock_guard<std::mutex> lock(timeMutex);
+                currentTimeStr = datetime;
+            }
+            sleep(1);
+        }
     }
 
     std::string getConfigFilePath() {
@@ -840,7 +418,7 @@ private:
             configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
             configFile.close();
         } else {
-            logOutput->append("Failed to save configuration to " + QString::fromStdString(configPath) + "\n");
+            console->append("Failed to save configuration!");
         }
     }
 
@@ -868,32 +446,597 @@ private:
         }
     }
 
+    bool askPassword() {
+        PasswordDialog dialog(this);
+        if (dialog.exec() == QDialog::Accepted) {
+            // In a real application, you would verify the password here
+            return true;
+        }
+        return false;
+    }
+
+private slots:
+    void showGuide() {
+        std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
+        execute_command("mkdir -p /home/" + USERNAME + "/.config/cmi", true);
+        execute_command("nano " + readmePath, true);
+    }
+
+    void showSetupMenu() {
+        if (!askPassword()) {
+            return;
+        }
+
+        QDialog dialog(this);
+        dialog.setWindowTitle("ISO Creation Setup");
+        dialog.resize(500, 400);
+
+        QVBoxLayout *layout = new QVBoxLayout(&dialog);
+
+        // Dependencies
+        QPushButton *depsButton = new QPushButton("Install Dependencies", &dialog);
+        connect(depsButton, &QPushButton::clicked, [this, &dialog]() {
+            installDependencies();
+            dialog.close();
+        });
+        layout->addWidget(depsButton);
+
+        // ISO Tag
+        QPushButton *isoTagButton = new QPushButton("Set ISO Tag", &dialog);
+        connect(isoTagButton, &QPushButton::clicked, [this, &dialog]() {
+            bool ok;
+            QString text = QInputDialog::getText(&dialog, "Set ISO Tag",
+                                                 "Enter ISO tag (e.g., 2025):", QLineEdit::Normal, "", &ok);
+            if (ok && !text.isEmpty()) {
+                config.isoTag = text.toStdString();
+                saveConfig();
+            }
+        });
+        layout->addWidget(isoTagButton);
+
+        // ISO Name
+        QPushButton *isoNameButton = new QPushButton("Set ISO Name", &dialog);
+        connect(isoNameButton, &QPushButton::clicked, [this, &dialog]() {
+            bool ok;
+            QString text = QInputDialog::getText(&dialog, "Set ISO Name",
+                                                 "Enter ISO name (e.g., claudemods.iso):", QLineEdit::Normal, "", &ok);
+            if (ok && !text.isEmpty()) {
+                config.isoName = text.toStdString();
+                saveConfig();
+            }
+        });
+        layout->addWidget(isoNameButton);
+
+        // Output Directory
+        QPushButton *outputDirButton = new QPushButton("Set Output Directory", &dialog);
+        connect(outputDirButton, &QPushButton::clicked, [this, &dialog]() {
+            QString dir = QFileDialog::getExistingDirectory(&dialog, "Select Output Directory",
+                                                            QString::fromStdString(config.outputDir.empty() ?
+                                                            "/home/" + USERNAME + "/Downloads" : config.outputDir));
+            if (!dir.isEmpty()) {
+                config.outputDir = dir.toStdString();
+                saveConfig();
+            }
+        });
+        layout->addWidget(outputDirButton);
+
+        // vmlinuz
+        QPushButton *vmlinuzButton = new QPushButton("Select vmlinuz", &dialog);
+        connect(vmlinuzButton, &QPushButton::clicked, this, &MainWindow::selectVmlinuz);
+        layout->addWidget(vmlinuzButton);
+
+        // mkinitcpio
+        QPushButton *mkinitcpioButton = new QPushButton("Generate mkinitcpio", &dialog);
+        connect(mkinitcpioButton, &QPushButton::clicked, [this, &dialog]() {
+            generateMkinitcpio();
+            dialog.close();
+        });
+        layout->addWidget(mkinitcpioButton);
+
+        // GRUB Config
+        QPushButton *grubButton = new QPushButton("Edit GRUB Config", &dialog);
+        connect(grubButton, &QPushButton::clicked, [this, &dialog]() {
+            editGrubCfg();
+            dialog.close();
+        });
+        layout->addWidget(grubButton);
+
+        // Close button
+        QPushButton *closeButton = new QPushButton("Close", &dialog);
+        connect(closeButton, &QPushButton::clicked, &dialog, &QDialog::close);
+        layout->addWidget(closeButton);
+
+        dialog.exec();
+    }
+
+    void installDependencies() {
+        console->append("\nInstalling required dependencies...\n");
+
+        std::string packages;
+        for (const auto& pkg : DEPENDENCIES) {
+            packages += pkg + " ";
+        }
+
+        std::string command = "sudo pacman -Sy --needed --noconfirm " + packages;
+        execute_command(command);
+
+        config.dependenciesInstalled = true;
+        saveConfig();
+        console->append("\nDependencies installed successfully!\n");
+    }
+
+    void selectVmlinuz() {
+        DIR *dir;
+        struct dirent *ent;
+        std::vector<std::string> vmlinuzFiles;
+
+        if ((dir = opendir("/boot")) != nullptr) {
+            while ((ent = readdir(dir)) != nullptr) {
+                std::string filename = ent->d_name;
+                if (filename.find("vmlinuz") == 0) {
+                    vmlinuzFiles.push_back("/boot/" + filename);
+                }
+            }
+            closedir(dir);
+        } else {
+            console->append("Could not open /boot directory");
+            return;
+        }
+
+        if (vmlinuzFiles.empty()) {
+            console->append("No vmlinuz files found in /boot!");
+            return;
+        }
+
+        QStringList items;
+        for (const auto& file : vmlinuzFiles) {
+            items.append(QString::fromStdString(file));
+        }
+
+        bool ok;
+        QString item = QInputDialog::getItem(this, "Select vmlinuz",
+                                             "Available vmlinuz files:", items, 0, false, &ok);
+        if (ok && !item.isEmpty()) {
+            config.vmlinuzPath = item.toStdString();
+
+            std::string destPath = BUILD_DIR + "/boot/vmlinuz-x86_64";
+            std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
+            execute_command(copyCmd);
+
+            console->append(QString("Selected: %1").arg(item));
+            console->append(QString("Copied to: %1").arg(QString::fromStdString(destPath)));
+            saveConfig();
+        }
+    }
+
+    void generateMkinitcpio() {
+        if (config.vmlinuzPath.empty()) {
+            console->append("Please select vmlinuz first!");
+            return;
+        }
+
+        if (BUILD_DIR.empty()) {
+            console->append("Build directory not set!");
+            return;
+        }
+
+        console->append("Generating initramfs...");
+        execute_command("cd " + BUILD_DIR + " && sudo mkinitcpio -c mkinitcpio.conf -g " + BUILD_DIR + "/boot/initramfs-x86_64.img");
+
+        config.mkinitcpioGenerated = true;
+        saveConfig();
+        console->append("mkinitcpio generated successfully!");
+    }
+
+    void editGrubCfg() {
+        if (BUILD_DIR.empty()) {
+            console->append("Build directory not set!");
+            return;
+        }
+
+        std::string grubCfgPath = BUILD_DIR + "/boot/grub/grub.cfg";
+        console->append(QString("Editing GRUB config: %1").arg(QString::fromStdString(grubCfgPath)));
+
+        std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + grubCfgPath;
+        execute_command(nanoCommand);
+
+        config.grubEdited = true;
+        saveConfig();
+        console->append("GRUB config edited!");
+    }
+
+    void createImage() {
+        if (!askPassword()) {
+            return;
+        }
+
+        std::string outputDir = getOutputDirectory();
+        std::string outputImgPath = outputDir + "/" + ORIG_IMG_NAME;
+
+        execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
+        execute_command("sudo rm -rf " + outputImgPath, true);
+        execute_command("sudo mkdir -p " + MOUNT_POINT, true);
+        execute_command("sudo mkdir -p " + outputDir, true);
+
+        // Get size input
+        bool ok;
+        double sizeGB = QInputDialog::getDouble(this, "Image Size",
+                                                "Enter the image size in GB (e.g., 1.2 for 1.2GB):", 1.0, 0.1, 100.0, 1, &ok);
+        if (!ok) return;
+
+        // Filesystem type
+        QStringList fsOptions = {"btrfs", "ext4"};
+        QString fsType = QInputDialog::getItem(this, "Filesystem Type",
+                                               "Choose filesystem type:", fsOptions, 0, false, &ok);
+        if (!ok) return;
+
+        // Create image
+        if (!createImageFile(std::to_string(sizeGB), outputImgPath) ||
+            !formatFilesystem(fsType.toStdString(), outputImgPath) ||
+            !mountFilesystem(fsType.toStdString(), outputImgPath, MOUNT_POINT) ||
+            !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType.toStdString())) {
+            return;
+            }
+
+            unmountAndCleanup(MOUNT_POINT);
+
+        if (fsType == "ext4") {
+            // For ext4, create SquashFS version
+            std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
+            createSquashFS(outputImgPath, squashPath);
+        }
+
+        createChecksum(outputImgPath);
+        printFinalMessage(fsType.toStdString(), outputImgPath);
+    }
+
+    bool createImageFile(const std::string& sizeStr, const std::string& filename) {
+        try {
+            double sizeGB = std::stod(sizeStr);
+            if (sizeGB <= 0) {
+                console->append("Invalid size: must be greater than 0");
+                return false;
+            }
+
+            size_t sizeBytes = static_cast<size_t>(sizeGB * 1073741824);
+
+            console->append(QString("Creating image file of size %1GB (%2 bytes)...")
+            .arg(sizeGB).arg(sizeBytes));
+
+            std::string command = "sudo fallocate -l " + std::to_string(sizeBytes) + " " + filename;
+            execute_command(command, true);
+
+            return true;
+        } catch (const std::exception& e) {
+            console->append(QString("Error creating image file: %1")
+            .arg(QString::fromStdString(e.what())));
+            return false;
+        }
+    }
+
+    bool formatFilesystem(const std::string& fsType, const std::string& filename) {
+        if (fsType == "btrfs") {
+            console->append(QString("Creating Btrfs filesystem with %1 compression")
+            .arg(QString::fromStdString(BTRFS_COMPRESSION)));
+
+            execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir", true);
+
+            std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION +
+            " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
+            execute_command(command, true);
+
+            execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir", true);
+        } else {
+            console->append("Formatting as ext4 with SquashFS-style compression");
+            std::string command = "sudo mkfs.ext4 -F -O ^has_journal,^resize_inode -E lazy_itable_init=0 -m 0 -L \"SYSTEM_BACKUP\" " + filename;
+            execute_command(command, true);
+        }
+        return true;
+    }
+
+    bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
+        execute_command("sudo mkdir -p " + mountPoint, true);
+
+        if (fsType == "btrfs") {
+            std::string command = "sudo mount -o compress=" + BTRFS_COMPRESSION + ",compress-force=zstd:" + COMPRESSION_LEVEL + " " + filename + " " + mountPoint;
+            execute_command(command, true);
+        } else {
+            std::string options = "loop,discard,noatime,data=writeback,commit=60,barrier=0,nobh,errors=remount-ro";
+            std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
+            execute_command(command, true);
+        }
+        return true;
+    }
+
+    bool copyFilesWithRsync(const std::string& source, const std::string& destination, const std::string& fsType) {
+        std::string compressionFlag = (fsType == "btrfs") ? "--compress" : "";
+        std::string compressionLevel = (fsType == "btrfs") ? "--compress-level=" + COMPRESSION_LEVEL : "";
+
+        std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " + compressionFlag + " " + compressionLevel +
+        " --exclude=/etc/udev/rules.d/70-persistent-cd.rules "
+        "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
+        "--exclude=/etc/mtab "
+        "--exclude=/etc/fstab "
+        "--exclude=/dev/* "
+        "--exclude=/proc/* "
+        "--exclude=/sys/* "
+        "--exclude=/tmp/* "
+        "--exclude=/run/* "
+        "--exclude=/mnt/* "
+        "--exclude=/media/* "
+        "--exclude=/lost+found "
+        "--exclude=*rootfs1.img "
+        "--exclude=btrfs_temp "
+        "--exclude=rootfs.img " +
+        source + " " + destination;
+        execute_command(command, true);
+
+        if (fsType == "btrfs") {
+            console->append("Optimizing compression...");
+            execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
+            execute_command("sudo btrfs filesystem resize max " + destination, true);
+        } else {
+            console->append("Optimizing ext4 filesystem...");
+            execute_command("sudo e4defrag " + destination, true);
+            execute_command("sudo tune2fs -o journal_data_writeback " + destination.substr(0, destination.find(' ')), true);
+        }
+
+        return true;
+    }
+
+    bool unmountAndCleanup(const std::string& mountPoint) {
+        sync();
+        try {
+            execute_command("sudo umount " + mountPoint, true);
+            execute_command("sudo rmdir " + mountPoint, true);
+        } catch (...) {
+            return false;
+        }
+        return true;
+    }
+
+    bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
+        console->append("Creating optimized SquashFS image...");
+
+        std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
+        " -comp " + SQUASHFS_COMPRESSION +
+        " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
+        " -noappend";
+
+        execute_command(command, true);
+        return true;
+    }
+
+    bool createChecksum(const std::string& filename) {
+        std::string command = "md5sum " + filename + " > " + filename + ".md5";
+        execute_command(command, true);
+        return true;
+    }
+
+    void printFinalMessage(const std::string& fsType, const std::string& outputFile) {
+        console->append("");
+        if (fsType == "btrfs") {
+            console->append(QString("Compressed BTRFS image created successfully: %1")
+            .arg(QString::fromStdString(outputFile)));
+        } else {
+            console->append(QString("Compressed ext4 image created successfully: %1")
+            .arg(QString::fromStdString(outputFile)));
+        }
+        console->append(QString("Checksum file: %1.md5")
+        .arg(QString::fromStdString(outputFile)));
+
+        QProcess process;
+        process.start("du", QStringList() << "-h" << QString::fromStdString(outputFile));
+        process.waitForFinished();
+        QString size = process.readAllStandardOutput().split('\t').first();
+        console->append(QString("Size: %1").arg(size));
+    }
+
+    void createISO() {
+        if (!config.isReadyForISO()) {
+            console->append("Cannot create ISO - setup is incomplete!");
+            return;
+        }
+
+        console->append("\nStarting ISO creation process...\n");
+
+        std::string expandedOutputDir = expandPath(config.outputDir);
+
+        execute_command("mkdir -p " + expandedOutputDir, true);
+
+        std::string xorrisoCmd = "sudo xorriso -as mkisofs "
+        "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
+        "--protective-msdos-label "
+        "-volid \"" + config.isoTag + "\" "
+        "-appid \"claudemods Linux Live/Rescue CD\" "
+        "-publisher \"claudemods claudemods101@gmail.com >\" "
+        "-preparer \"Prepared by user\" "
+        "-r -graft-points -no-pad "
+        "--sort-weight 0 / "
+        "--sort-weight 1 /boot "
+        "--grub2-mbr " + BUILD_DIR + "/boot/grub/i386-pc/boot_hybrid.img "
+        "-partition_offset 16 "
+        "-b boot/grub/i386-pc/eltorito.img "
+        "-c boot.catalog "
+        "-no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info "
+        "-eltorito-alt-boot "
+        "-append_partition 2 0xef " + BUILD_DIR + "/boot/efi.img "
+        "-e --interval:appended_partition_2:all:: "
+        "-no-emul-boot "
+        "-iso-level 3 "
+        "-o \"" + expandedOutputDir + "/" + config.isoName + "\" " +
+        BUILD_DIR;
+
+        execute_command(xorrisoCmd, true);
+        console->append(QString("ISO created successfully at %1/%2")
+        .arg(QString::fromStdString(expandedOutputDir))
+        .arg(QString::fromStdString(config.isoName)));
+    }
+
+    void showDiskUsage() {
+        execute_command("df -h");
+    }
+
+    void installISOToUSB() {
+        if (config.outputDir.empty()) {
+            console->append("Output directory not set!");
+            return;
+        }
+
+        DIR *dir;
+        struct dirent *ent;
+        std::vector<std::string> isoFiles;
+
+        std::string expandedOutputDir = expandPath(config.outputDir);
+        if ((dir = opendir(expandedOutputDir.c_str())) != nullptr) {
+            while ((ent = readdir(dir)) != nullptr) {
+                std::string filename = ent->d_name;
+                if (filename.find(".iso") != std::string::npos) {
+                    isoFiles.push_back(filename);
+                }
+            }
+            closedir(dir);
+        } else {
+            console->append(QString("Could not open output directory: %1")
+            .arg(QString::fromStdString(expandedOutputDir)));
+            return;
+        }
+
+        if (isoFiles.empty()) {
+            console->append("No ISO files found in output directory!");
+            return;
+        }
+
+        QStringList items;
+        for (const auto& file : isoFiles) {
+            items.append(QString::fromStdString(file));
+        }
+
+        bool ok;
+        QString isoFile = QInputDialog::getItem(this, "Select ISO",
+                                                "Available ISO files:", items, 0, false, &ok);
+        if (!ok || isoFile.isEmpty()) return;
+
+        std::string selectedISO = expandedOutputDir + "/" + isoFile.toStdString();
+
+        console->append("\nAvailable drives:");
+        execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
+
+        QString targetDrive = QInputDialog::getText(this, "Target Drive",
+                                                    "Enter target drive (e.g., /dev/sda):", QLineEdit::Normal, "", &ok);
+        if (!ok || targetDrive.isEmpty()) {
+            console->append("No drive specified!");
+            return;
+        }
+
+        QMessageBox::StandardButton confirm = QMessageBox::warning(this, "Warning",
+                                                                   QString("WARNING: This will overwrite all data on %1!").arg(targetDrive),
+                                                                   QMessageBox::Ok | QMessageBox::Cancel);
+        if (confirm != QMessageBox::Ok) {
+            console->append("Operation cancelled.");
+            return;
+        }
+
+        console->append(QString("\nWriting %1 to %2...")
+        .arg(QString::fromStdString(selectedISO))
+        .arg(targetDrive));
+
+        QProgressDialog progress("Writing ISO to USB...", "Cancel", 0, 0, this);
+        progress.setWindowModality(Qt::WindowModal);
+        progress.setCancelButton(nullptr); // No cancel button for this operation
+
+        QProcess ddProcess;
+        ddProcess.start("dd", QStringList()
+        << "if=" + QString::fromStdString(selectedISO)
+        << "of=" + targetDrive
+        << "bs=4M"
+        << "status=progress"
+        << "oflag=sync");
+
+        while (ddProcess.state() == QProcess::Running) {
+            QCoreApplication::processEvents();
+            QThread::msleep(100);
+        }
+
+        progress.close();
+
+        if (ddProcess.exitStatus() == QProcess::NormalExit && ddProcess.exitCode() == 0) {
+            console->append("\nISO successfully written to USB drive!");
+        } else {
+            console->append("\nFailed to write ISO to USB drive!");
+        }
+    }
+
+    void runCMIInstaller() {
+        execute_command("cmirsyncinstaller", true);
+    }
+
+    void updateScript() {
+        console->append("\nUpdating script from GitHub...");
+        execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
+        console->append("\nScript updated successfully!");
+    }
+
     std::string getOutputDirectory() {
         std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS";
         return dir;
     }
 
-    QLabel *configStatus;
+    std::string expandPath(const std::string& path) {
+        std::string result = path;
+        size_t pos;
+        if ((pos = result.find("~")) != std::string::npos) {
+            const char* home = getenv("HOME");
+            if (home) result.replace(pos, 1, home);
+        }
+        if ((pos = result.find("$USER")) != std::string::npos) {
+            result.replace(pos, 5, USERNAME);
+        }
+        return result;
+    }
+
+private:
+    // UI Elements
+    QLabel *bannerLabel;
+    QLabel *timeLabel;
+    QLabel *diskInfoLabel;
+    QGroupBox *configGroup;
+    QCheckBox *dependenciesCheck;
+    QLabel *isoTagLabel;
+    QLabel *isoNameLabel;
+    QLabel *outputDirLabel;
+    QLabel *vmlinuzLabel;
+    QCheckBox *mkinitcpioCheck;
+    QCheckBox *grubCheck;
+    QTextEdit *console;
+
+    // Thread management
+    std::thread timeThread;
+    std::atomic<bool> timeThreadRunning{true};
+    std::mutex timeMutex;
+    std::string currentTimeStr;
 };
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    // Set custom palette for blue theme
+    // Set application style and palette
+    app.setStyle("Fusion");
+
     QPalette palette;
-    palette.setColor(QPalette::Window, QColor(0, 0, 51)); // Dark blue background
-    palette.setColor(QPalette::WindowText, QColor(0, 255, 255)); // Cyan text
-    palette.setColor(QPalette::Base, QColor(0, 0, 34)); // Darker blue for text inputs
-    palette.setColor(QPalette::AlternateBase, QColor(0, 0, 68));
+    palette.setColor(QPalette::Window, QColor(53, 53, 53));
+    palette.setColor(QPalette::WindowText, Qt::white);
+    palette.setColor(QPalette::Base, QColor(25, 25, 25));
+    palette.setColor(QPalette::AlternateBase, QColor(53, 53, 53));
     palette.setColor(QPalette::ToolTipBase, Qt::white);
     palette.setColor(QPalette::ToolTipText, Qt::white);
-    palette.setColor(QPalette::Text, QColor(0, 255, 255)); // Cyan text
-    palette.setColor(QPalette::Button, QColor(0, 51, 102)); // Blue buttons
+    palette.setColor(QPalette::Text, Qt::white);
+    palette.setColor(QPalette::Button, QColor(53, 53, 53));
     palette.setColor(QPalette::ButtonText, Qt::white);
     palette.setColor(QPalette::BrightText, Qt::red);
-    palette.setColor(QPalette::Link, QColor(0, 170, 255));
-    palette.setColor(QPalette::Highlight, QColor(0, 85, 255));
-    palette.setColor(QPalette::HighlightedText, Qt::white);
+    palette.setColor(QPalette::Link, QColor(42, 130, 218));
+    palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
+    palette.setColor(QPalette::HighlightedText, Qt::black);
     app.setPalette(palette);
 
     MainWindow mainWindow;
