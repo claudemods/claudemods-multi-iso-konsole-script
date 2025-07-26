@@ -30,6 +30,10 @@
 #include <QThread>
 #include <QSplitter>
 #include <QScrollBar>
+#include <QTextCursor>
+#include <QFontDatabase>
+#include <QFont>
+#include <QRegularExpression>
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -121,23 +125,33 @@ class PasswordDialog : public QDialog {
 public:
     PasswordDialog(QWidget *parent = nullptr) : QDialog(parent) {
         setWindowTitle("Authentication Required");
-        setFixedSize(300, 150);
+        setFixedSize(350, 180);
+        setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
         QVBoxLayout *layout = new QVBoxLayout(this);
+        layout->setContentsMargins(20, 20, 20, 20);
 
         QLabel *label = new QLabel("Enter your sudo password:", this);
+        label->setStyleSheet("font-weight: bold;");
+        
         passwordEdit = new QLineEdit(this);
         passwordEdit->setEchoMode(QLineEdit::Password);
+        passwordEdit->setPlaceholderText("Password");
+        passwordEdit->setStyleSheet("padding: 5px;");
 
         QPushButton *okButton = new QPushButton("OK", this);
         QPushButton *cancelButton = new QPushButton("Cancel", this);
+        okButton->setDefault(true);
 
         QHBoxLayout *buttonLayout = new QHBoxLayout();
         buttonLayout->addWidget(okButton);
         buttonLayout->addWidget(cancelButton);
+        buttonLayout->setSpacing(10);
 
         layout->addWidget(label);
+        layout->addSpacing(10);
         layout->addWidget(passwordEdit);
+        layout->addSpacing(15);
         layout->addLayout(buttonLayout);
 
         connect(okButton, &QPushButton::clicked, this, &PasswordDialog::accept);
@@ -152,12 +166,75 @@ private:
     QLineEdit *passwordEdit;
 };
 
+// Console Output Widget
+class ConsoleOutput : public QTextEdit {
+    Q_OBJECT
+public:
+    ConsoleOutput(QWidget *parent = nullptr) : QTextEdit(parent) {
+        setReadOnly(true);
+        setStyleSheet("font-family: 'Consolas', 'Monospace', monospace; font-size: 11px; background-color: #0a0a1a; color: #e0e0e0;");
+        setLineWrapMode(QTextEdit::NoWrap);
+        
+        QFont font("Monospace");
+        font.setStyleHint(QFont::TypeWriter);
+        setFont(font);
+        
+        document()->setDocumentMargin(5);
+    }
+
+    void append(const QString &text) {
+        moveCursor(QTextCursor::End);
+        textCursor().insertText(text + "\n");
+        verticalScrollBar()->setValue(verticalScrollBar()->maximum());
+    }
+
+    void appendCommand(const QString &command) {
+        QTextCharFormat format;
+        format.setForeground(QColor("#4fc3f7"));
+        format.setFontWeight(QFont::Bold);
+        
+        moveCursor(QTextCursor::End);
+        textCursor().insertText("> " + command + "\n", format);
+    }
+
+    void appendError(const QString &error) {
+        QTextCharFormat format;
+        format.setForeground(QColor("#ff5252"));
+        format.setFontWeight(QFont::Bold);
+        
+        moveCursor(QTextCursor::End);
+        textCursor().insertText(error + "\n", format);
+    }
+
+    void appendSuccess(const QString &message) {
+        QTextCharFormat format;
+        format.setForeground(QColor("#69f0ae"));
+        format.setFontWeight(QFont::Bold);
+        
+        moveCursor(QTextCursor::End);
+        textCursor().insertText(message + "\n", format);
+    }
+
+    void appendWarning(const QString &warning) {
+        QTextCharFormat format;
+        format.setForeground(QColor("#ffd740"));
+        format.setFontWeight(QFont::Bold);
+        
+        moveCursor(QTextCursor::End);
+        textCursor().insertText(warning + "\n", format);
+    }
+
+    void clear() {
+        QTextEdit::clear();
+        append("Console cleared. Ready for new commands.");
+    }
+};
+
 // Main Application Window
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     MainWindow(QWidget *parent = nullptr) : QMainWindow(parent) {
-        // Initialize user info
         struct passwd *pw = getpwuid(getuid());
         if (pw) {
             USERNAME = pw->pw_name;
@@ -172,7 +249,6 @@ public:
 
         loadConfig();
 
-        // Ask for password before proceeding
         if (!askPassword()) {
             exit(0);
         }
@@ -183,9 +259,8 @@ public:
         setupConnections();
 
         setWindowTitle("ClaudeMods Image Builder");
-        resize(1200, 800); // Larger initial size
+        resize(1200, 800);
 
-        // Start time update thread
         timeThread = std::thread(&MainWindow::updateTimeThread, this);
     }
 
@@ -199,41 +274,46 @@ public:
 private:
     void setupUI() {
         QWidget *centralWidget = new QWidget(this);
-        QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget); // Changed to HBox for side-by-side layout
+        QHBoxLayout *mainLayout = new QHBoxLayout(centralWidget);
+        mainLayout->setContentsMargins(5, 5, 5, 5);
+        mainLayout->setSpacing(5);
 
-        // Create splitter for resizable panels
         QSplitter *splitter = new QSplitter(Qt::Horizontal, centralWidget);
+        splitter->setHandleWidth(5);
+        splitter->setStyleSheet("QSplitter::handle { background: #1a1a2e; }");
 
-        // Left panel for configuration
+        // Left panel
         QWidget *leftPanel = new QWidget(splitter);
         QVBoxLayout *leftLayout = new QVBoxLayout(leftPanel);
+        leftLayout->setContentsMargins(10, 10, 10, 10);
+        leftLayout->setSpacing(15);
 
-        // Banner
         bannerLabel = new QLabel(leftPanel);
         bannerLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
         bannerLabel->setAlignment(Qt::AlignCenter);
-        bannerLabel->setStyleSheet("font-family: monospace; color: cyan;");
+        bannerLabel->setStyleSheet("font-family: monospace; color: #4fc3f7; font-size: 10px;");
         leftLayout->addWidget(bannerLabel);
 
         updateBanner();
 
-        // Time and disk info
         timeLabel = new QLabel(leftPanel);
         timeLabel->setAlignment(Qt::AlignCenter);
-        timeLabel->setStyleSheet("color: cyan;");
+        timeLabel->setStyleSheet("color: #69f0ae; font-weight: bold;");
         leftLayout->addWidget(timeLabel);
 
         diskInfoLabel = new QLabel(leftPanel);
         diskInfoLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
         diskInfoLabel->setAlignment(Qt::AlignCenter);
-        diskInfoLabel->setStyleSheet("font-family: monospace; color: cyan;");
+        diskInfoLabel->setStyleSheet("font-family: monospace; color: #ffd740; font-size: 10px;");
         leftLayout->addWidget(diskInfoLabel);
 
         updateDiskInfo();
 
-        // Config status
         configGroup = new QGroupBox("Current Configuration", leftPanel);
+        configGroup->setStyleSheet("QGroupBox { border: 1px solid #1a1a2e; border-radius: 5px; margin-top: 10px; }"
+                                  "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; color: #4fc3f7; }");
         QVBoxLayout *configLayout = new QVBoxLayout(configGroup);
+        configLayout->setSpacing(8);
 
         dependenciesCheck = new QCheckBox("Dependencies Installed", configGroup);
         isoTagLabel = new QLabel("ISO Tag: Not set", configGroup);
@@ -242,6 +322,17 @@ private:
         vmlinuzLabel = new QLabel("vmlinuz Selected: Not selected", configGroup);
         mkinitcpioCheck = new QCheckBox("mkinitcpio Generated", configGroup);
         grubCheck = new QCheckBox("GRUB Config Edited", configGroup);
+
+        QString labelStyle = "color: #e0e0e0;";
+        QString checkBoxStyle = "color: #e0e0e0; spacing: 5px;";
+        
+        dependenciesCheck->setStyleSheet(checkBoxStyle);
+        isoTagLabel->setStyleSheet(labelStyle);
+        isoNameLabel->setStyleSheet(labelStyle);
+        outputDirLabel->setStyleSheet(labelStyle);
+        vmlinuzLabel->setStyleSheet(labelStyle);
+        mkinitcpioCheck->setStyleSheet(checkBoxStyle);
+        grubCheck->setStyleSheet(checkBoxStyle);
 
         configLayout->addWidget(dependenciesCheck);
         configLayout->addWidget(isoTagLabel);
@@ -253,19 +344,24 @@ private:
 
         leftLayout->addWidget(configGroup);
 
-        // Main menu buttons
         QGridLayout *buttonLayout = new QGridLayout();
-        buttonLayout->setSpacing(5);
+        buttonLayout->setSpacing(8);
+        buttonLayout->setContentsMargins(0, 10, 0, 10);
 
-        QPushButton *guideButton = new QPushButton("Guide", leftPanel);
-        QPushButton *setupButton = new QPushButton("Setup", leftPanel);
-        QPushButton *createImageButton = new QPushButton("Create Image", leftPanel);
-        QPushButton *createIsoButton = new QPushButton("Create ISO", leftPanel);
-        QPushButton *diskUsageButton = new QPushButton("Disk Usage", leftPanel);
-        QPushButton *installUsbButton = new QPushButton("Install to USB", leftPanel);
-        QPushButton *installerButton = new QPushButton("CMI Installer", leftPanel);
-        QPushButton *updateButton = new QPushButton("Update Script", leftPanel);
-        QPushButton *exitButton = new QPushButton("Exit", leftPanel);
+        QString buttonStyle = "QPushButton { background-color: #1a1a2e; color: #e0e0e0; border: 1px solid #4fc3f7; border-radius: 4px; padding: 8px; }"
+                            "QPushButton:hover { background-color: #4fc3f7; color: #0a0a1a; }"
+                            "QPushButton:pressed { background-color: #0288d1; }";
+
+        QPushButton *guideButton = createStyledButton("Guide", buttonStyle, leftPanel);
+        QPushButton *setupButton = createStyledButton("Setup", buttonStyle, leftPanel);
+        QPushButton *createImageButton = createStyledButton("Create Image", buttonStyle, leftPanel);
+        QPushButton *createIsoButton = createStyledButton("Create ISO", buttonStyle, leftPanel);
+        QPushButton *diskUsageButton = createStyledButton("Disk Usage", buttonStyle, leftPanel);
+        QPushButton *installUsbButton = createStyledButton("Install to USB", buttonStyle, leftPanel);
+        QPushButton *installerButton = createStyledButton("CMI Installer", buttonStyle, leftPanel);
+        QPushButton *updateButton = createStyledButton("Update Script", buttonStyle, leftPanel);
+        QPushButton *exitButton = createStyledButton("Exit", buttonStyle, leftPanel);
+        exitButton->setStyleSheet(buttonStyle + "QPushButton { border-color: #ff5252; } QPushButton:hover { background-color: #ff5252; }");
 
         buttonLayout->addWidget(guideButton, 0, 0);
         buttonLayout->addWidget(setupButton, 0, 1);
@@ -280,36 +376,25 @@ private:
         leftLayout->addLayout(buttonLayout);
         leftLayout->addStretch();
 
-        // Right panel for console output
+        // Right panel
         QWidget *rightPanel = new QWidget(splitter);
         QVBoxLayout *rightLayout = new QVBoxLayout(rightPanel);
+        rightLayout->setContentsMargins(0, 0, 0, 0);
 
-        // Output console
-        console = new QTextEdit(rightPanel);
-        console->setReadOnly(true);
-        console->setStyleSheet("font-family: monospace; background-color: #000033; color: cyan;");
-        console->setMinimumWidth(600); // Make console wider
-
-        // Add scrollbar that always stays at bottom
-        QScrollBar *scrollBar = console->verticalScrollBar();
-        connect(console, &QTextEdit::textChanged, [scrollBar]() {
-            scrollBar->setValue(scrollBar->maximum());
-        });
+        console = new ConsoleOutput(rightPanel);
+        console->setMinimumWidth(600);
 
         rightLayout->addWidget(console);
 
-        // Add both panels to splitter
         splitter->addWidget(leftPanel);
         splitter->addWidget(rightPanel);
 
-        // Set splitter sizes (1:3 ratio)
         splitter->setStretchFactor(0, 1);
         splitter->setStretchFactor(1, 3);
 
         mainLayout->addWidget(splitter);
         setCentralWidget(centralWidget);
 
-        // Connect buttons
         connect(guideButton, &QPushButton::clicked, this, &MainWindow::showGuide);
         connect(setupButton, &QPushButton::clicked, this, &MainWindow::showSetupMenu);
         connect(createImageButton, &QPushButton::clicked, this, &MainWindow::createImage);
@@ -321,22 +406,39 @@ private:
         connect(exitButton, &QPushButton::clicked, this, &QApplication::quit);
     }
 
+    QPushButton* createStyledButton(const QString& text, const QString& style, QWidget* parent) {
+        QPushButton* button = new QPushButton(text, parent);
+        button->setStyleSheet(style);
+        button->setCursor(Qt::PointingHandCursor);
+        return button;
+    }
+
     void setupMenuBar() {
         QMenu *fileMenu = menuBar()->addMenu("File");
+        fileMenu->setStyleSheet("QMenu { background-color: #0a0a1a; border: 1px solid #4fc3f7; }"
+                              "QMenu::item { background-color: transparent; color: #e0e0e0; padding: 5px 20px; }"
+                              "QMenu::item:selected { background-color: #4fc3f7; color: #0a0a1a; }");
+        
         QAction *exitAction = fileMenu->addAction("Exit");
+        exitAction->setShortcut(QKeySequence::Quit);
         connect(exitAction, &QAction::triggered, this, &QApplication::quit);
 
         QMenu *toolsMenu = menuBar()->addMenu("Tools");
-        toolsMenu->addAction("Show Config", this, &MainWindow::showConfigStatus);
-        toolsMenu->addAction("Clear Console", console, &QTextEdit::clear);
+        toolsMenu->setStyleSheet(fileMenu->styleSheet());
+        
+        QAction *configAction = toolsMenu->addAction("Show Config", this, &MainWindow::showConfigStatus);
+        QAction *clearAction = toolsMenu->addAction("Clear Console", console, &ConsoleOutput::clear);
+        
+        configAction->setShortcut(QKeySequence("Ctrl+C"));
+        clearAction->setShortcut(QKeySequence("Ctrl+L"));
     }
 
     void setupStatusBar() {
+        statusBar()->setStyleSheet("background-color: #1a1a2e; color: #e0e0e0;");
         statusBar()->showMessage("Ready");
     }
 
     void setupConnections() {
-        // Timer for updating time and disk info
         QTimer *timer = new QTimer(this);
         connect(timer, &QTimer::timeout, this, &MainWindow::updateTimeDisplay);
         connect(timer, &QTimer::timeout, this, &MainWindow::updateDiskInfo);
@@ -352,7 +454,7 @@ private:
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )";
-bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01 26-07-2025");
+        bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01 26-07-2025");
     }
 
     void updateTimeDisplay() {
@@ -383,37 +485,54 @@ bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01
     }
 
     void execute_command(const std::string& cmd, bool continueOnError = false) {
-        console->append(QString("> %1").arg(QString::fromStdString(cmd)));
+        console->appendCommand(QString::fromStdString(cmd));
 
         QProcess process;
+        process.setProcessChannelMode(QProcess::MergedChannels);
         process.start("bash", QStringList() << "-c" << QString::fromStdString(cmd));
 
-        // If the command requires sudo, send the password
         if (cmd.find("sudo") != std::string::npos && !sudoPassword.isEmpty()) {
             process.write((sudoPassword + "\n").toUtf8());
             process.closeWriteChannel();
         }
 
-        process.waitForFinished(-1);
+        connect(&process, &QProcess::readyReadStandardOutput, [&]() {
+            QString output = process.readAllStandardOutput();
+            console->append(output.trimmed());
+        });
 
-        QString output = process.readAllStandardOutput();
-        QString error = process.readAllStandardError();
+        QProgressDialog progress("Executing command...", "Cancel", 0, 0, this);
+        progress.setWindowModality(Qt::WindowModal);
+        progress.setCancelButton(nullptr);
+        progress.setMinimumDuration(1000);
 
-        if (!output.isEmpty()) {
-            console->append(output);
-        }
-        if (!error.isEmpty()) {
-            console->append(error);
+        while (!process.waitForFinished(100)) {
+            QCoreApplication::processEvents();
+            if (progress.wasCanceled()) {
+                process.terminate();
+                if (!process.waitForFinished(1000)) {
+                    process.kill();
+                }
+                console->appendWarning("Command execution cancelled by user");
+                return;
+            }
         }
 
         if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+            QString error = process.readAllStandardError();
+            if (!error.isEmpty()) {
+                console->appendError(error);
+            }
+            
             if (!continueOnError) {
-                console->append("Error executing command!");
+                console->appendError("Error executing command!");
                 QMessageBox::critical(this, "Error", QString("Failed to execute: %1").arg(QString::fromStdString(cmd)));
                 return;
             } else {
-                console->append("Command failed but continuing...");
+                console->appendWarning("Command failed but continuing...");
             }
+        } else {
+            console->appendSuccess("Command completed successfully");
         }
     }
 
@@ -449,7 +568,7 @@ bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01
             configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
             configFile.close();
         } else {
-            console->append("Failed to save configuration!");
+            console->appendError("Failed to save configuration!");
         }
     }
 
@@ -482,7 +601,6 @@ bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01
         if (dialog.exec() == QDialog::Accepted) {
             sudoPassword = dialog.password();
 
-            // Verify the password works with a simple command
             QProcess testProcess;
             testProcess.start("sudo", QStringList() << "-S" << "true");
             testProcess.write((sudoPassword + "\n").toUtf8());
@@ -513,19 +631,21 @@ private slots:
         QDialog dialog(this);
         dialog.setWindowTitle("ISO Creation Setup");
         dialog.resize(500, 400);
+        dialog.setStyleSheet("background-color: #0a0a1a; color: #e0e0e0;");
 
         QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
-        // Dependencies
         QPushButton *depsButton = new QPushButton("Install Dependencies", &dialog);
+        depsButton->setStyleSheet("QPushButton { background-color: #1a1a2e; color: #e0e0e0; border: 1px solid #4fc3f7; border-radius: 4px; padding: 8px; }"
+                                "QPushButton:hover { background-color: #4fc3f7; color: #0a0a1a; }");
         connect(depsButton, &QPushButton::clicked, [this, &dialog]() {
             installDependencies();
             dialog.close();
         });
         layout->addWidget(depsButton);
 
-        // ISO Tag
         QPushButton *isoTagButton = new QPushButton("Set ISO Tag", &dialog);
+        isoTagButton->setStyleSheet(depsButton->styleSheet());
         connect(isoTagButton, &QPushButton::clicked, [this, &dialog]() {
             bool ok;
             QString text = QInputDialog::getText(&dialog, "Set ISO Tag",
@@ -537,8 +657,8 @@ private slots:
         });
         layout->addWidget(isoTagButton);
 
-        // ISO Name
         QPushButton *isoNameButton = new QPushButton("Set ISO Name", &dialog);
+        isoNameButton->setStyleSheet(depsButton->styleSheet());
         connect(isoNameButton, &QPushButton::clicked, [this, &dialog]() {
             bool ok;
             QString text = QInputDialog::getText(&dialog, "Set ISO Name",
@@ -550,12 +670,12 @@ private slots:
         });
         layout->addWidget(isoNameButton);
 
-        // Output Directory
         QPushButton *outputDirButton = new QPushButton("Set Output Directory", &dialog);
+        outputDirButton->setStyleSheet(depsButton->styleSheet());
         connect(outputDirButton, &QPushButton::clicked, [this, &dialog]() {
-            QString dir = QFileDialog::getExistingDirectory(&dialog, "Select Output Directory",
-                                                            QString::fromStdString(config.outputDir.empty() ?
-                                                            "/home/" + USERNAME + "/Downloads" : config.outputDir));
+            QString defaultPath = QString::fromStdString("/home/" + USERNAME + "/Downloads");
+            QString initialPath = config.outputDir.empty() ? defaultPath : QString::fromStdString(config.outputDir);
+            QString dir = QFileDialog::getExistingDirectory(&dialog, "Select Output Directory", initialPath);
             if (!dir.isEmpty()) {
                 config.outputDir = dir.toStdString();
                 saveConfig();
@@ -563,29 +683,29 @@ private slots:
         });
         layout->addWidget(outputDirButton);
 
-        // vmlinuz
         QPushButton *vmlinuzButton = new QPushButton("Select vmlinuz", &dialog);
+        vmlinuzButton->setStyleSheet(depsButton->styleSheet());
         connect(vmlinuzButton, &QPushButton::clicked, this, &MainWindow::selectVmlinuz);
         layout->addWidget(vmlinuzButton);
 
-        // mkinitcpio
         QPushButton *mkinitcpioButton = new QPushButton("Generate mkinitcpio", &dialog);
+        mkinitcpioButton->setStyleSheet(depsButton->styleSheet());
         connect(mkinitcpioButton, &QPushButton::clicked, [this, &dialog]() {
             generateMkinitcpio();
             dialog.close();
         });
         layout->addWidget(mkinitcpioButton);
 
-        // GRUB Config
         QPushButton *grubButton = new QPushButton("Edit GRUB Config", &dialog);
+        grubButton->setStyleSheet(depsButton->styleSheet());
         connect(grubButton, &QPushButton::clicked, [this, &dialog]() {
             editGrubCfg();
             dialog.close();
         });
         layout->addWidget(grubButton);
 
-        // Close button
         QPushButton *closeButton = new QPushButton("Close", &dialog);
+        closeButton->setStyleSheet(depsButton->styleSheet());
         connect(closeButton, &QPushButton::clicked, &dialog, &QDialog::close);
         layout->addWidget(closeButton);
 
@@ -605,7 +725,7 @@ private slots:
 
         config.dependenciesInstalled = true;
         saveConfig();
-        console->append("\nDependencies installed successfully!\n");
+        console->appendSuccess("\nDependencies installed successfully!\n");
     }
 
     void selectVmlinuz() {
@@ -622,12 +742,12 @@ private slots:
             }
             closedir(dir);
         } else {
-            console->append("Could not open /boot directory");
+            console->appendError("Could not open /boot directory");
             return;
         }
 
         if (vmlinuzFiles.empty()) {
-            console->append("No vmlinuz files found in /boot!");
+            console->appendError("No vmlinuz files found in /boot!");
             return;
         }
 
@@ -646,20 +766,20 @@ private slots:
             std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
             execute_command(copyCmd);
 
-            console->append(QString("Selected: %1").arg(item));
-            console->append(QString("Copied to: %1").arg(QString::fromStdString(destPath)));
+            console->appendSuccess(QString("Selected: %1").arg(item));
+            console->appendSuccess(QString("Copied to: %1").arg(QString::fromStdString(destPath)));
             saveConfig();
         }
     }
 
     void generateMkinitcpio() {
         if (config.vmlinuzPath.empty()) {
-            console->append("Please select vmlinuz first!");
+            console->appendError("Please select vmlinuz first!");
             return;
         }
 
         if (BUILD_DIR.empty()) {
-            console->append("Build directory not set!");
+            console->appendError("Build directory not set!");
             return;
         }
 
@@ -668,12 +788,12 @@ private slots:
 
         config.mkinitcpioGenerated = true;
         saveConfig();
-        console->append("mkinitcpio generated successfully!");
+        console->appendSuccess("mkinitcpio generated successfully!");
     }
 
     void editGrubCfg() {
         if (BUILD_DIR.empty()) {
-            console->append("Build directory not set!");
+            console->appendError("Build directory not set!");
             return;
         }
 
@@ -685,7 +805,7 @@ private slots:
 
         config.grubEdited = true;
         saveConfig();
-        console->append("GRUB config edited!");
+        console->appendSuccess("GRUB config edited!");
     }
 
     void createImage() {
@@ -701,19 +821,16 @@ private slots:
         execute_command("sudo mkdir -p " + MOUNT_POINT, true);
         execute_command("sudo mkdir -p " + outputDir, true);
 
-        // Get size input
         bool ok;
         double sizeGB = QInputDialog::getDouble(this, "Image Size",
                                                 "Enter the image size in GB (e.g., 1.2 for 1.2GB):", 1.0, 0.1, 100.0, 1, &ok);
         if (!ok) return;
 
-        // Filesystem type
         QStringList fsOptions = {"btrfs", "ext4"};
         QString fsType = QInputDialog::getItem(this, "Filesystem Type",
                                                "Choose filesystem type:", fsOptions, 0, false, &ok);
         if (!ok) return;
 
-        // Create image
         if (!createImageFile(std::to_string(sizeGB), outputImgPath) ||
             !formatFilesystem(fsType.toStdString(), outputImgPath) ||
             !mountFilesystem(fsType.toStdString(), outputImgPath, MOUNT_POINT) ||
@@ -724,7 +841,6 @@ private slots:
             unmountAndCleanup(MOUNT_POINT);
 
         if (fsType == "ext4") {
-            // For ext4, create SquashFS version
             std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
             createSquashFS(outputImgPath, squashPath);
         }
@@ -737,7 +853,7 @@ private slots:
         try {
             double sizeGB = std::stod(sizeStr);
             if (sizeGB <= 0) {
-                console->append("Invalid size: must be greater than 0");
+                console->appendError("Invalid size: must be greater than 0");
                 return false;
             }
 
@@ -751,7 +867,7 @@ private slots:
 
             return true;
         } catch (const std::exception& e) {
-            console->append(QString("Error creating image file: %1")
+            console->appendError(QString("Error creating image file: %1")
             .arg(QString::fromStdString(e.what())));
             return false;
         }
@@ -859,10 +975,10 @@ private slots:
     void printFinalMessage(const std::string& fsType, const std::string& outputFile) {
         console->append("");
         if (fsType == "btrfs") {
-            console->append(QString("Compressed BTRFS image created successfully: %1")
+            console->appendSuccess(QString("Compressed BTRFS image created successfully: %1")
             .arg(QString::fromStdString(outputFile)));
         } else {
-            console->append(QString("Compressed ext4 image created successfully: %1")
+            console->appendSuccess(QString("Compressed ext4 image created successfully: %1")
             .arg(QString::fromStdString(outputFile)));
         }
         console->append(QString("Checksum file: %1.md5")
@@ -877,7 +993,7 @@ private slots:
 
     void createISO() {
         if (!config.isReadyForISO()) {
-            console->append("Cannot create ISO - setup is incomplete!");
+            console->appendError("Cannot create ISO - setup is incomplete!");
             return;
         }
 
@@ -911,7 +1027,7 @@ private slots:
         BUILD_DIR;
 
         execute_command(xorrisoCmd, true);
-        console->append(QString("ISO created successfully at %1/%2")
+        console->appendSuccess(QString("ISO created successfully at %1/%2")
         .arg(QString::fromStdString(expandedOutputDir))
         .arg(QString::fromStdString(config.isoName)));
     }
@@ -922,7 +1038,7 @@ private slots:
 
     void installISOToUSB() {
         if (config.outputDir.empty()) {
-            console->append("Output directory not set!");
+            console->appendError("Output directory not set!");
             return;
         }
 
@@ -940,13 +1056,13 @@ private slots:
             }
             closedir(dir);
         } else {
-            console->append(QString("Could not open output directory: %1")
+            console->appendError(QString("Could not open output directory: %1")
             .arg(QString::fromStdString(expandedOutputDir)));
             return;
         }
 
         if (isoFiles.empty()) {
-            console->append("No ISO files found in output directory!");
+            console->appendError("No ISO files found in output directory!");
             return;
         }
 
@@ -968,7 +1084,7 @@ private slots:
         QString targetDrive = QInputDialog::getText(this, "Target Drive",
                                                     "Enter target drive (e.g., /dev/sda):", QLineEdit::Normal, "", &ok);
         if (!ok || targetDrive.isEmpty()) {
-            console->append("No drive specified!");
+            console->appendError("No drive specified!");
             return;
         }
 
@@ -976,7 +1092,7 @@ private slots:
                                                                    QString("WARNING: This will overwrite all data on %1!").arg(targetDrive),
                                                                    QMessageBox::Ok | QMessageBox::Cancel);
         if (confirm != QMessageBox::Ok) {
-            console->append("Operation cancelled.");
+            console->appendWarning("Operation cancelled.");
             return;
         }
 
@@ -986,7 +1102,7 @@ private slots:
 
         QProgressDialog progress("Writing ISO to USB...", "Cancel", 0, 0, this);
         progress.setWindowModality(Qt::WindowModal);
-        progress.setCancelButton(nullptr); // No cancel button for this operation
+        progress.setCancelButton(nullptr);
 
         QProcess ddProcess;
         ddProcess.start("dd", QStringList()
@@ -1004,9 +1120,9 @@ private slots:
         progress.close();
 
         if (ddProcess.exitStatus() == QProcess::NormalExit && ddProcess.exitCode() == 0) {
-            console->append("\nISO successfully written to USB drive!");
+            console->appendSuccess("\nISO successfully written to USB drive!");
         } else {
-            console->append("\nFailed to write ISO to USB drive!");
+            console->appendError("\nFailed to write ISO to USB drive!");
         }
     }
 
@@ -1017,7 +1133,7 @@ private slots:
     void updateScript() {
         console->append("\nUpdating script from GitHub...");
         execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
-        console->append("\nScript updated successfully!");
+        console->appendSuccess("\nScript updated successfully!");
     }
 
     std::string getOutputDirectory() {
@@ -1039,7 +1155,6 @@ private slots:
     }
 
 private:
-    // UI Elements
     QLabel *bannerLabel;
     QLabel *timeLabel;
     QLabel *diskInfoLabel;
@@ -1051,34 +1166,31 @@ private:
     QLabel *vmlinuzLabel;
     QCheckBox *mkinitcpioCheck;
     QCheckBox *grubCheck;
-    QTextEdit *console;
+    ConsoleOutput *console;
 
-    // Thread management
     std::thread timeThread;
     std::atomic<bool> timeThreadRunning{true};
     std::mutex timeMutex;
     std::string currentTimeStr;
 
-    // Password storage
     QString sudoPassword;
 };
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    // Set application style and palette with blue background and cyan text
     app.setStyle("Fusion");
 
     QPalette palette;
-    palette.setColor(QPalette::Window, QColor(0, 0, 51)); // Dark blue background
-    palette.setColor(QPalette::WindowText, QColor(0, 255, 255)); // Cyan text
-    palette.setColor(QPalette::Base, QColor(0, 0, 25)); // Darker blue for input fields
+    palette.setColor(QPalette::Window, QColor(0, 0, 51));
+    palette.setColor(QPalette::WindowText, QColor(0, 255, 255));
+    palette.setColor(QPalette::Base, QColor(0, 0, 25));
     palette.setColor(QPalette::AlternateBase, QColor(0, 0, 51));
     palette.setColor(QPalette::ToolTipBase, Qt::black);
     palette.setColor(QPalette::ToolTipText, QColor(0, 255, 255));
-    palette.setColor(QPalette::Text, QColor(0, 255, 255)); // Cyan text
-    palette.setColor(QPalette::Button, QColor(0, 0, 102)); // Blue buttons
-    palette.setColor(QPalette::ButtonText, QColor(0, 255, 255)); // Cyan button text
+    palette.setColor(QPalette::Text, QColor(0, 255, 255));
+    palette.setColor(QPalette::Button, QColor(0, 0, 102));
+    palette.setColor(QPalette::ButtonText, QColor(0, 255, 255));
     palette.setColor(QPalette::BrightText, Qt::red);
     palette.setColor(QPalette::Link, QColor(0, 200, 255));
     palette.setColor(QPalette::Highlight, QColor(0, 100, 200));
