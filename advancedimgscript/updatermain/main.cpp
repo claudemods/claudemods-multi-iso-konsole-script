@@ -88,7 +88,7 @@ void* execute_update_thread(void* /*arg*/) {
 
     // INSTALLATION PROCESS
     silent_command("rm -rf /home/$USER/.config/cmi");
-    silent_command("rm -rf /usr/bin/cmiimg");
+    silent_command("sudo rm -rf /usr/bin/cmiimg");
     silent_command("mkdir -p /home/$USER/.config/cmi");
 
     // ARCH AND CACHYOS INSTALLATION
