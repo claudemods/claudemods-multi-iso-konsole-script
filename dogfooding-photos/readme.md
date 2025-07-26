@@ -1,4 +1,11 @@
 
+Advanced C++ Arch Img Iso Qt6 App Beta MainBranch v2.01 26-07-2025
+
+bit buggy ui needs to be changed and made to be more responsive with better outputs 
+
+<img width="1280" height="800" alt="Screenshot_linux2024-clone_2025-07-26_18:10:51" src="https://github.com/user-attachments/assets/34ec129d-c060-4b3e-9ba8-775378a524a0" />
+
+
 
 Advanced C++ Arch Img Iso Script Beta MainBranch v2.01 26-07-2025
 
