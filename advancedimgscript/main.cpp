@@ -659,7 +659,7 @@ bool createSquashFS(const std::string& inputFile, const std::string& outputFile)
     std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
     " -comp " + SQUASHFS_COMPRESSION +
     " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
-    " -noappend -b 256K -Xbcj x86";
+    " -noappend";
 
     execute_command(command, true);
     return true;
