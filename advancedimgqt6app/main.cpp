@@ -44,7 +44,7 @@ std::string USERNAME = "";
 const std::string BTRFS_LABEL = "LIVE_SYSTEM";
 const std::string BTRFS_COMPRESSION = "zstd";
 
-// Dependencies list - preserved exactly
+// Dependencies list - updated from second script
 const std::vector<std::string> DEPENDENCIES = {
     "rsync",
     "squashfs-tools",
@@ -52,10 +52,12 @@ const std::vector<std::string> DEPENDENCIES = {
     "grub",
     "dosfstools",
     "unzip",
+    "nano",
     "arch-install-scripts",
     "bash-completion",
     "erofs-utils",
     "findutils",
+    "unzip",
     "jq",
     "libarchive",
     "libisoburn",
@@ -178,13 +180,13 @@ private slots:
 
             logOutput->append("Installing required dependencies...\n");
 
-            // Build package list string - using original commands exactly
+            // Build package list string - using updated commands exactly
             QString packages;
             for (const auto& pkg : DEPENDENCIES) {
                 packages += QString::fromStdString(pkg) + " ";
             }
 
-            // Original command preserved exactly
+            // Updated command preserved exactly
             QString command = "sudo pacman -Sy --needed --noconfirm " + packages;
             executeCommand(command, password);
 
@@ -509,6 +511,69 @@ private slots:
         executeCommand("df -h /");
     }
 
+    void onInstallISOToUSB() {
+        if (config.outputDir.empty()) {
+            QMessageBox::warning(this, "Warning", "Output directory not set!");
+            return;
+        }
+
+        QString expandedOutputDir = QString::fromStdString(config.outputDir);
+        expandedOutputDir.replace("$USER", QString::fromStdString(USERNAME));
+
+        QDir dir(expandedOutputDir);
+        QStringList isoFiles = dir.entryList(QStringList() << "*.iso", QDir::Files);
+
+        if (isoFiles.isEmpty()) {
+            QMessageBox::warning(this, "Warning", "No ISO files found in output directory!");
+            return;
+        }
+
+        bool ok;
+        QString isoFile = QInputDialog::getItem(this, "Select ISO", "Available ISO files:", isoFiles, 0, false, &ok);
+        if (!ok || isoFile.isEmpty()) return;
+
+        QString selectedISO = expandedOutputDir + "/" + isoFile;
+
+        // Get available drives
+        QProcess lsblk;
+        lsblk.start("lsblk", QStringList() << "-d" << "-o" << "NAME,SIZE,MODEL");
+        lsblk.waitForFinished();
+        QString drivesOutput = lsblk.readAllStandardOutput();
+
+        QString targetDrive = QInputDialog::getText(this, "Select Drive",
+            "Available drives:\n" + drivesOutput + "\nEnter target drive (e.g., /dev/sda):",
+            QLineEdit::Normal, "", &ok);
+
+        if (!ok || targetDrive.isEmpty()) {
+            return;
+        }
+
+        QMessageBox::StandardButton confirm = QMessageBox::question(this, "Confirm",
+                                                                    "WARNING: This will overwrite all data on " + targetDrive + "!\nAre you sure you want to continue?",
+                                                                    QMessageBox::Yes | QMessageBox::No);
+
+        if (confirm != QMessageBox::Yes) {
+            return;
+        }
+
+        logOutput->append("\nWriting " + selectedISO + " to " + targetDrive + "...\n");
+        QString ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
+        executeCommand(ddCommand);
+
+        logOutput->append("\nISO successfully written to USB drive!\n");
+    }
+
+    void onRunCMIInstaller() {
+        logOutput->append("\nRunning CMI BTRFS/EXT4 Installer...\n");
+        executeCommand("cmirsyncinstaller");
+    }
+
+    void onUpdateScript() {
+        logOutput->append("\nUpdating script from GitHub...\n");
+        executeCommand("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
+        logOutput->append("\nScript updated successfully!\n");
+    }
+
 private:
     QTextEdit *logOutput;
     QListWidget *menuList;
@@ -550,7 +615,7 @@ private:
         mainLayout->addWidget(asciiArt);
 
         // Add version label
-        versionLabel = new QLabel("Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025");
+        versionLabel = new QLabel("Advanced C++ Arch Img Iso Script Beta v2.01 26-07-2025");
         versionLabel->setStyleSheet("color: cyan; font-weight: bold; font-size: 12px;");
         versionLabel->setAlignment(Qt::AlignCenter);
         mainLayout->addWidget(versionLabel);
@@ -569,12 +634,16 @@ private:
         menuLayout->addWidget(titleLabel);
 
         menuList = new QListWidget;
-        // Changed order to put Setup first
+        // Updated menu items from second script
         menuList->addItems({
-            "Setup Up Scripts",
+            "Guide",
+            "Setup Scripts",
             "Create Image",
             "Create ISO",
             "Show Disk Usage",
+            "Install ISO to USB",
+            "CMI BTRFS/EXT4 Installer",
+            "Update Script",
             "Exit"
         });
         menuList->setCurrentRow(0);
@@ -618,13 +687,23 @@ private:
         connect(menuList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
             int row = menuList->row(item);
             switch(row) {
-                case 0: showSetupMenu(); break;
-                case 1: onCreateImage(); break;
-                case 2: onCreateISO(); break;
-                case 3: onShowDiskUsage(); break;
-                case 4: close(); break;
+                case 0: showGuide(); break;
+                case 1: showSetupMenu(); break;
+                case 2: onCreateImage(); break;
+                case 3: onCreateISO(); break;
+                case 4: onShowDiskUsage(); break;
+                case 5: onInstallISOToUSB(); break;
+                case 6: onRunCMIInstaller(); break;
+                case 7: onUpdateScript(); break;
+                case 8: close(); break;
             }
         });
+    }
+
+    void showGuide() {
+        QString readmePath = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/readme.txt";
+        executeCommand("mkdir -p /home/" + QString::fromStdString(USERNAME) + "/.config/cmi");
+        executeCommand("nano " + readmePath);
     }
 
     void showSetupMenu() {
