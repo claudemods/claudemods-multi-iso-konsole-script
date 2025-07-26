@@ -97,7 +97,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("wget https://sourceforge.net/projects/claudemods/files/build-image-arch-img.zip/download");
         silent_command("unzip -o download -d /home/$USER/.config/cmi/");
         silent_command("rm -rf download");
-        silent_command("sudo cp -r /home/$USER/.config/cmi/build-image-arch-img/working-hooks-btrfs-ext4 /etc/initcpio/");
+        silent_command("cd /home/$USER/.config/cmi/build-image-arch-img/working-hooks-btrfs-ext4 && sudo cp -r * /etc/initcpio");
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/btrfs-and-ext4-installer && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/btrfs-and-ext4-installer/cmirsyncinstaller /usr/bin/cmirsyncinstaller");
         
