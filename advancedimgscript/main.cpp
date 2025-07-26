@@ -17,6 +17,8 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <sstream>
+#include <iomanip>
 
 // Forward declarations
 void saveConfig();
@@ -198,7 +200,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 26-07-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 24-07-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
@@ -368,11 +370,10 @@ void editGrubCfg() {
 
     std::string grubCfgPath = BUILD_DIR + "/boot/grub/grub.cfg";
     std::cout << COLOR_CYAN << "Editing GRUB config: " << grubCfgPath << COLOR_RESET << std::endl;
-    
-    // Set the terminal color to cyan before opening nano
-    std::cout << COLOR_CYAN;
-    execute_command("sudo nano " + grubCfgPath);
-    std::cout << COLOR_RESET;
+
+    // Set nano to use cyan color scheme
+    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + grubCfgPath;
+    execute_command(nanoCommand);
 
     config.grubEdited = true;
     saveConfig();
@@ -491,6 +492,15 @@ int showFilesystemMenu(const std::vector<std::string> &items, int selected) {
     return getch();
 }
 
+bool validateSizeInput(const std::string& input) {
+    try {
+        double size = std::stod(input);
+        return size > 0.1;  // Minimum 0.1GB
+    } catch (...) {
+        return false;
+    }
+}
+
 void showSetupMenu() {
     std::vector<std::string> items = {
         "Install Dependencies",
@@ -537,14 +547,30 @@ void showSetupMenu() {
     }
 }
 
-bool createImageFile(const std::string& size, const std::string& filename) {
-    std::cout << COLOR_CYAN << "Creating optimized image file..." << COLOR_RESET << std::endl;
+bool createImageFile(const std::string& sizeStr, const std::string& filename) {
+    // Convert size string to bytes (1GB = 1,073,741,824 bytes)
+    try {
+        double sizeGB = std::stod(sizeStr);
+        if (sizeGB <= 0) {
+            std::cerr << COLOR_RED << "Invalid size: must be greater than 0" << COLOR_RESET << std::endl;
+            return false;
+        }
 
-    // Create empty image file
-    std::string command = "sudo truncate -s " + size + " " + filename;
-    execute_command(command, true);
+        // Calculate size in bytes
+        size_t sizeBytes = static_cast<size_t>(sizeGB * 1073741824);
 
-    return true;
+        std::cout << COLOR_CYAN << "Creating image file of size " << sizeGB << "GB ("
+        << sizeBytes << " bytes)..." << COLOR_RESET << std::endl;
+
+        // Create empty image file using fallocate for more reliable size allocation
+        std::string command = "sudo fallocate -l " + std::to_string(sizeBytes) + " " + filename;
+        execute_command(command, true);
+
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << COLOR_RED << "Error creating image file: " << e.what() << COLOR_RESET << std::endl;
+        return false;
+    }
 }
 
 bool formatFilesystem(const std::string& fsType, const std::string& filename) {
@@ -861,9 +887,15 @@ void showMainMenu() {
                         execute_command("sudo mkdir -p " + MOUNT_POINT, true);
                         execute_command("sudo mkdir -p " + outputDir, true);
 
-                        // Modified to accept decimal sizes
-                        std::string sizeInput = getUserInput("Enter the image size in GB (e.g., 6 or 6.5 for 6.5GB): ");
-                        std::string imgSize = sizeInput + "G";
+                        // Get size input with validation
+                        std::string sizeInput;
+                        while (true) {
+                            sizeInput = getUserInput("Enter the image size in GB (e.g., 1.2 for 1.2GB): ");
+                            if (validateSizeInput(sizeInput)) {
+                                break;
+                            }
+                            std::cerr << COLOR_RED << "Invalid size! Please enter a positive number (e.g., 1.2)" << COLOR_RESET << std::endl;
+                        }
 
                         std::vector<std::string> fsOptions = {"btrfs", "ext4"};
                         int fsSelected = 0;
@@ -888,7 +920,7 @@ void showMainMenu() {
 
                         std::string fsType = (fsSelected == 0) ? "btrfs" : "ext4";
 
-                        if (!createImageFile(imgSize, outputImgPath) ||
+                        if (!createImageFile(sizeInput, outputImgPath) ||
                             !formatFilesystem(fsType, outputImgPath) ||
                             !mountFilesystem(fsType, outputImgPath, MOUNT_POINT) ||
                             !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
@@ -902,7 +934,7 @@ void showMainMenu() {
                             std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
                             createSquashFS(outputImgPath, squashPath);
                         }
-                        
+
                         createChecksum(outputImgPath);
                         printFinalMessage(fsType, outputImgPath);
 
@@ -910,27 +942,27 @@ void showMainMenu() {
                         getch();
                         break;
                     }
-                    case 3:
-                        createISO();
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 4:
-                        execute_command("df -h");
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
-                        break;
-                    case 5:
-                        installISOToUSB();
-                        break;
-                    case 6:
-                        runCMIInstaller();
-                        break;
-                    case 7:
-                        updateScript();
-                        break;
-                    case 8:
-                        return;
+                                case 3:
+                                    createISO();
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 4:
+                                    execute_command("df -h");
+                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                                    getch();
+                                    break;
+                                case 5:
+                                    installISOToUSB();
+                                    break;
+                                case 6:
+                                    runCMIInstaller();
+                                    break;
+                                case 7:
+                                    updateScript();
+                                    break;
+                                case 8:
+                                    return;
                 }
                 break;
         }
