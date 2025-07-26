@@ -509,21 +509,8 @@ private:
             console->append(output.trimmed());
         });
 
-        QProgressDialog progress("Executing command...", "Cancel", 0, 0, this);
-        progress.setWindowModality(Qt::WindowModal);
-        progress.setCancelButton(nullptr);
-        progress.setMinimumDuration(1000);
-
         while (!process.waitForFinished(100)) {
             QCoreApplication::processEvents();
-            if (progress.wasCanceled()) {
-                process.terminate();
-                if (!process.waitForFinished(1000)) {
-                    process.kill();
-                }
-                console->appendWarning("Command execution cancelled by user");
-                return;
-            }
         }
 
         if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
@@ -639,7 +626,7 @@ private slots:
 
         QVBoxLayout *layout = new QVBoxLayout(&dialog);
         layout->setSpacing(5);
-        layout->setContentsMargins(10, 10, 10, 10);
+        layout->setContentsMargins(0, 10, 0, 10);
 
         QString buttonStyle = "QPushButton { background-color: #1a1a2e; color: #e0e0e0; border: 1px solid #4fc3f7; border-radius: 4px; padding: 6px; font-size: 11px; }"
                             "QPushButton:hover { background-color: #4fc3f7; color: #0a0a1a; }";
@@ -1110,10 +1097,6 @@ private slots:
         .arg(QString::fromStdString(selectedISO))
         .arg(targetDrive));
 
-        QProgressDialog progress("Writing ISO to USB...", "Cancel", 0, 0, this);
-        progress.setWindowModality(Qt::WindowModal);
-        progress.setCancelButton(nullptr);
-
         QProcess ddProcess;
         ddProcess.start("dd", QStringList()
         << "if=" + QString::fromStdString(selectedISO)
@@ -1126,8 +1109,6 @@ private slots:
             QCoreApplication::processEvents();
             QThread::msleep(100);
         }
-
-        progress.close();
 
         if (ddProcess.exitStatus() == QProcess::NormalExit && ddProcess.exitCode() == 0) {
             console->appendSuccess("\nISO successfully written to USB drive!");
