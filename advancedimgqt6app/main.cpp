@@ -1,4 +1,3 @@
-
 #include <QApplication>
 #include <QMainWindow>
 #include <QMenuBar>  // Added missing include
@@ -113,55 +112,6 @@ struct ConfigState {
         !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited && dependenciesInstalled;
     }
 } config;
-
-// Password Dialog
-class PasswordDialog : public QDialog {
-    Q_OBJECT
-public:
-    PasswordDialog(QWidget *parent = nullptr) : QDialog(parent) {
-        setWindowTitle("Authentication Required");
-        setFixedSize(300, 150);
-
-        QVBoxLayout *layout = new QVBoxLayout(this);
-
-        QLabel *label = new QLabel("Enter admin password to continue:", this);
-        layout->addWidget(label);
-
-        passwordEdit = new QLineEdit(this);
-        passwordEdit->setEchoMode(QLineEdit::Password);
-        layout->addWidget(passwordEdit);
-
-        QHBoxLayout *buttonLayout = new QHBoxLayout();
-        QPushButton *okButton = new QPushButton("OK", this);
-        QPushButton *cancelButton = new QPushButton("Cancel", this);
-
-        buttonLayout->addWidget(okButton);
-        buttonLayout->addWidget(cancelButton);
-        layout->addLayout(buttonLayout);
-
-        connect(okButton, &QPushButton::clicked, this, &PasswordDialog::onOkClicked);
-        connect(cancelButton, &QPushButton::clicked, this, &PasswordDialog::reject);
-    }
-
-    QString getPassword() const {
-        return passwordEdit->text();
-    }
-
-private slots:
-    void onOkClicked() {
-        if (passwordEdit->text().isEmpty()) {
-            QMessageBox::warning(this, "Error", "Password cannot be empty!");
-            return;
-        }
-
-        // Here you would typically verify the password
-        // For this example, we'll just accept any non-empty password
-        accept();
-    }
-
-private:
-    QLineEdit *passwordEdit;
-};
 
 // Main Application Window
 class MainWindow : public QMainWindow {
@@ -363,6 +313,13 @@ bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01
 
         QProcess process;
         process.start("bash", QStringList() << "-c" << QString::fromStdString(cmd));
+
+        // If the command requires sudo, send the password
+        if (cmd.find("sudo") != std::string::npos && !sudoPassword.isEmpty()) {
+            process.write((sudoPassword + "\n").toUtf8());
+            process.closeWriteChannel();
+        }
+
         process.waitForFinished(-1);
 
         QString output = process.readAllStandardOutput();
@@ -447,9 +404,27 @@ bannerLabel->setText(bannerText + "\nAdvanced C++ Arch Img Iso Script Beta v2.01
     }
 
     bool askPassword() {
-        PasswordDialog dialog(this);
-        if (dialog.exec() == QDialog::Accepted) {
-            // In a real application, you would verify the password here
+        bool ok;
+        QString password = QInputDialog::getText(this, "Authentication Required",
+                                                 "Enter your sudo password:",
+                                                 QLineEdit::Password,
+                                                 "",
+                                                 &ok);
+
+        if (ok && !password.isEmpty()) {
+            sudoPassword = password;
+
+            // Verify the password works with a simple command
+            QProcess testProcess;
+            testProcess.start("sudo", QStringList() << "-S" << "true");
+            testProcess.write((sudoPassword + "\n").toUtf8());
+            testProcess.closeWriteChannel();
+
+            if (!testProcess.waitForFinished() || testProcess.exitCode() != 0) {
+                QMessageBox::warning(this, "Error", "Incorrect sudo password!");
+                return false;
+            }
+
             return true;
         }
         return false;
@@ -1015,6 +990,9 @@ private:
     std::atomic<bool> timeThreadRunning{true};
     std::mutex timeMutex;
     std::string currentTimeStr;
+
+    // Password storage
+    QString sudoPassword;
 };
 
 int main(int argc, char *argv[]) {
