@@ -1,34 +1,45 @@
 #!/bin/bash
+set -euo pipefail
 
-# Script to create a Btrfs image with Zstd level 22 compression applied during rsync
+# Configuration
+SOURCE="/mnt/arch"
+IMAGE_NAME="rooffs.img"
+IMAGE_SIZE="6G"
+MOUNT_POINT="/mnt/img"
+ZSTD_LEVEL=22
 
-# Check if running as root
-if [ "$(id -u)" -ne 0 ]; then
-    echo "This script must be run as root"
+# Verify root privileges
+if [[ $EUID -ne 0 ]]; then
+    echo "This script must be run as root" >&2
     exit 1
 fi
 
-# Configuration
-SOURCE="/mnt/arch"              # Source system mount point
-IMAGE_SIZE="6G"                # Initial image size (adjust as needed)
-IMAGE_NAME="rootfs.img"      # Output image name
-ZSTD_LEVEL=22                   # Zstd compression level
-MOUNT_POINT="/mnt/img"          # Temporary mount point
+# Verify source exists
+if [[ ! -d "$SOURCE" ]]; then
+    echo "Source directory $SOURCE does not exist" >&2
+    exit 1
+fi
 
-# Install required packages if missing
-pacman -Sy --noconfirm btrfs-progs zstd rsync >/dev/null 2>&1
+# Check if image already exists
+if [[ -f "$IMAGE_NAME" ]]; then
+    echo "Image file $IMAGE_NAME already exists. Please remove it first." >&2
+    exit 1
+fi
 
-# Create the image file
-echo "Creating image file of size $IMAGE_SIZE..."
-fallocate -l "$IMAGE_SIZE" "$IMAGE_NAME"
+echo "Creating Btrfs image with Zstd:$ZSTD_LEVEL compression..."
+
+# Create image file (using truncate instead of fallocate for sparse file)
+echo "1/4 Allocating $IMAGE_SIZE image file..."
+truncate -s "$IMAGE_SIZE" "$IMAGE_NAME"
 mkfs.btrfs -L "Arch Linux" "$IMAGE_NAME"
 
-# Mount with Zstd compression
+# Mount with compression
+echo "2/4 Mounting image with Zstd:$ZSTD_LEVEL compression..."
 mkdir -p "$MOUNT_POINT"
-mount -o compress-force=zstd:$ZSTD_LEVEL "$IMAGE_NAME" "$MOUNT_POINT"
+mount -o compress-force=zstd:"$ZSTD_LEVEL" "$IMAGE_NAME" "$MOUNT_POINT"
 
-# Rsync with exclusions (compression happens at filesystem level)
-echo "Copying files with rsync (Zstd:$ZSTD_12 compression applied during transfer)..."
+# Execute rsync with your exact parameters
+echo "3/4 Copying files with rsync (this may take a while)..."
 rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
@@ -49,17 +60,10 @@ rsync -aHAXSr --numeric-ids --info=progress2 \
 
 sync
 
-# Shrink the image to minimum size
-echo "Shrinking image to minimum size..."
+# Cleanup and verification
+echo "4/4 Finalizing image..."
 umount "$MOUNT_POINT"
-mount "$IMAGE_NAME" "$MOUNT_POINT"
-btrfs filesystem resize max "$MOUNT_POINT"
-umount "$MOUNT_POINT"
-
-# Verify the image
-echo "Verifying Btrfs image..."
 btrfs check "$IMAGE_NAME"
 
-echo "Process completed!"
-echo "Final image size: $(du -h "$IMAGE_NAME")"
-echo "Compression was applied during transfer via Btrfs Zstd:$ZSTD_LEVEL"
+echo "Operation completed successfully"
+echo "Created image: $IMAGE_NAME with Zstd:$ZSTD_LEVEL compression"
