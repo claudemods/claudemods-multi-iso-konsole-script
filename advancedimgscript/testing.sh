@@ -26,23 +26,31 @@ if [[ -f "$IMAGE_NAME" ]]; then
     exit 1
 fi
 
-echo "Creating Btrfs image with Zstd:$ZSTD_LEVEL compression..."
+echo "Creating Btrfs image with enforced Zstd:$ZSTD_LEVEL compression..."
 
-# Create image file (using truncate instead of fallocate for sparse file)
-echo "1/4 Allocating $IMAGE_SIZE image file..."
+# Create image file
+echo "1/5 Allocating $IMAGE_SIZE image file..."
 sudo truncate -s "$IMAGE_SIZE" "$IMAGE_NAME"
-sudo mkfs.btrfs -f -L "Arch Linux" "$IMAGE_NAME"
+sudo mkfs.btrfs -f --checksum crc32c -L "Arch Linux" "$IMAGE_NAME"
 
-# Mount with compression
-echo "2/4 Mounting image with Zstd:$ZSTD_LEVEL compression..."
+# Mount with STRICT compression settings
+echo "2/5 Mounting image with enforced Zstd:$ZSTD_LEVEL compression..."
 sudo mkdir -p "$MOUNT_POINT"
-sudo mount -o compress-force=zstd:"$ZSTD_LEVEL",nodatacow,space_cache=v2 "$IMAGE_NAME" "$MOUNT_POINT"
+sudo mount -o compress-force=zstd:$ZSTD_LEVEL,nodatacow,noatime,space_cache=v2,autodefrag,discard=async "$IMAGE_NAME" "$MOUNT_POINT"
 
-# Set compression attribute for the entire filesystem
-sudo btrfs property set "$MOUNT_POINT" compression zstd:"$ZSTD_LEVEL"
+# Set compression property at filesystem level
+sudo btrfs property set "$MOUNT_POINT" compression zstd
 
-# Execute rsync with your exact parameters
-echo "3/4 Copying files with rsync (this may take a while)..."
+# Create subvolume for root
+echo "3/5 Creating root subvolume..."
+sudo btrfs subvolume create "$MOUNT_POINT/@root"
+sudo umount "$MOUNT_POINT"
+
+# Remount with subvolume
+sudo mount -o compress-force=zstd:$ZSTD_LEVEL,nodatacow,noatime,space_cache=v2,autodefrag,discard=async,subvol=@root "$IMAGE_NAME" "$MOUNT_POINT"
+
+# Copy files with verification of compression
+echo "4/5 Copying files with compression verification..."
 sudo rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
@@ -61,17 +69,23 @@ sudo rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=rootfs.img \
     "/" "$MOUNT_POINT/"
 
+# Force compression of existing files
+echo "5/5 Compressing all files..."
+sudo find "$MOUNT_POINT" -type f -exec sudo btrfs filesystem defrag -v -czstd {} +
+
+# Verification
+echo "Verifying compression..."
 sync
-
-# Verify compression
-echo "Verifying compression settings..."
 sudo btrfs filesystem du "$MOUNT_POINT"
-sudo btrfs property get "$MOUNT_POINT" compression
+sudo btrfs filesystem defrag -r -v -czstd "$MOUNT_POINT"
 
-# Cleanup and verification
-echo "4/4 Finalizing image..."
+# Final cleanup
+echo "Finalizing image..."
 sudo umount "$MOUNT_POINT"
 sudo btrfs check "$IMAGE_NAME"
 
 echo "Operation completed successfully"
-echo "Created image: $IMAGE_NAME with Zstd:$ZSTD_LEVEL compression"
+echo "Created compressed image: $IMAGE_NAME"
+echo "Compression stats:"
+echo "Original size: $(sudo du -h --apparent-size "$IMAGE_NAME" | cut -f1)"
+echo "Disk usage:    $(sudo du -h "$IMAGE_NAME" | cut -f1)"
