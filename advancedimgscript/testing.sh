@@ -31,7 +31,7 @@ echo "Creating Btrfs image with Zstd:$ZSTD_LEVEL compression..."
 # Create image file (using truncate instead of fallocate for sparse file)
 echo "1/4 Allocating $IMAGE_SIZE image file..."
 truncate -s "$IMAGE_SIZE" "$IMAGE_NAME"
-mkfs.btrfs -L "Arch Linux" "$IMAGE_NAME"
+mkfs.btrfs -O compress-force -L "Arch Linux" "$IMAGE_NAME"
 
 # Mount with compression
 echo "2/4 Mounting image with Zstd:$ZSTD_LEVEL compression..."
@@ -56,7 +56,7 @@ rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=*rootfs1.img \
     --exclude=btrfs_temp \
     --exclude=rootfs.img \
-    "$SOURCE/" "$MOUNT_POINT/"
+    "/" "$MOUNT_POINT/"
 
 sync
 
