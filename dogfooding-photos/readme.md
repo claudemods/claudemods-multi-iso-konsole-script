@@ -1,6 +1,17 @@
 
 Advanced C++ Arch Img Iso Qt6 App Beta MainBranch v2.01 26-07-2025
 
+very buggy but kind of works mechanism isnt final needs more testing and changing
+
+<img width="1280" height="800" alt="Screenshot_linux2024-clone_2025-07-27_01:31:34" src="https://github.com/user-attachments/assets/c2b381b9-f34d-4bf0-8f78-4808c56d2bac" />
+
+
+
+
+
+
+Advanced C++ Arch Img Iso Qt6 App Beta MainBranch v2.01 26-07-2025
+
 bit buggy ui needs to be changed and made to be more responsive with better outputs but commands work
 
 <img width="1280" height="800" alt="Screenshot_linux2024-clone_2025-07-26_18:10:51" src="https://github.com/user-attachments/assets/34ec129d-c060-4b3e-9ba8-775378a524a0" />
