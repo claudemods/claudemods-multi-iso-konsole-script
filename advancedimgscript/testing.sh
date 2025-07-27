@@ -31,12 +31,12 @@ echo "Creating Btrfs image with Zstd:$ZSTD_LEVEL compression..."
 # Create image file (using truncate instead of fallocate for sparse file)
 echo "1/4 Allocating $IMAGE_SIZE image file..."
 sudo truncate -s "$IMAGE_SIZE" "$IMAGE_NAME"
-sudo mkfs.btrfs -O compress-force -L "Arch Linux" "$IMAGE_NAME"
+sudo mkfs.btrfs -f -L "Arch Linux" "$IMAGE_NAME"
 
 # Mount with compression
 echo "2/4 Mounting image with Zstd:$ZSTD_LEVEL compression..."
 sudo mkdir -p "$MOUNT_POINT"
-sudo mount -o compress-force=zstd:"$ZSTD_LEVEL" "$IMAGE_NAME" "$MOUNT_POINT"
+sudo mount -o compress-force=zstd:"$ZSTD_LEVEL",nodatacow "$IMAGE_NAME" "$MOUNT_POINT"
 
 # Execute rsync with your exact parameters
 echo "3/4 Copying files with rsync (this may take a while)..."
