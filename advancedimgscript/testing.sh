@@ -36,7 +36,10 @@ sudo mkfs.btrfs -f -L "Arch Linux" "$IMAGE_NAME"
 # Mount with compression
 echo "2/4 Mounting image with Zstd:$ZSTD_LEVEL compression..."
 sudo mkdir -p "$MOUNT_POINT"
-sudo mount -o compress-force=zstd:"$ZSTD_LEVEL",nodatacow "$IMAGE_NAME" "$MOUNT_POINT"
+sudo mount -o compress-force=zstd:"$ZSTD_LEVEL",nodatacow,space_cache=v2 "$IMAGE_NAME" "$MOUNT_POINT"
+
+# Set compression attribute for the entire filesystem
+sudo btrfs property set "$MOUNT_POINT" compression zstd:"$ZSTD_LEVEL"
 
 # Execute rsync with your exact parameters
 echo "3/4 Copying files with rsync (this may take a while)..."
@@ -59,6 +62,11 @@ sudo rsync -aHAXSr --numeric-ids --info=progress2 \
     "/" "$MOUNT_POINT/"
 
 sync
+
+# Verify compression
+echo "Verifying compression settings..."
+sudo btrfs filesystem du "$MOUNT_POINT"
+sudo btrfs property get "$MOUNT_POINT" compression
 
 # Cleanup and verification
 echo "4/4 Finalizing image..."
