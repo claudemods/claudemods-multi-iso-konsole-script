@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to create a compressed Btrfs image of an Arch Linux system with Zstd level 22 compression
+# Script to create a Btrfs image with Zstd level 22 compression applied during rsync
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -23,12 +23,12 @@ echo "Creating image file of size $IMAGE_SIZE..."
 fallocate -l "$IMAGE_SIZE" "$IMAGE_NAME"
 mkfs.btrfs -L "Arch Linux" "$IMAGE_NAME"
 
-# Mount the image
+# Mount with Zstd compression
 mkdir -p "$MOUNT_POINT"
 mount -o compress-force=zstd:$ZSTD_LEVEL "$IMAGE_NAME" "$MOUNT_POINT"
 
-# Rsync command with exclusions
-echo "Copying files with rsync (this may take a while)..."
+# Rsync with exclusions (compression happens at filesystem level)
+echo "Copying files with rsync (Zstd:$ZSTD_12 compression applied during transfer)..."
 rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
@@ -60,13 +60,6 @@ umount "$MOUNT_POINT"
 echo "Verifying Btrfs image..."
 btrfs check "$IMAGE_NAME"
 
-# Optional: Further compress with Zstd
-read -p "Create additional Zstd compressed archive? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Creating final compressed archive (this may take a long time)..."
-    zstd --ultra -$ZSTD_LEVEL -T0 "$IMAGE_NAME" -o "$IMAGE_NAME.zst"
-fi
-
 echo "Process completed!"
-echo "Final image: $(du -h "$IMAGE_NAME"*)"
+echo "Final image size: $(du -h "$IMAGE_NAME")"
+echo "Compression was applied during transfer via Btrfs Zstd:$ZSTD_LEVEL"
