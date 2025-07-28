@@ -26,31 +26,29 @@ if [[ -f "$IMAGE_NAME" ]]; then
     exit 1
 fi
 
-echo "Creating Btrfs image with enforced Zstd:$ZSTD_LEVEL compression..."
+echo -e "\033[36mCreating Btrfs filesystem with maximum compression (zstd:$ZSTD_LEVEL)...\033[0m"
 
 # Create image file
-echo "1/5 Allocating $IMAGE_SIZE image file..."
+echo "1/4 Allocating $IMAGE_SIZE image file..."
 sudo truncate -s "$IMAGE_SIZE" "$IMAGE_NAME"
-sudo mkfs.btrfs -f --checksum crc32c -L "Arch Linux" "$IMAGE_NAME"
 
-# Mount with STRICT compression settings
-echo "2/5 Mounting image with enforced Zstd:$ZSTD_LEVEL compression..."
+# First create filesystem without compression
+echo "Creating Btrfs filesystem..."
+sudo mkfs.btrfs -f -L "ROOT" "$IMAGE_NAME"
+
+# Mount and enable compression property
+echo "2/4 Setting compression property..."
 sudo mkdir -p "$MOUNT_POINT"
-sudo mount -o compress-force=zstd:$ZSTD_LEVEL,nodatacow,noatime,space_cache=v2,autodefrag,discard=async "$IMAGE_NAME" "$MOUNT_POINT"
-
-# Set compression property at filesystem level
-sudo btrfs property set "$MOUNT_POINT" compression zstd
-
-# Create subvolume for root
-echo "3/5 Creating root subvolume..."
-sudo btrfs subvolume create "$MOUNT_POINT/@root"
+sudo mount "$IMAGE_NAME" "$MOUNT_POINT"
+sudo btrfs property set "$MOUNT_POINT" compression "zstd:$ZSTD_LEVEL"
 sudo umount "$MOUNT_POINT"
 
-# Remount with subvolume
-sudo mount -o compress-force=zstd:$ZSTD_LEVEL,nodatacow,noatime,space_cache=v2,autodefrag,discard=async,subvol=@root "$IMAGE_NAME" "$MOUNT_POINT"
+# Remount with compression options
+echo "3/4 Mounting with compression..."
+sudo mount -o "compress=zstd:$ZSTD_LEVEL,compress-force=zstd:$ZSTD_LEVEL,nodatacow,noatime,space_cache=v2" "$IMAGE_NAME" "$MOUNT_POINT"
 
-# Copy files with verification of compression
-echo "4/5 Copying files with compression verification..."
+# Copy files with rsync
+echo "4/4 Copying files with rsync..."
 sudo rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
@@ -64,27 +62,26 @@ sudo rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/mnt/* \
     --exclude=/media/* \
     --exclude=/lost+found \
-    --exclude=*rootfs1.img \
-    --exclude=btrfs_temp \
+    --exclude=img \
+    --exclude=arch \
     --exclude=rootfs.img \
     "/" "$MOUNT_POINT/"
 
 # Force compression of existing files
-echo "5/5 Compressing all files..."
-sudo find "$MOUNT_POINT" -type f -exec sudo btrfs filesystem defrag -v -czstd {} +
+echo "Compressing all files..."
+sudo find "$MOUNT_POINT" -type f -exec sudo btrfs filesystem defrag -v -czstd:$ZSTD_LEVEL {} +
 
 # Verification
 echo "Verifying compression..."
 sync
 sudo btrfs filesystem du "$MOUNT_POINT"
-sudo btrfs filesystem defrag -r -v -czstd "$MOUNT_POINT"
 
 # Final cleanup
 echo "Finalizing image..."
 sudo umount "$MOUNT_POINT"
 sudo btrfs check "$IMAGE_NAME"
 
-echo "Operation completed successfully"
+echo -e "\033[32mOperation completed successfully\033[0m"
 echo "Created compressed image: $IMAGE_NAME"
 echo "Compression stats:"
 echo "Original size: $(sudo du -h --apparent-size "$IMAGE_NAME" | cut -f1)"
