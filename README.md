@@ -100,23 +100,26 @@
 
 ### My Other ISO Methods Supports
 - 🚀 Generate bootable ISOs with custom configurations
-- 🐧 Multi-Distro Support (Arch, Ubuntu, Debian, CachyOS, KDE Neon)
+- 🐧 Multi-Distro Support (Arch and cachyos works, Ubuntu Debian KDE Neon kernels dont boot from tests)
 - 🛠️ Customizable branding and kernel options
+- 🔄 Rsync-based file copying with intelligent exclusions
+- 🗜️ SquashFS compression with zstd support
 - 📊 Disk usage reporting
 - 🤖 initramfs generation
 - ⏱️ Real-time updates and status indicators
 - 📝 Command Line Tools integration
 - 🎨 Colorful terminal output
 
-## 📋 Requirements
+## 📋 Requirements for c multi iso creator
+- being updated soon 
+  
+## 📋 Requirements for c++ multi iso creator and img iso creator
 - Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
 - GCC compiler (C++23 compatible)
 - Root privileges (sudo access)
 - Most Required packages can be installed through scripts:
 - You Basically need unzip gcc qt6-tools and qt5-tools to install and the rest is to create iso or test:
  - Base Arch Packages: `rsync`, `squashfs-tools`, `xorriso`, `grub`, `dosfstools`, `unzip`, `arch-install-scripts`, `bash-completion`, `erofs-utils`, `findutils`, `jq`, `libarchive`, `libisoburn`, `lsb-release`, `lvm2`, `mkinitcpio-archiso`, `mkinitcpio-nfs-utils`, `mtools`, `nbd`, `pacman-contrib`, `nano`, `unzip`, `wget`, `parted`, `procps-ng`, `pv`, `python`, `sshfs`, `syslinux`, `xdg-utils`, `zsh-completions`, `kernel-modules-hook`, `virt-manager` `qt6-tools` `qt5-tools`
-- Advanced Arch Packages: `btrfs-progs`, (for v2.01 img iso creator)  
-
 
 
 ## 💾 Installation
