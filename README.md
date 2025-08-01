@@ -51,11 +51,11 @@
 
 <p align="center">Without Separate Swap Or Home </p>
 
-## 🖥️ Claudemods Arch Advanced Ext4/Btrfs Img Iso Creator v2.01 🚀
+## 🖥️ Claudemods Arch Advanced Ext4 Img Iso Creator v2.01 🚀
 
 ## [ Website And Guide ](https://claudemodsreloaded.com/isocreatorinfo.php)
 
-<p align="center">This Is For UEFI Btrfs/Ext4 Arch Systems </p>
+<p align="center">This Is For UEFI Ext4 Arch Systems </p>
 
 <p align="center">Without Separate Swap Or Home </p>
 
@@ -89,7 +89,7 @@
 ### Img Iso Method Supports Arch Only
 - 🚀 Generate bootable ISOs with custom configurations
 - 🛠️ Customizable branding and kernel options
-- 🖼️ Create compressed system images (Btrfs and Ext4)
+- 🖼️ Create compressed system images (Ext4)
 - 📊 Disk usage reporting
 - 🔄 Rsync-based file copying with intelligent exclusions
 - 🗜️ SquashFS compression with zstd support
