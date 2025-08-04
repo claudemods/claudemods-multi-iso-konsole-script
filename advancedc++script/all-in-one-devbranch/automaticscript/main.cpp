@@ -48,7 +48,7 @@ bool should_reset = false;
 string get_kernel_version();
 string read_clone_dir();
 bool dir_exists(const string &path);
-void execute_command(const string& cmd);
+bool execute_command(const string& cmd);
 Distro detect_distro();
 string get_distro_name(Distro distro);
 void edit_calamares_branding();
@@ -110,7 +110,7 @@ string get_input(const string &prompt_text, bool echo) {
     return input;
 }
 
-bool is_init_generated(Distro distro) {
+bool is_init_generated(Distro) {
     string init_path = "/home/" + string(getenv("USER")) + "/.config/cmi/build-image-arch/live/initramfs-linux.img";
     struct stat st;
     return stat(init_path.c_str(), &st) == 0;
@@ -182,16 +182,17 @@ void disable_raw_mode() {
     tcsetattr(STDIN_FILENO, TCSANOW, &original_term);
 }
 
-void execute_command(const string& cmd) {
+bool execute_command(const string& cmd) {
     cout << COLOR_CYAN;
     fflush(stdout);
     string full_cmd = " " + cmd;
     int status = system(full_cmd.c_str());
     cout << COLOR_RESET;
     if (status != 0) {
-        cerr << RED << "Error executing: " << full_cmd << RESET << endl;
-        exit(1);
+        cerr << RED << "Command failed (continuing anyway): " << full_cmd << RESET << endl;
+        return false;
     }
+    return true;
 }
 
 Distro detect_distro() {
@@ -572,7 +573,7 @@ void clone_system(const string &clone_dir) {
     execute_command(command);
 }
 
-void create_squashfs_image(Distro distro) {
+void create_squashfs_image(Distro) {
     string clone_dir = read_clone_dir();
     if (clone_dir.empty()) {
         error_box("Error", "No clone directory specified.");
@@ -598,7 +599,7 @@ void create_squashfs_image(Distro distro) {
     execute_command(del_cmd);
 }
 
-void delete_clone_system_temp(Distro distro) {
+void delete_clone_system_temp(Distro) {
     string clone_dir = read_clone_dir();
     if (clone_dir.empty()) {
         error_box("Error", "No clone directory specified.");
@@ -647,7 +648,7 @@ void install_one_time_updater() {
     message_box("Success", "One-time updater installed successfully in /home/$USER/.config/cmi");
 }
 
-void create_iso(Distro distro) {
+void create_iso(Distro) {
     string iso_name = get_iso_name();
     if (iso_name.empty()) {
         error_box("Error", "ISO name not set.");
@@ -830,7 +831,7 @@ void automatic_workflow(Distro distro) {
     message_box("Complete", "All operations completed successfully!");
 }
 
-int main(int argc, char* argv[]) {
+int main(int, char**) {
     tcgetattr(STDIN_FILENO, &original_term);
     thread time_thread(update_time_thread);
 
