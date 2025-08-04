@@ -32,7 +32,7 @@ void silent_command(const char* cmd) {
 std::string run_command(const char* cmd) {
     std::array<char, 128> buffer;
     std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    std::unique_ptr<FILE, int(*)(FILE*)> pipe(popen(cmd, "r"), pclose);
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
@@ -95,7 +95,7 @@ void* execute_update_thread(void* /*arg*/) {
         } catch (...) {
             strcpy(downloaded_version, "unknown");
         }
-    } else if (strcmp(detected_distro, "debian") == 0) {
+    } else if (strcmp(detected_distro, "debian") == 0 || strcmp(detected_distro, "trixie") == 0) {
         try {
             std::string version_output = run_command(
                 "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/debian/version.txt");
@@ -116,7 +116,7 @@ void* execute_update_thread(void* /*arg*/) {
     } else if (strcmp(detected_distro, "ubuntu") == 0 || strcmp(detected_distro, "neon") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/ubuntu/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-noble.zip -d /home/$USER/.config/cmi/");
-    } else if (strcmp(detected_distro, "debian") == 0) || strcmp(detected_distro, "trixie") == 0) {
+    } else if (strcmp(detected_distro, "debian") == 0 || strcmp(detected_distro, "trixie") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/version/debian/version.txt /home/$USER/.config/cmi/");
         silent_command("unzip -o /home/$USER/claudemods-multi-iso-konsole-script/advancedcscript/buildimages/build-image-debian.zip -d /home/$USER/.config/cmi/");
     }
@@ -138,7 +138,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/changesc++.txt /home/$USER/.config/cmi");
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/installermain/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
-    } else if (strcmp(detected_distro, "debian") == 0) {
+    } else if (strcmp(detected_distro, "debian") == 0 || strcmp(detected_distro, "trixie") == 0) {
         // Debian-specific commands
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedc++script/all-in-one-devbranch/cmi.bin /usr/bin/cmi.bin");
