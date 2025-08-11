@@ -45,15 +45,87 @@ mutex time_mutex;
 string current_time_str;
 bool should_reset = false;
 
-// Forward declarations
 string get_kernel_version();
 string read_clone_dir();
 bool dir_exists(const string &path);
 void execute_command(const string& cmd);
 Distro detect_distro();
 string get_distro_name(Distro distro);
+void edit_calamares_branding();
+bool is_init_generated(Distro distro);
+string get_clone_dir_status();
+string get_init_status(Distro distro);
+string get_iso_name();
+string get_iso_name_status();
+void message_box(const string &title, const string &message);
+void error_box(const string &title, const string &message);
+void progress_dialog(const string &message);
+void enable_raw_mode();
+void disable_raw_mode();
+string get_highlight_color(Distro distro);
+string get_input(const string &prompt_text, bool echo = true);
+string prompt(const string &prompt_text);
+string password_prompt(const string &prompt_text);
+void update_time_thread();
+void print_banner(Distro distro);
+int get_key();
+void print_blue(const string &text);
+void install_dependencies_arch();
+void generate_initrd_arch();
+void edit_grub_cfg_arch();
+void edit_isolinux_cfg_arch();
+void install_calamares_arch();
+void install_dependencies_cachyos();
+void install_calamares_cachyos();
+void install_dependencies_ubuntu();
+void copy_vmlinuz_ubuntu();
+void generate_initrd_ubuntu();
+void edit_grub_cfg_ubuntu();
+void edit_isolinux_cfg_ubuntu();
+void install_calamares_ubuntu();
+void install_dependencies_debian();
+void copy_vmlinuz_debian();
+void generate_initrd_debian();
+void edit_grub_cfg_debian();
+void edit_isolinux_cfg_debian();
+void install_calamares_debian();
+void clone_system(const string &clone_dir);
+void create_squashfs_image(Distro distro);
+void delete_clone_system_temp(Distro distro);
+void set_clone_directory();
+void install_one_time_updater();
+void squashfs_menu(Distro distro);
+void create_iso(Distro distro);
+void run_iso_in_qemu();
+void iso_creator_menu(Distro distro);
+void create_command_files();
+void remove_command_files();
+void command_installer_menu(Distro distro);
+void setup_script_menu(Distro distro);
+void save_iso_name(const string &name);
+void set_iso_name();
 
-// Status check functions - moved after required function declarations
+string get_input(const string &prompt_text, bool echo) {
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+
+    if (echo) {
+        newt.c_lflag |= (ICANON | ECHO);
+    } else {
+        newt.c_lflag &= ~(ECHO);
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    cout << GREEN << prompt_text << RESET;
+    string input;
+    getline(cin, input);
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return input;
+}
+
 bool is_init_generated(Distro distro) {
     string init_path;
     if (distro == UBUNTU || distro == DEBIAN) {
@@ -80,6 +152,25 @@ string get_init_status(Distro distro) {
         return GREEN + string("✓ Initramfs generated") + RESET;
     } else {
         return RED + string("✗ Initramfs not generated (Use Option 1 in Setup Script Menu)") + RESET;
+    }
+}
+
+string get_iso_name() {
+    string file_path = "/home/" + string(getenv("USER")) + "/.config/cmi/isoname.txt";
+    ifstream f(file_path);
+    if (!f) return "";
+
+    string name;
+    getline(f, name);
+    return name;
+}
+
+string get_iso_name_status() {
+    string iso_name = get_iso_name();
+    if (iso_name.empty()) {
+        return RED + string("✗ ISO name not set (Use Option 3 in Setup Script Menu)") + RESET;
+    } else {
+        return GREEN + string("✓ ISO name: ") + iso_name + RESET;
     }
 }
 
@@ -136,7 +227,7 @@ Distro detect_distro() {
             if (line.find("ubuntu") != string::npos) return UBUNTU;
             if (line.find("debian") != string::npos) return DEBIAN;
             if (line.find("cachyos") != string::npos) return CACHYOS;
-            if (line.find("neon") != string::npos) return UBUNTU;
+            if (line.find("neon") != string::npos) return NEON;
         }
     }
     return UNKNOWN;
@@ -158,7 +249,7 @@ string get_distro_name(Distro distro) {
         case UBUNTU: return "Ubuntu";
         case DEBIAN: return "Debian";
         case CACHYOS: return "CachyOS";
-        case NEON: return "Ubuntu";
+        case NEON: return "KDE Neon";
         default: return "Unknown";
     }
 }
@@ -236,26 +327,57 @@ void save_clone_dir(const string &dir_path) {
     should_reset = true;
 }
 
+void save_iso_name(const string &name) {
+    string config_dir = "/home/" + string(getenv("USER")) + "/.config/cmi";
+    if (!dir_exists(config_dir)) {
+        string mkdir_cmd = "mkdir -p " + config_dir;
+        execute_command(mkdir_cmd);
+    }
+
+    string file_path = config_dir + "/isoname.txt";
+    ofstream f(file_path, ios::out | ios::trunc);
+    if (!f) {
+        perror("Failed to open isoname.txt");
+        return;
+    }
+    f << name;
+    f.close();
+    should_reset = true;
+}
+
+void set_iso_name() {
+    string name = prompt("Enter ISO name (without extension): ");
+    if (name.empty()) {
+        error_box("Error", "ISO name cannot be empty");
+        return;
+    }
+    save_iso_name(name);
+}
+
 void print_banner(Distro distro) {
     cout << RED;
     cout <<
     "░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗\n"
     "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
-    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
-    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+    "██║░░╚═╝██║░░░░░██║░░██║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+    "██║░░██╗██║░░░░░██║░░██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
-    "░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
+    "░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
         cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 MainBranch 27-06-2025" << RESET << endl;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 MainBranch 11-08-2025" << RESET << endl;
+
+        // Display current distribution and kernel version above time
+        cout << GREEN << "Current Distribution: " << get_distro_name(distro) << RESET << endl;
+        cout << GREEN << "Current Kernel: " << get_kernel_version() << RESET << endl;
 
         {
             lock_guard<mutex> lock(time_mutex);
             cout << GREEN << "Current UK Time: " << current_time_str << RESET << endl;
         }
 
-        // Display status information
         cout << get_clone_dir_status() << endl;
         cout << get_init_status(distro) << endl;
+        cout << get_iso_name_status() << endl;
 
         cout << GREEN << "Disk Usage:" << RESET << endl;
         string cmd = "df -h /";
@@ -294,27 +416,6 @@ int get_key() {
 
 void print_blue(const string &text) {
     cout << BLUE << text << RESET << endl;
-}
-
-string get_input(const string &prompt_text, bool echo = true) {
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-
-    if (echo) {
-        newt.c_lflag |= (ICANON | ECHO);
-    } else {
-        newt.c_lflag &= ~(ECHO);
-    }
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
-    cout << GREEN << prompt_text << RESET;
-    string input;
-    getline(cin, input);
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return input;
 }
 
 string prompt(const string &prompt_text) {
@@ -454,6 +555,12 @@ void install_calamares_arch() {
     message_box("Success", "Calamares installed successfully for Arch Linux.");
 }
 
+void edit_calamares_branding() {
+    progress_dialog("Opening Calamares branding configuration...");
+    execute_command("sudo nano /usr/share/calamares/branding/claudemods/branding.desc");
+    message_box("Success", "Calamares branding configuration opened for editing.");
+}
+
 void install_dependencies_cachyos() {
     progress_dialog("Installing dependencies...");
     const string packages =
@@ -557,12 +664,29 @@ void install_calamares_ubuntu() {
 void install_dependencies_debian() {
     progress_dialog("Installing Debian dependencies...");
     const string packages =
+    "cdebconf "
     "cryptsetup "
+    "cryptsetup-bin "
     "dmeventd "
+    "debconf "
+    "dmsetup "
+    "dpkg "
+    "gcc-14-base "
+    "gettext-base "
+    "grub-common "
+    "grub-efi-amd64 "
+    "grub-efi-amd64-bin "
+    "grub-efi-amd64-unsigned "
+    "grub-pc "
+    "grub-pc-bin "
+    "grub2-common "
+    "init-system-helpers "
     "isolinux "
+    "keyutils "
     "libaio1 "
     "libc-ares2 "
     "libdevmapper-event1.02.1 "
+    "libdevmapper1.02.1 "
     "liblvm2cmd2.03 "
     "live-boot "
     "live-boot-doc "
@@ -575,6 +699,70 @@ void install_dependencies_debian() {
     "syslinux-common "
     "thin-provisioning-tools "
     "squashfs-tools "
+    "libacl1 "
+    "libapparmor1 "
+    "libaudit-common "
+    "libaudit1 "
+    "libblkid1 "
+    "libbrotli1 "
+    "libbz2-1.0 "
+    "libc6 "
+    "libcap-ng0 "
+    "libcap2 "
+    "libcrypt1 "
+    "libcryptsetup12 "
+    "libdebian-installer4 "
+    "libefiboot1t64 "
+    "libefivar1t64 "
+    "libfreetype6 "
+    "libfuse3-4 "
+    "libgcc-s1 "
+    "libjson-c5 "
+    "libkeyutils1 "
+    "liblzma5 "
+    "libmd0 "
+    "libmount1 "
+    "libncursesw6 "
+    "libnewt0.52 "
+    "libpam0g "
+    "libpcre2-8-0 "
+    "libpng16-16t64 "
+    "libpopt0 "
+    "libproc2-0 "
+    "libreadline8t64 "
+    "libseccomp2 "
+    "libselinux1 "
+    "libslang2 "
+    "libsmartcols1 "
+    "libssl3t64 "
+    "libsystemd-shared "
+    "libsystemd0 "
+    "libtext-charwidth-perl "
+    "libtext-wrapi18n-perl "
+    "libtextwrap1 "
+    "libtinfo6 "
+    "libudev1 "
+    "libuuid1 "
+    "libzstd1 "
+    "mokutil "
+    "mount "
+    "openssl-provider-legacy "
+    "perl-base "
+    "procps "
+    "readline-common "
+    "sensible-utils "
+    "shim-helpers-amd64-signed "
+    "shim-signed "
+    "shim-signed-common "
+    "shim-unsigned "
+    "systemd "
+    "systemd-boot "
+    "systemd-boot-efi "
+    "systemd-boot-efi-amd64-signed "
+    "systemd-boot-tools "
+    "tar "
+    "ucf "
+    "zlib1g "
     "xorriso ";
     execute_command("sudo apt install -y " + packages);
     message_box("Success", "Debian dependencies installed successfully.");
@@ -802,9 +990,9 @@ void squashfs_menu(Distro distro) {
 }
 
 void create_iso(Distro distro) {
-    string iso_name = prompt("What do you want to name your .iso? ");
+    string iso_name = get_iso_name();
     if (iso_name.empty()) {
-        error_box("Input Error", "ISO name cannot be empty.");
+        error_box("Error", "ISO name not set. Please set it in Setup Script menu (Option 3)");
         return;
     }
 
@@ -847,7 +1035,7 @@ void create_iso(Distro distro) {
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
         << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
     } else if (distro == DEBIAN) {
-        oss << " -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin"
+        oss << " -isohybrid-mbr /home/$USER/.config/cmi/build-image-debian/isohdpfx.bin"
         << " -c isolinux/boot.cat"
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
         << " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
@@ -1000,6 +1188,18 @@ void create_command_files() {
     "chmod 755 /usr/bin/gen-calamares'";
     execute_command("sudo " + command);
 
+    command = "bash -c 'cat > /usr/bin/edit-branding << \"EOF\"\n"
+    "#!/bin/sh\n"
+    "if [ \"$1\" = \"--help\" ]; then\n"
+    "  echo \"Usage: edit-branding\"\n"
+    "  echo \"Edit Calamares branding\"\n"
+    "  exit 0\n"
+    "fi\n"
+    "exec " + string(exe_path) + " 10\n"
+    "EOF\n"
+    "chmod 755 /usr/bin/edit-branding'";
+    execute_command("sudo " + command);
+
     cout << GREEN << "Activated! You can now use all commands in your terminal." << RESET << endl;
 }
 
@@ -1011,6 +1211,7 @@ void remove_command_files() {
     execute_command("sudo rm -f /usr/bin/make-iso");
     execute_command("sudo rm -f /usr/bin/make-squashfs");
     execute_command("sudo rm -f /usr/bin/gen-calamares");
+    execute_command("sudo rm -f /usr/bin/edit-branding");
     cout << GREEN << "Commands deactivated and removed from system." << RESET << endl;
 }
 
@@ -1058,22 +1259,12 @@ void setup_script_menu(Distro distro) {
             items = {
                 "Install Dependencies (Arch)",
                 "Generate initcpio configuration (arch)",
+                "Set ISO Name",
                 "Edit isolinux.cfg (arch)",
                 "Edit grub.cfg (arch)",
                 "Set clone directory path",
                 "Install Calamares",
-                "Install One Time Updater",
-                "Back to Main Menu"
-            };
-            break;
-        case CACHYOS:
-            items = {
-                "Install Dependencies (CachyOS)",
-                "Generate initcpio configuration (cachyos)",
-                "Edit isolinux.cfg (cachyos)",
-                "Edit grub.cfg (cachyos)",
-                "Set clone directory path",
-                "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1082,10 +1273,12 @@ void setup_script_menu(Distro distro) {
             items = {
                 "Install Dependencies (Ubuntu)",
                 "Generate initramfs (ubuntu)",
+                "Set ISO Name",
                 "Edit isolinux.cfg (ubuntu)",
                 "Edit grub.cfg (ubuntu)",
                 "Set clone directory path",
                 "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1094,10 +1287,40 @@ void setup_script_menu(Distro distro) {
             items = {
                 "Install Dependencies (Debian)",
                 "Generate initramfs (debian)",
+                "Set ISO Name",
                 "Edit isolinux.cfg (debian)",
                 "Edit grub.cfg (debian)",
                 "Set clone directory path",
                 "Install Calamares",
+                "Edit Calamares Branding",
+                "Install One Time Updater",
+                "Back to Main Menu"
+            };
+            break;
+        case CACHYOS:
+            items = {
+                "Install Dependencies (CachyOS)",
+                "Generate initcpio configuration (cachyos)",
+                "Set ISO Name",
+                "Edit isolinux.cfg (cachyos)",
+                "Edit grub.cfg (cachyos)",
+                "Set clone directory path",
+                "Install Calamares",
+                "Edit Calamares Branding",
+                "Install One Time Updater",
+                "Back to Main Menu"
+            };
+            break;
+        case NEON:
+            items = {
+                "Install Dependencies (Ubuntu)",
+                "Generate initramfs (ubuntu)",
+                "Set ISO Name",
+                "Edit isolinux.cfg (ubuntu)",
+                "Edit grub.cfg (ubuntu)",
+                "Set clone directory path",
+                "Install Calamares",
+                "Edit Calamares Branding",
                 "Install One Time Updater",
                 "Back to Main Menu"
             };
@@ -1154,37 +1377,43 @@ void setup_script_menu(Distro distro) {
                     case 0:
                         if (distro == ARCH) install_dependencies_arch();
                         else if (distro == CACHYOS) install_dependencies_cachyos();
-                        else if (distro == UBUNTU) install_dependencies_ubuntu();
+                        else if (distro == UBUNTU || distro == NEON) install_dependencies_ubuntu();
                         else if (distro == DEBIAN) install_dependencies_debian();
                         break;
                     case 1:
                         if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
-                        else if (distro == UBUNTU) generate_initrd_ubuntu();
+                        else if (distro == UBUNTU || distro == NEON) generate_initrd_ubuntu();
                         else if (distro == DEBIAN) generate_initrd_debian();
                         break;
                     case 2:
-                        if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
-                        else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
-                        else if (distro == DEBIAN) edit_isolinux_cfg_debian();
+                        set_iso_name();
                         break;
                     case 3:
-                        if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
-                        else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
-                        else if (distro == DEBIAN) edit_grub_cfg_debian();
+                        if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
+                        else if (distro == UBUNTU || distro == NEON) edit_isolinux_cfg_ubuntu();
+                        else if (distro == DEBIAN) edit_isolinux_cfg_debian();
                         break;
                     case 4:
-                        set_clone_directory();
+                        if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
+                        else if (distro == UBUNTU || distro == NEON) edit_grub_cfg_ubuntu();
+                        else if (distro == DEBIAN) edit_grub_cfg_debian();
                         break;
                     case 5:
-                        if (distro == ARCH) install_calamares_arch();
-                        else if (distro == CACHYOS) install_calamares_cachyos();
-                        else if (distro == UBUNTU) install_calamares_ubuntu();
-                        else if (distro == DEBIAN) install_calamares_debian();
+                        set_clone_directory();
                         break;
                     case 6:
-                        install_one_time_updater();
+                        if (distro == ARCH) install_calamares_arch();
+                        else if (distro == CACHYOS) install_calamares_cachyos();
+                        else if (distro == UBUNTU || distro == NEON) install_calamares_ubuntu();
+                        else if (distro == DEBIAN) install_calamares_debian();
                         break;
                     case 7:
+                        edit_calamares_branding();
+                        break;
+                    case 8:
+                        install_one_time_updater();
+                        break;
+                    case 9:
                         tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
                         return;
                 }
@@ -1208,19 +1437,19 @@ int main(int argc, char* argv[]) {
             case 5:
                 distro = detect_distro();
                 if (distro == ARCH || distro == CACHYOS) generate_initrd_arch();
-                else if (distro == UBUNTU) generate_initrd_ubuntu();
+                else if (distro == UBUNTU || distro == NEON) generate_initrd_ubuntu();
                 else if (distro == DEBIAN) generate_initrd_debian();
                 break;
             case 6:
                 distro = detect_distro();
                 if (distro == ARCH || distro == CACHYOS) edit_isolinux_cfg_arch();
-                else if (distro == UBUNTU) edit_isolinux_cfg_ubuntu();
+                else if (distro == UBUNTU || distro == NEON) edit_isolinux_cfg_ubuntu();
                 else if (distro == DEBIAN) edit_isolinux_cfg_debian();
                 break;
             case 7:
                 distro = detect_distro();
                 if (distro == ARCH || distro == CACHYOS) edit_grub_cfg_arch();
-                else if (distro == UBUNTU) edit_grub_cfg_ubuntu();
+                else if (distro == UBUNTU || distro == NEON) edit_grub_cfg_ubuntu();
                 else if (distro == DEBIAN) edit_grub_cfg_debian();
                 break;
             case 8:
@@ -1236,8 +1465,11 @@ int main(int argc, char* argv[]) {
                 distro = detect_distro();
                 if (distro == ARCH) install_calamares_arch();
                 else if (distro == CACHYOS) install_calamares_cachyos();
-                else if (distro == UBUNTU) install_calamares_ubuntu();
+                else if (distro == UBUNTU || distro == NEON) install_calamares_ubuntu();
                 else if (distro == DEBIAN) install_calamares_debian();
+                break;
+            case 10:
+                edit_calamares_branding();
                 break;
             default:
                 cout << "Invalid option" << endl;
