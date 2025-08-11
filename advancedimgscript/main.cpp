@@ -36,17 +36,15 @@ std::string current_time_str;
 bool should_reset = false;
 
 // Constants
-const std::string ORIG_IMG_NAME = "rootfs.img";
+const std::string ORIG_IMG_NAME = "rootfs1.img";
 const std::string FINAL_IMG_NAME = "rootfs.img";
-std::string MOUNT_POINT = "/mnt/btrfs_temp";
+std::string MOUNT_POINT = "/mnt/ext4_temp";
 const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
 const std::string SQUASHFS_COMPRESSION = "zstd";
 const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
 std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-img";
 std::string USERNAME = "";
-const std::string BTRFS_LABEL = "LIVE_SYSTEM";
-const std::string BTRFS_COMPRESSION = "zstd";
 
 // Dependencies list
 const std::vector<std::string> DEPENDENCIES = {
@@ -474,24 +472,6 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
     return getch();
 }
 
-int showFilesystemMenu(const std::vector<std::string> &items, int selected) {
-    clearScreen();
-    printBanner();
-
-    std::cout << COLOR_CYAN << "\n  Choose filesystem type:" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "  ----------------------" << COLOR_RESET << std::endl;
-
-    for (size_t i = 0; i < items.size(); i++) {
-        if (i == static_cast<size_t>(selected)) {
-            std::cout << COLOR_HIGHLIGHT << "➤ " << items[i] << COLOR_RESET << "\n";
-        } else {
-            std::cout << COLOR_NORMAL << "  " << items[i] << COLOR_RESET << "\n";
-        }
-    }
-
-    return getch();
-}
-
 bool validateSizeInput(const std::string& input) {
     try {
         double size = std::stod(input);
@@ -559,11 +539,10 @@ bool createImageFile(const std::string& sizeStr, const std::string& filename) {
         // Calculate size in bytes
         size_t sizeBytes = static_cast<size_t>(sizeGB * 1073741824);
 
-        std::cout << COLOR_CYAN << "Creating image file of size " << sizeGB << "GB ("
-        << sizeBytes << " bytes)..." << COLOR_RESET << std::endl;
+        std::cout << COLOR_CYAN << "Creating ext4 image of size " << sizeGB << "GB..." << COLOR_RESET << std::endl;
 
-        // Create empty image file using fallocate for more reliable size allocation
-        std::string command = "sudo fallocate -l " + std::to_string(sizeBytes) + " " + filename;
+        // Create empty image file using truncate like in the bash script
+        std::string command = "sudo truncate -s " + std::to_string(sizeBytes) + " " + filename;
         execute_command(command, true);
 
         return true;
@@ -573,46 +552,57 @@ bool createImageFile(const std::string& sizeStr, const std::string& filename) {
     }
 }
 
-bool formatFilesystem(const std::string& fsType, const std::string& filename) {
-    if (fsType == "btrfs") {
-        std::cout << COLOR_CYAN << "Creating Btrfs filesystem with " << BTRFS_COMPRESSION << " compression" << COLOR_RESET << std::endl;
+bool formatFilesystem(const std::string& filename) {
+    std::cout << COLOR_CYAN << "Formatting as ext4..." << COLOR_RESET << std::endl;
 
-        execute_command("sudo mkdir -p " + SOURCE_DIR + "/btrfs_rootdir", true);
+    // Use exact same ext4 arguments as bash script
+    std::vector<std::string> ext4_args;
+    ext4_args.push_back("-O");
+    ext4_args.push_back("^has_journal,^resize_inode");
+    ext4_args.push_back("-E");
+    ext4_args.push_back("lazy_itable_init=0");
+    ext4_args.push_back("-m");
+    ext4_args.push_back("0");
 
-        std::string command = "sudo mkfs.btrfs -L \"" + BTRFS_LABEL + "\" --compress=" + BTRFS_COMPRESSION +
-        " --rootdir=" + SOURCE_DIR + "/btrfs_rootdir -f " + filename;
-        execute_command(command, true);
-
-        execute_command("sudo rmdir " + SOURCE_DIR + "/btrfs_rootdir", true);
-    } else {
-        std::cout << COLOR_CYAN << "Formatting as ext4 with SquashFS-style compression" << COLOR_RESET << std::endl;
-        std::string command = "sudo mkfs.ext4 -F -O ^has_journal,^resize_inode -E lazy_itable_init=0 -m 0 -L \"SYSTEM_BACKUP\" " + filename;
-        execute_command(command, true);
+    std::string command = "sudo mkfs.ext4";
+    for (const auto& arg : ext4_args) {
+        command += " " + arg;
     }
+    command += " -F " + filename;
+
+    execute_command(command, true);
+
+    // Tune filesystem exactly like bash script
+    execute_command("sudo tune2fs -c 0 -i 0 " + filename, true);
+
     return true;
 }
 
-bool mountFilesystem(const std::string& fsType, const std::string& filename, const std::string& mountPoint) {
+bool mountFilesystem(const std::string& filename, const std::string& mountPoint) {
     execute_command("sudo mkdir -p " + mountPoint, true);
 
-    if (fsType == "btrfs") {
-        std::string command = "sudo mount -o compress=" + BTRFS_COMPRESSION + ",compress-force=zstd:" + COMPRESSION_LEVEL + " " + filename + " " + mountPoint;
-        execute_command(command, true);
-    } else {
-        std::string options = "loop,discard,noatime,data=writeback,commit=60,barrier=0,nobh,errors=remount-ro";
-        std::string command = "sudo mount -o " + options + " " + filename + " " + mountPoint;
-        execute_command(command, true);
-    }
+    std::string command = "sudo mount " + filename + " " + mountPoint;
+    execute_command(command, true);
     return true;
 }
 
-bool copyFilesWithRsync(const std::string& source, const std::string& destination, const std::string& fsType) {
-    std::string compressionFlag = (fsType == "btrfs") ? "--compress" : "";
-    std::string compressionLevel = (fsType == "btrfs") ? "--compress-level=" + COMPRESSION_LEVEL : "";
+bool copyFilesWithRsync(const std::string& source, const std::string& destination) {
+    std::cout << COLOR_CYAN << "Copying files..." << COLOR_RESET << std::endl;
 
-    std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " + compressionFlag + " " + compressionLevel +
-    " --exclude=/etc/udev/rules.d/70-persistent-cd.rules "
+    std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+    "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
     "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
+    "--include=dev "
+    "--include=proc "
+    "--include=tmp "
+    "--include=sys "
+    "--include=run "
+    "--include=dev "
+    "--include=proc "
+    "--include=tmp "
+    "--include=sys "
+    "--include=usr "
+    "--include=etc "
     "--exclude=/etc/mtab "
     "--exclude=/etc/fstab "
     "--exclude=/dev/* "
@@ -624,20 +614,10 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--exclude=/media/* "
     "--exclude=/lost+found "
     "--exclude=*rootfs1.img "
-    "--exclude=btrfs_temp "
+    "--exclude=ext4_temp "
     "--exclude=rootfs.img " +
-    source + " " + destination;
+    source + "/ " + destination + "/";
     execute_command(command, true);
-
-    if (fsType == "btrfs") {
-        std::cout << COLOR_CYAN << "Optimizing compression..." << COLOR_RESET << std::endl;
-        execute_command("sudo btrfs filesystem defrag -r -v -c " + BTRFS_COMPRESSION + " " + destination, true);
-        execute_command("sudo btrfs filesystem resize max " + destination, true);
-    } else {
-        std::cout << COLOR_CYAN << "Optimizing ext4 filesystem..." << COLOR_RESET << std::endl;
-        execute_command("sudo e4defrag " + destination, true);
-        execute_command("sudo tune2fs -o journal_data_writeback " + destination.substr(0, destination.find(' ')), true);
-    }
 
     return true;
 }
@@ -654,39 +634,29 @@ bool unmountAndCleanup(const std::string& mountPoint) {
 }
 
 bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
-    std::cout << COLOR_CYAN << "Creating optimized SquashFS image..." << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Creating SquashFS image, this may take some time..." << COLOR_RESET << std::endl;
 
+    // Use exact same mksquashfs arguments as in the bash script
     std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
-    " -comp " + SQUASHFS_COMPRESSION +
-    " " + SQUASHFS_COMPRESSION_ARGS[0] + " " + SQUASHFS_COMPRESSION_ARGS[1] +
-    " -noappend";
+    " -noappend -comp xz -b 256K -Xbcj x86";
 
     execute_command(command, true);
     return true;
 }
 
 bool createChecksum(const std::string& filename) {
-    std::string command = "md5sum " + filename + " > " + filename + ".md5";
+    std::string command = "sha512sum " + filename + " > " + filename + ".sha512";
     execute_command(command, true);
     return true;
 }
 
-void printFinalMessage(const std::string& fsType, const std::string& outputFile) {
+void printFinalMessage(const std::string& outputFile) {
     std::cout << std::endl;
-    if (fsType == "btrfs") {
-        std::cout << COLOR_CYAN << "Compressed BTRFS image created successfully: " << outputFile << COLOR_RESET << std::endl;
-    } else {
-        std::cout << COLOR_CYAN << "Compressed ext4 image created successfully: " << outputFile << COLOR_RESET << std::endl;
-    }
-    std::cout << COLOR_CYAN << "Checksum file: " << outputFile << ".md5" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "SquashFS image created successfully: " << outputFile << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Checksum file: " << outputFile << ".sha512" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "Size: ";
     execute_command("sudo du -h " + outputFile + " | cut -f1", true);
     std::cout << COLOR_RESET;
-}
-
-void deleteOriginalImage(const std::string& imgName) {
-    std::cout << COLOR_CYAN << "Deleting original image file: " << imgName << COLOR_RESET << std::endl;
-    execute_command("sudo rm -f " + imgName, true);
 }
 
 std::string getOutputDirectory() {
@@ -838,7 +808,7 @@ void runCMIInstaller() {
 
 void updateScript() {
     std::cout << COLOR_CYAN << "\nUpdating script from GitHub..." << COLOR_RESET << std::endl;
-    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
+    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh )\"");
     std::cout << COLOR_GREEN << "\nScript updated successfully!" << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
     getch();
@@ -881,9 +851,11 @@ void showMainMenu() {
                     case 2: {
                         std::string outputDir = getOutputDirectory();
                         std::string outputImgPath = outputDir + "/" + ORIG_IMG_NAME;
+                        std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
 
                         execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
                         execute_command("sudo rm -rf " + outputImgPath, true);
+                        execute_command("sudo rm -rf " + finalImgPath, true);
                         execute_command("sudo mkdir -p " + MOUNT_POINT, true);
                         execute_command("sudo mkdir -p " + outputDir, true);
 
@@ -897,72 +869,50 @@ void showMainMenu() {
                             std::cerr << COLOR_RED << "Invalid size! Please enter a positive number (e.g., 1.2)" << COLOR_RESET << std::endl;
                         }
 
-                        std::vector<std::string> fsOptions = {"btrfs", "ext4"};
-                        int fsSelected = 0;
-                        int fsKey;
-                        bool fsChosen = false;
-
-                        while (!fsChosen) {
-                            fsKey = showFilesystemMenu(fsOptions, fsSelected);
-
-                            switch (fsKey) {
-                                case 'A':
-                                    if (fsSelected > 0) fsSelected--;
-                                    break;
-                                case 'B':
-                                    if (fsSelected < static_cast<int>(fsOptions.size()) - 1) fsSelected++;
-                                    break;
-                                case '\n':
-                                    fsChosen = true;
-                                    break;
-                            }
-                        }
-
-                        std::string fsType = (fsSelected == 0) ? "btrfs" : "ext4";
-
+                        // Create and format ext4 image exactly like the bash script
                         if (!createImageFile(sizeInput, outputImgPath) ||
-                            !formatFilesystem(fsType, outputImgPath) ||
-                            !mountFilesystem(fsType, outputImgPath, MOUNT_POINT) ||
-                            !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT, fsType)) {
+                            !formatFilesystem(outputImgPath) ||
+                            !mountFilesystem(outputImgPath, MOUNT_POINT) ||
+                            !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT)) {
                             break;
                             }
 
                             unmountAndCleanup(MOUNT_POINT);
 
-                        if (fsType == "ext4") {
-                            // For ext4, create SquashFS version
-                            std::string squashPath = outputDir + "/" + FINAL_IMG_NAME;
-                            createSquashFS(outputImgPath, squashPath);
-                        }
+                        // Create SquashFS version from the ext4 image exactly like the bash script
+                        createSquashFS(outputImgPath, finalImgPath);
 
-                        createChecksum(outputImgPath);
-                        printFinalMessage(fsType, outputImgPath);
+                        createChecksum(finalImgPath);
+                        printFinalMessage(finalImgPath);
+
+                        // Clean up the original image like the bash script does
+                        execute_command("sudo rm -f " + outputImgPath, true);
 
                         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                         getch();
                         break;
                     }
-                                case 3:
-                                    createISO();
-                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                                    getch();
-                                    break;
-                                case 4:
-                                    execute_command("df -h");
-                                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                                    getch();
-                                    break;
-                                case 5:
-                                    installISOToUSB();
-                                    break;
-                                case 6:
-                                    runCMIInstaller();
-                                    break;
-                                case 7:
-                                    updateScript();
-                                    break;
-                                case 8:
-                                    return;
+                    case 3:
+                        createISO();
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 4:
+                        execute_command("df -h");
+                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                        getch();
+                        break;
+                    case 5:
+                        installISOToUSB();
+                        break;
+                    case 6:
+                        runCMIInstaller();
+                        break;
+                    case 7:
+                        updateScript();
+                        break;
+                    case 8:
+                        return;
                 }
                 break;
         }
