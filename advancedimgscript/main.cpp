@@ -414,19 +414,24 @@ void setOutputDir() {
 }
 
 void setCloneDir() {
-    std::string defaultDir = "/home/" + USERNAME + "/cmi_clone";
+    std::string defaultDir = "/home/" + USERNAME;
     std::cout << COLOR_GREEN << "Current clone directory: " << (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.cloneDir) << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
-    config.cloneDir = getUserInput("Enter clone directory (e.g., " + defaultDir + " or $USER/cmi_clone): ");
+    
+    // Get the parent directory from user
+    std::string parentDir = getUserInput("Enter parent directory for clone_system_temp folder (e.g., " + defaultDir + " or $USER): ");
 
     size_t user_pos;
-    if ((user_pos = config.cloneDir.find("$USER")) != std::string::npos) {
-        config.cloneDir.replace(user_pos, 5, USERNAME);
+    if ((user_pos = parentDir.find("$USER")) != std::string::npos) {
+        parentDir.replace(user_pos, 5, USERNAME);
     }
 
-    if (config.cloneDir.empty()) {
-        config.cloneDir = defaultDir;
+    if (parentDir.empty()) {
+        parentDir = defaultDir;
     }
+
+    // Always use clone_system_temp as the folder name
+    config.cloneDir = parentDir + "/clone_system_temp";
 
     execute_command("mkdir -p " + config.cloneDir, true);
 
@@ -583,9 +588,6 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--include=tmp "
     "--include=sys "
     "--include=usr "
-    "--exclude=*rootfs1.img "
-    "--exclude=ext4_temp "
-    "--exclude=rootfs.img " +
     source + "/ " + destination + "/";
     execute_command(command, true);
 
@@ -818,7 +820,7 @@ void showMainMenu() {
                         std::string outputDir = getOutputDirectory();
                         std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
                         
-                        // Use the user-specified clone directory instead of /tmp
+                        // Use the user-specified clone directory (which now always ends with clone_system_temp)
                         std::string cloneDir = expandPath(config.cloneDir);
                         execute_command("sudo mkdir -p " + cloneDir, true);
 
