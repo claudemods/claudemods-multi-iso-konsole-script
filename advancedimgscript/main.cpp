@@ -90,6 +90,7 @@ struct ConfigState {
     std::string isoName;
     std::string outputDir;
     std::string vmlinuzPath;
+    std::string cloneDir;
     bool mkinitcpioGenerated = false;
     bool grubEdited = false;
     bool dependenciesInstalled = false;
@@ -232,6 +233,10 @@ void printConfigStatus() {
     std::cout << " ";
     printCheckbox(!config.vmlinuzPath.empty());
     std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
+
+    std::cout << " ";
+    printCheckbox(!config.cloneDir.empty());
+    std::cout << " Clone Directory: " << (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.cloneDir) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.mkinitcpioGenerated);
@@ -408,6 +413,26 @@ void setOutputDir() {
     saveConfig();
 }
 
+void setCloneDir() {
+    std::string defaultDir = "/home/" + USERNAME + "/cmi_clone";
+    std::cout << COLOR_GREEN << "Current clone directory: " << (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.cloneDir) << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
+    config.cloneDir = getUserInput("Enter clone directory (e.g., " + defaultDir + " or $USER/cmi_clone): ");
+
+    size_t user_pos;
+    if ((user_pos = config.cloneDir.find("$USER")) != std::string::npos) {
+        config.cloneDir.replace(user_pos, 5, USERNAME);
+    }
+
+    if (config.cloneDir.empty()) {
+        config.cloneDir = defaultDir;
+    }
+
+    execute_command("mkdir -p " + config.cloneDir, true);
+
+    saveConfig();
+}
+
 std::string getConfigFilePath() {
     return "/home/" + USERNAME + "/.config/cmi/configuration.txt";
 }
@@ -420,6 +445,7 @@ void saveConfig() {
         configFile << "isoName=" << config.isoName << "\n";
         configFile << "outputDir=" << config.outputDir << "\n";
         configFile << "vmlinuzPath=" << config.vmlinuzPath << "\n";
+        configFile << "cloneDir=" << config.cloneDir << "\n";
         configFile << "mkinitcpioGenerated=" << (config.mkinitcpioGenerated ? "1" : "0") << "\n";
         configFile << "grubEdited=" << (config.grubEdited ? "1" : "0") << "\n";
         configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
@@ -444,6 +470,7 @@ void loadConfig() {
                 else if (key == "isoName") config.isoName = value;
                 else if (key == "outputDir") config.outputDir = value;
                 else if (key == "vmlinuzPath") config.vmlinuzPath = value;
+                else if (key == "cloneDir") config.cloneDir = value;
                 else if (key == "mkinitcpioGenerated") config.mkinitcpioGenerated = (value == "1");
                 else if (key == "grubEdited") config.grubEdited = (value == "1");
                 else if (key == "dependenciesInstalled") config.dependenciesInstalled = (value == "1");
@@ -484,6 +511,7 @@ bool validateSizeInput(const std::string& input) {
 void showSetupMenu() {
     std::vector<std::string> items = {
         "Install Dependencies",
+        "Set Clone Directory",
         "Set ISO Tag",
         "Set ISO Name",
         "Set Output Directory",
@@ -509,81 +537,23 @@ void showSetupMenu() {
             case '\n':
                 switch (selected) {
                     case 0: installDependencies(); break;
-                    case 1: setIsoTag(); break;
-                    case 2: setIsoName(); break;
-                    case 3: setOutputDir(); break;
-                    case 4: selectVmlinuz(); break;
-                    case 5: generateMkinitcpio(); break;
-                    case 6: editGrubCfg(); break;
-                    case 7: return;
+                    case 1: setCloneDir(); break;
+                    case 2: setIsoTag(); break;
+                    case 3: setIsoName(); break;
+                    case 4: setOutputDir(); break;
+                    case 5: selectVmlinuz(); break;
+                    case 6: generateMkinitcpio(); break;
+                    case 7: editGrubCfg(); break;
+                    case 8: return;
                 }
 
-                if (selected != 7) {
+                if (selected != 8) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                     getch();
                 }
                 break;
         }
     }
-}
-
-bool createImageFile(const std::string& sizeStr, const std::string& filename) {
-    // Convert size string to bytes (1GB = 1,073,741,824 bytes)
-    try {
-        double sizeGB = std::stod(sizeStr);
-        if (sizeGB <= 0) {
-            std::cerr << COLOR_RED << "Invalid size: must be greater than 0" << COLOR_RESET << std::endl;
-            return false;
-        }
-
-        // Calculate size in bytes
-        size_t sizeBytes = static_cast<size_t>(sizeGB * 1073741824);
-
-        std::cout << COLOR_CYAN << "Creating ext4 image of size " << sizeGB << "GB..." << COLOR_RESET << std::endl;
-
-        // Create empty image file using truncate like in the bash script
-        std::string command = "sudo truncate -s " + std::to_string(sizeBytes) + " " + filename;
-        execute_command(command, true);
-
-        return true;
-    } catch (const std::exception& e) {
-        std::cerr << COLOR_RED << "Error creating image file: " << e.what() << COLOR_RESET << std::endl;
-        return false;
-    }
-}
-
-bool formatFilesystem(const std::string& filename) {
-    std::cout << COLOR_CYAN << "Formatting as ext4..." << COLOR_RESET << std::endl;
-
-    // Use exact same ext4 arguments as bash script
-    std::vector<std::string> ext4_args;
-    ext4_args.push_back("-O");
-    ext4_args.push_back("^has_journal,^resize_inode");
-    ext4_args.push_back("-E");
-    ext4_args.push_back("lazy_itable_init=0");
-    ext4_args.push_back("-m");
-    ext4_args.push_back("0");
-
-    std::string command = "sudo mkfs.ext4";
-    for (const auto& arg : ext4_args) {
-        command += " " + arg;
-    }
-    command += " -F " + filename;
-
-    execute_command(command, true);
-
-    // Tune filesystem exactly like bash script
-    execute_command("sudo tune2fs -c 0 -i 0 " + filename, true);
-
-    return true;
-}
-
-bool mountFilesystem(const std::string& filename, const std::string& mountPoint) {
-    execute_command("sudo mkdir -p " + mountPoint, true);
-
-    std::string command = "sudo mount " + filename + " " + mountPoint;
-    execute_command(command, true);
-    return true;
 }
 
 bool copyFilesWithRsync(const std::string& source, const std::string& destination) {
@@ -622,22 +592,11 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     return true;
 }
 
-bool unmountAndCleanup(const std::string& mountPoint) {
-    sync();
-    try {
-        execute_command("sudo umount " + mountPoint, true);
-        execute_command("sudo rmdir " + mountPoint, true);
-    } catch (...) {
-        return false;
-    }
-    return true;
-}
-
-bool createSquashFS(const std::string& inputFile, const std::string& outputFile) {
+bool createSquashFS(const std::string& inputDir, const std::string& outputFile) {
     std::cout << COLOR_CYAN << "Creating SquashFS image, this may take some time..." << COLOR_RESET << std::endl;
 
     // Use exact same mksquashfs arguments as in the bash script
-    std::string command = "sudo mksquashfs " + inputFile + " " + outputFile +
+    std::string command = "sudo mksquashfs " + inputDir + " " + outputFile +
     " -noappend -comp xz -b 256K -Xbcj x86";
 
     execute_command(command, true);
@@ -653,7 +612,7 @@ bool createChecksum(const std::string& filename) {
 void printFinalMessage(const std::string& outputFile) {
     std::cout << std::endl;
     std::cout << COLOR_CYAN << "SquashFS image created successfully: " << outputFile << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Checksum file: " << outputFile << ".sha512" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Checksum file: " << outputFile + ".sha512" << COLOR_RESET << std::endl;
     std::cout << COLOR_CYAN << "Size: ";
     execute_command("sudo du -h " + outputFile + " | cut -f1", true);
     std::cout << COLOR_RESET;
@@ -849,44 +808,30 @@ void showMainMenu() {
                         showSetupMenu();
                         break;
                     case 2: {
+                        if (config.cloneDir.empty()) {
+                            std::cerr << COLOR_RED << "Clone directory not set! Please set it in Setup Scripts menu." << COLOR_RESET << std::endl;
+                            std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                            getch();
+                            break;
+                        }
+                        
                         std::string outputDir = getOutputDirectory();
-                        std::string outputImgPath = outputDir + "/" + ORIG_IMG_NAME;
                         std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
+                        
+                        // Use the user-specified clone directory instead of /tmp
+                        std::string cloneDir = expandPath(config.cloneDir);
+                        execute_command("sudo mkdir -p " + cloneDir, true);
 
-                        execute_command("sudo umount " + MOUNT_POINT + " 2>/dev/null || true", true);
-                        execute_command("sudo rm -rf " + outputImgPath, true);
-                        execute_command("sudo rm -rf " + finalImgPath, true);
-                        execute_command("sudo mkdir -p " + MOUNT_POINT, true);
-                        execute_command("sudo mkdir -p " + outputDir, true);
-
-                        // Get size input with validation
-                        std::string sizeInput;
-                        while (true) {
-                            sizeInput = getUserInput("Enter the image size in GB (e.g., 1.2 for 1.2GB): ");
-                            if (validateSizeInput(sizeInput)) {
-                                break;
-                            }
-                            std::cerr << COLOR_RED << "Invalid size! Please enter a positive number (e.g., 1.2)" << COLOR_RESET << std::endl;
+                        // Directly rsync into the clone directory
+                        if (!copyFilesWithRsync(SOURCE_DIR, cloneDir)) {
+                            break;
                         }
 
-                        // Create and format ext4 image exactly like the bash script
-                        if (!createImageFile(sizeInput, outputImgPath) ||
-                            !formatFilesystem(outputImgPath) ||
-                            !mountFilesystem(outputImgPath, MOUNT_POINT) ||
-                            !copyFilesWithRsync(SOURCE_DIR, MOUNT_POINT)) {
-                            break;
-                            }
-
-                            unmountAndCleanup(MOUNT_POINT);
-
-                        // Create SquashFS version from the ext4 image exactly like the bash script
-                        createSquashFS(outputImgPath, finalImgPath);
+                        // Create SquashFS from the clone directory
+                        createSquashFS(cloneDir, finalImgPath);
 
                         createChecksum(finalImgPath);
                         printFinalMessage(finalImgPath);
-
-                        // Clean up the original image like the bash script does
-                        execute_command("sudo rm -f " + outputImgPath, true);
 
                         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                         getch();
