@@ -13,7 +13,7 @@
 │ │
 │ 2️⃣ Main Menu Options │
 │ The script provides these main functions: │
-│ - Create System Image (EXT4/BTRFS) │
+│ - Create System Image (EXT4) │
 │ - ISO Creation Setup │
 │ - Generate Bootable ISO │
 │ - Check Disk Usage │
