@@ -433,7 +433,7 @@ void setCloneDir() {
     // Always use clone_system_temp as the folder name
     config.cloneDir = parentDir + "/clone_system_temp";
 
-    execute_command("mkdir -p " + config.cloneDir, true);
+    execute_command(" sudo mkdir -p " + config.cloneDir, true);
 
     saveConfig();
 }
