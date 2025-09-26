@@ -587,8 +587,9 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--include=proc "
     "--include=tmp "
     "--include=sys "
-    "--include=usr "
+    "--include=usr " +
     source + "/ " + destination + "/";
+    
     execute_command(command, true);
 
     return true;
