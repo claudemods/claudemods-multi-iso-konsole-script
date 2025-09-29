@@ -1,54 +1,26 @@
 #!/bin/bash
 
 # Configuration variables
-ORIG_IMG_NAME="system.img"
-COMPRESSED_IMG_NAME="rootfs.img"
-MOUNT_POINT="/mnt/btrfs_temp"
+ORIG_IMG_NAME="rootfs1.img"
+FINAL_IMG_NAME="rootfs.img"
+MOUNT_POINT="/mnt/ext4_temp"
 SOURCE_DIR="/"
 COMPRESSION_LEVEL="22"
 SQUASHFS_COMPRESSION="zstd"
-SQUASHFS_COMPRESSION_ARGS=("-Xcompression-level" "22")
+declare -a SQUASHFS_COMPRESSION_ARGS=("-Xcompression-level" "22")
+
+# Get username
 USERNAME=$(whoami)
 BUILD_DIR="/home/$USERNAME/.config/cmi/build-image-arch-img"
-BTRFS_LABEL="LIVE_SYSTEM"
-BTRFS_COMPRESSION="zstd"
 
 # Dependencies list
-DEPENDENCIES=(
-    "rsync"
-    "squashfs-tools"
-    "xorriso"
-    "grub"
-    "dosfstools"
-    "unzip"
-    "nano"
-    "arch-install-scripts"
-    "bash-completion"
-    "erofs-utils"
-    "findutils"
-    "unzip"
-    "jq"
-    "libarchive"
-    "libisoburn"
-    "lsb-release"
-    "lvm2"
-    "mkinitcpio-archiso"
-    "mkinitcpio-nfs-utils"
-    "mtools"
-    "nbd"
-    "pacman-contrib"
-    "parted"
-    "procps-ng"
-    "pv"
-    "python"
-    "sshfs"
-    "syslinux"
-    "xdg-utils"
-    "zsh-completions"
-    "kernel-modules-hook"
-    "virt-manager"
-    "qt6-tools"
-    "qt5-tools"
+declare -a DEPENDENCIES=(
+    "rsync" "squashfs-tools" "xorriso" "grub" "dosfstools" "unzip" "nano"
+    "arch-install-scripts" "bash-completion" "erofs-utils" "findutils" "unzip"
+    "jq" "libarchive" "libisoburn" "lsb-release" "lvm2" "mkinitcpio-archiso"
+    "mkinitcpio-nfs-utils" "mtools" "nbd" "pacman-contrib" "parted" "procps-ng"
+    "pv" "python" "sshfs" "syslinux" "xdg-utils" "zsh-completions"
+    "kernel-modules-hook" "virt-manager" "qt6-tools" "qt5-tools"
 )
 
 # ANSI color codes
@@ -62,58 +34,110 @@ COLOR_HIGHLIGHT="\033[38;2;0;255;255m"
 COLOR_NORMAL="\033[34m"
 
 # Configuration state
-declare -A CONFIG=(
-    ["isoTag"]=""
-    ["isoName"]=""
-    ["outputDir"]=""
-    ["vmlinuzPath"]=""
-    ["mkinitcpioGenerated"]="false"
-    ["grubEdited"]="false"
-    ["dependenciesInstalled"]="false"
-)
+isoTag=""
+isoName=""
+outputDir=""
+vmlinuzPath=""
+cloneDir=""
+mkinitcpioGenerated=false
+grubEdited=false
+dependenciesInstalled=false
 
-# Function to get current timestamp
-current_time_str() {
-    date +"%d/%m/%Y %H:%M:%S"
+# Time-related variables
+current_time_str=""
+time_thread_running=true
+
+# Function to save configuration
+saveConfig() {
+    local configPath="/home/$USERNAME/.config/cmi/configuration.txt"
+    mkdir -p "/home/$USERNAME/.config/cmi"
+    
+    cat > "$configPath" << EOF
+isoTag=$isoTag
+isoName=$isoName
+outputDir=$outputDir
+vmlinuzPath=$vmlinuzPath
+cloneDir=$cloneDir
+mkinitcpioGenerated=$([ "$mkinitcpioGenerated" = true ] && echo "1" || echo "0")
+grubEdited=$([ "$grubEdited" = true ] && echo "1" || echo "0")
+dependenciesInstalled=$([ "$dependenciesInstalled" = true ] && echo "1" || echo "0")
+EOF
 }
 
-# Function to print checkbox
-printCheckbox() {
-    if [[ "$1" == "true" ]]; then
-        echo -e "${COLOR_GREEN}[✓]${COLOR_RESET}"
-    else
-        echo -e "${COLOR_RED}[ ]${COLOR_RESET}"
-    fi
-}
-
-# Function to execute command with error handling
+# Function to execute commands with error handling
 execute_command() {
     local cmd="$1"
     local continueOnError="${2:-false}"
     
-    echo -e "${COLOR_CYAN}"
+    echo -e "$COLOR_CYAN"
     eval "$cmd"
     local status=$?
-    echo -e "${COLOR_RESET}"
+    echo -e "$COLOR_RESET"
     
-    if [ $status -ne 0 ] && [ "$continueOnError" == "false" ]; then
-        echo -e "${COLOR_RED}Error executing: $cmd${COLOR_RESET}" >&2
+    if [ $status -ne 0 ] && [ "$continueOnError" = "false" ]; then
+        echo -e "${COLOR_RED}Error executing: $cmd$COLOR_RESET"
         exit 1
     elif [ $status -ne 0 ]; then
-        echo -e "${COLOR_YELLOW}Command failed but continuing: $cmd${COLOR_RESET}" >&2
+        echo -e "${COLOR_YELLOW}Command failed but continuing: $cmd$COLOR_RESET"
     fi
 }
 
-# Function to get user input
-getUserInput() {
-    echo -ne "${COLOR_GREEN}$1${COLOR_RESET}"
-    read -r input
-    echo "$input"
+# Function to print checkbox
+printCheckbox() {
+    local checked="$1"
+    if [ "$checked" = "true" ]; then
+        echo -e "${COLOR_GREEN}[✓]$COLOR_RESET"
+    else
+        echo -e "${COLOR_RED}[ ]$COLOR_RESET"
+    fi
 }
 
 # Function to clear screen
 clearScreen() {
     echo -e "\033[2J\033[1;1H"
+}
+
+# Function to get single character input
+getch() {
+    local oldt newt ch
+    oldt=$(stty -g)
+    newt=$oldt
+    newt="${newt%-icanon}"
+    stty "$newt"
+    ch=$(dd bs=1 count=1 2>/dev/null)
+    stty "$oldt"
+    echo "$ch"
+}
+
+# Function to check if key is hit
+kbhit() {
+    local oldt newt oldf ch
+    oldt=$(stty -g)
+    newt=$oldt
+    newt="${newt%-icanon} -echo"
+    stty "$newt"
+    oldf=$(fcntl 0 F_GETFL 0)
+    fcntl 0 F_SETFL "$((oldf | O_NONBLOCK))" >/dev/null 2>&1
+    
+    ch=$(dd bs=1 count=1 2>/dev/null)
+    local result=$?
+    
+    stty "$oldt"
+    fcntl 0 F_SETFL "$oldf" >/dev/null 2>&1
+    
+    if [ $result -eq 0 ] && [ -n "$ch" ]; then
+        echo "$ch" | cat -v
+        return 0
+    fi
+    return 1
+}
+
+# Time update thread (simulated with background process)
+update_time_thread() {
+    while $time_thread_running; do
+        current_time_str=$(date '+%d/%m/%Y %H:%M:%S')
+        sleep 1
+    done
 }
 
 # Function to print banner
@@ -127,69 +151,229 @@ printBanner() {
 ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
-${COLOR_RESET}"
-    echo -e "${COLOR_CYAN} Advanced Bash Arch Img Iso Script Beta v2.01 24-07-2025${COLOR_RESET}"
-
-    # Show current UK time
-    echo -e "${COLOR_BLUE}Current UK Time: ${COLOR_CYAN}$(current_time_str)${COLOR_RESET}"
-
-    # Show disk usage information
-    echo -e "${COLOR_GREEN}Filesystem      Size  Used Avail Use% Mounted on${COLOR_RESET}"
+$COLOR_RESET"
+    echo -e "${COLOR_CYAN} Advanced Bash Arch Img Iso Script Beta v2.01 26-07-2025$COLOR_RESET"
+    echo -e "${COLOR_BLUE}Current UK Time: ${COLOR_CYAN}$current_time_str$COLOR_RESET"
+    echo -e "${COLOR_GREEN}Filesystem      Size  Used Avail Use% Mounted on$COLOR_RESET"
     execute_command "df -h / | tail -1"
     echo
 }
 
 # Function to print configuration status
 printConfigStatus() {
-    echo -e "${COLOR_CYAN}Current Configuration:${COLOR_RESET}"
-
+    echo -e "${COLOR_CYAN}Current Configuration:$COLOR_RESET"
+    
     echo -n " "
-    printCheckbox "${CONFIG[dependenciesInstalled]}"
+    printCheckbox "$dependenciesInstalled"
     echo " Dependencies Installed"
-
+    
     echo -n " "
-    printCheckbox "${CONFIG[isoTag]}"
-    echo -n " ISO Tag: "
-    if [ -z "${CONFIG[isoTag]}" ]; then
-        echo -e "${COLOR_YELLOW}Not set${COLOR_RESET}"
-    else
-        echo -e "${COLOR_CYAN}${CONFIG[isoTag]}${COLOR_RESET}"
-    fi
-
+    printCheckbox "$([ -n "$isoTag" ] && echo true || echo false)"
+    echo " ISO Tag: $([ -z "$isoTag" ] && echo -e "${COLOR_YELLOW}Not set$COLOR_RESET" || echo -e "${COLOR_CYAN}$isoTag$COLOR_RESET")"
+    
     echo -n " "
-    printCheckbox "${CONFIG[isoName]}"
-    echo -n " ISO Name: "
-    if [ -z "${CONFIG[isoName]}" ]; then
-        echo -e "${COLOR_YELLOW}Not set${COLOR_RESET}"
-    else
-        echo -e "${COLOR_CYAN}${CONFIG[isoName]}${COLOR_RESET}"
-    fi
-
+    printCheckbox "$([ -n "$isoName" ] && echo true || echo false)"
+    echo " ISO Name: $([ -z "$isoName" ] && echo -e "${COLOR_YELLOW}Not set$COLOR_RESET" || echo -e "${COLOR_CYAN}$isoName$COLOR_RESET")"
+    
     echo -n " "
-    printCheckbox "${CONFIG[outputDir]}"
-    echo -n " Output Directory: "
-    if [ -z "${CONFIG[outputDir]}" ]; then
-        echo -e "${COLOR_YELLOW}Not set${COLOR_RESET}"
-    else
-        echo -e "${COLOR_CYAN}${CONFIG[outputDir]}${COLOR_RESET}"
-    fi
-
+    printCheckbox "$([ -n "$outputDir" ] && echo true || echo false)"
+    echo " Output Directory: $([ -z "$outputDir" ] && echo -e "${COLOR_YELLOW}Not set$COLOR_RESET" || echo -e "${COLOR_CYAN}$outputDir$COLOR_RESET")"
+    
     echo -n " "
-    printCheckbox "${CONFIG[vmlinuzPath]}"
-    echo -n " vmlinuz Selected: "
-    if [ -z "${CONFIG[vmlinuzPath]}" ]; then
-        echo -e "${COLOR_YELLOW}Not selected${COLOR_RESET}"
-    else
-        echo -e "${COLOR_CYAN}${CONFIG[vmlinuzPath]}${COLOR_RESET}"
-    fi
-
+    printCheckbox "$([ -n "$vmlinuzPath" ] && echo true || echo false)"
+    echo " vmlinuz Selected: $([ -z "$vmlinuzPath" ] && echo -e "${COLOR_YELLOW}Not selected$COLOR_RESET" || echo -e "${COLOR_CYAN}$vmlinuzPath$COLOR_RESET")"
+    
     echo -n " "
-    printCheckbox "${CONFIG[mkinitcpioGenerated]}"
+    printCheckbox "$([ -n "$cloneDir" ] && echo true || echo false)"
+    echo " Clone Directory: $([ -z "$cloneDir" ] && echo -e "${COLOR_YELLOW}Not set$COLOR_RESET" || echo -e "${COLOR_CYAN}$cloneDir$COLOR_RESET")"
+    
+    echo -n " "
+    printCheckbox "$mkinitcpioGenerated"
     echo " mkinitcpio Generated"
-
+    
     echo -n " "
-    printCheckbox "${CONFIG[grubEdited]}"
+    printCheckbox "$grubEdited"
     echo " GRUB Config Edited"
+}
+
+# Function to get user input
+getUserInput() {
+    local prompt="$1"
+    echo -en "${COLOR_GREEN}$prompt$COLOR_RESET"
+    
+    local oldt newt
+    oldt=$(stty -g)
+    newt=$oldt
+    newt="${newt%-icanon} -echo"
+    stty "$newt"
+    
+    local input=""
+    local ch=""
+    
+    while IFS= read -r -n1 ch; do
+        case "$ch" in
+            $'\n')
+                break
+                ;;
+            $'\177'|$'\b')
+                if [ -n "$input" ]; then
+                    input="${input%?}"
+                    echo -ne "\b \b"
+                fi
+                ;;
+            *)
+                if [[ "$ch" =~ [[:print:]] ]]; then
+                    input+="$ch"
+                    echo -n "$ch"
+                fi
+                ;;
+        esac
+    done
+    
+    stty "$oldt"
+    echo
+    echo "$input"
+}
+
+# Function to install dependencies
+installDependencies() {
+    echo -e "${COLOR_CYAN}\nInstalling required dependencies...\n$COLOR_RESET"
+    
+    local packages=""
+    for pkg in "${DEPENDENCIES[@]}"; do
+        packages="$packages $pkg"
+    done
+    
+    execute_command "sudo pacman -Sy --needed --noconfirm $packages"
+    
+    dependenciesInstalled=true
+    saveConfig
+    echo -e "${COLOR_GREEN}\nDependencies installed successfully!\n$COLOR_RESET"
+}
+
+# Function to select vmlinuz
+selectVmlinuz() {
+    local vmlinuzFiles=()
+    
+    if [ -d "/boot" ]; then
+        while IFS= read -r -d $'\0' file; do
+            vmlinuzFiles+=("$file")
+        done < <(find /boot -name "vmlinuz*" -type f -print0)
+    else
+        echo -e "${COLOR_RED}Could not open /boot directory$COLOR_RESET"
+        return
+    fi
+    
+    if [ ${#vmlinuzFiles[@]} -eq 0 ]; then
+        echo -e "${COLOR_RED}No vmlinuz files found in /boot!$COLOR_RESET"
+        return
+    fi
+    
+    echo -e "${COLOR_GREEN}Available vmlinuz files:$COLOR_RESET"
+    for i in "${!vmlinuzFiles[@]}"; do
+        echo -e "${COLOR_GREEN}$((i+1))) ${vmlinuzFiles[i]}$COLOR_RESET"
+    done
+    
+    local selection
+    selection=$(getUserInput "Select vmlinuz file (1-${#vmlinuzFiles[@]}): ")
+    
+    if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le ${#vmlinuzFiles[@]} ]; then
+        vmlinuzPath="${vmlinuzFiles[$((selection-1))]}"
+        local destPath="$BUILD_DIR/boot/vmlinuz-x86_64"
+        
+        execute_command "sudo cp \"$vmlinuzPath\" \"$destPath\""
+        
+        echo -e "${COLOR_CYAN}Selected: $vmlinuzPath$COLOR_RESET"
+        echo -e "${COLOR_CYAN}Copied to: $destPath$COLOR_RESET"
+        saveConfig
+    else
+        echo -e "${COLOR_RED}Invalid selection!$COLOR_RESET"
+    fi
+}
+
+# Function to generate mkinitcpio
+generateMkinitcpio() {
+    if [ -z "$vmlinuzPath" ]; then
+        echo -e "${COLOR_RED}Please select vmlinuz first!$COLOR_RESET"
+        return
+    fi
+    
+    if [ -z "$BUILD_DIR" ]; then
+        echo -e "${COLOR_RED}Build directory not set!$COLOR_RESET"
+        return
+    fi
+    
+    echo -e "${COLOR_CYAN}Generating initramfs...$COLOR_RESET"
+    execute_command "cd \"$BUILD_DIR\" && sudo mkinitcpio -c mkinitcpio.conf -g \"$BUILD_DIR/boot/initramfs-x86_64.img\""
+    
+    mkinitcpioGenerated=true
+    saveConfig
+    echo -e "${COLOR_GREEN}mkinitcpio generated successfully!$COLOR_RESET"
+}
+
+# Function to edit GRUB config
+editGrubCfg() {
+    if [ -z "$BUILD_DIR" ]; then
+        echo -e "${COLOR_RED}Build directory not set!$COLOR_RESET"
+        return
+    fi
+    
+    local grubCfgPath="$BUILD_DIR/boot/grub/grub.cfg"
+    echo -e "${COLOR_CYAN}Editing GRUB config: $grubCfgPath$COLOR_RESET"
+    
+    execute_command "sudo env TERM=xterm-256color nano -Y cyanish \"$grubCfgPath\""
+    
+    grubEdited=true
+    saveConfig
+    echo -e "${COLOR_GREEN}GRUB config edited!$COLOR_RESET"
+}
+
+# Function to set ISO tag
+setIsoTag() {
+    isoTag=$(getUserInput "Enter ISO tag (e.g., 2025): ")
+    saveConfig
+}
+
+# Function to set ISO name
+setIsoName() {
+    isoName=$(getUserInput "Enter ISO name (e.g., claudemods.iso): ")
+    saveConfig
+}
+
+# Function to set output directory
+setOutputDir() {
+    local defaultDir="/home/$USERNAME/Downloads"
+    echo -e "${COLOR_GREEN}Current output directory: $([ -z "$outputDir" ] && echo -e "${COLOR_YELLOW}Not set$COLOR_RESET" || echo -e "${COLOR_CYAN}$outputDir$COLOR_RESET")"
+    echo -e "${COLOR_GREEN}Default directory: ${COLOR_CYAN}$defaultDir$COLOR_RESET"
+    
+    outputDir=$(getUserInput "Enter output directory (e.g., $defaultDir or \$USER/Downloads): ")
+    outputDir="${outputDir//\$USER/$USERNAME}"
+    
+    if [ -z "$outputDir" ]; then
+        outputDir="$defaultDir"
+    fi
+    
+    execute_command "mkdir -p \"$outputDir\"" "true"
+    saveConfig
+}
+
+# Function to set clone directory
+setCloneDir() {
+    local defaultDir="/home/$USERNAME"
+    echo -e "${COLOR_GREEN}Current clone directory: $([ -z "$cloneDir" ] && echo -e "${COLOR_YELLOW}Not set$COLOR_RESET" || echo -e "${COLOR_CYAN}$cloneDir$COLOR_RESET")"
+    echo -e "${COLOR_GREEN}Default directory: ${COLOR_CYAN}$defaultDir$COLOR_RESET"
+    
+    local parentDir
+    parentDir=$(getUserInput "Enter parent directory for clone_system_temp folder (e.g., $defaultDir or \$USER): ")
+    parentDir="${parentDir//\$USER/$USERNAME}"
+    
+    if [ -z "$parentDir" ]; then
+        parentDir="$defaultDir"
+    fi
+    
+    cloneDir="$parentDir/clone_system_temp"
+    execute_command "sudo mkdir -p \"$cloneDir\"" "true"
+    saveConfig
 }
 
 # Function to get config file path
@@ -197,230 +381,62 @@ getConfigFilePath() {
     echo "/home/$USERNAME/.config/cmi/configuration.txt"
 }
 
-# Function to save configuration
-saveConfig() {
-    local configPath=$(getConfigFilePath)
-    {
-        echo "isoTag=${CONFIG[isoTag]}"
-        echo "isoName=${CONFIG[isoName]}"
-        echo "outputDir=${CONFIG[outputDir]}"
-        echo "vmlinuzPath=${CONFIG[vmlinuzPath]}"
-        echo "mkinitcpioGenerated=${CONFIG[mkinitcpioGenerated]}"
-        echo "grubEdited=${CONFIG[grubEdited]}"
-        echo "dependenciesInstalled=${CONFIG[dependenciesInstalled]}"
-    } > "$configPath"
-}
-
 # Function to load configuration
 loadConfig() {
-    local configPath=$(getConfigFilePath)
+    local configPath
+    configPath=$(getConfigFilePath)
+    
     if [ -f "$configPath" ]; then
         while IFS='=' read -r key value; do
-            if [[ -n $key && $key != "#"* ]]; then
-                CONFIG["$key"]="$value"
-            fi
+            case "$key" in
+                "isoTag") isoTag="$value" ;;
+                "isoName") isoName="$value" ;;
+                "outputDir") outputDir="$value" ;;
+                "vmlinuzPath") vmlinuzPath="$value" ;;
+                "cloneDir") cloneDir="$value" ;;
+                "mkinitcpioGenerated") [ "$value" = "1" ] && mkinitcpioGenerated=true || mkinitcpioGenerated=false ;;
+                "grubEdited") [ "$value" = "1" ] && grubEdited=true || grubEdited=false ;;
+                "dependenciesInstalled") [ "$value" = "1" ] && dependenciesInstalled=true || dependenciesInstalled=false ;;
+            esac
         done < "$configPath"
     fi
-}
-
-# Function to check if ready for ISO creation
-isReadyForISO() {
-    [[ -n "${CONFIG[isoTag]}" && -n "${CONFIG[isoName]}" && -n "${CONFIG[outputDir]}" && \
-    -n "${CONFIG[vmlinuzPath]}" && "${CONFIG[mkinitcpioGenerated]}" == "true" && \
-    "${CONFIG[grubEdited]}" == "true" && "${CONFIG[dependenciesInstalled]}" == "true" ]]
-}
-
-# Function to install dependencies
-installDependencies() {
-    echo -e "${COLOR_CYAN}\nInstalling required dependencies...\n${COLOR_RESET}"
-
-    # Build package list string
-    local packages="${DEPENDENCIES[*]}"
-
-    local command="sudo pacman -Sy --needed --noconfirm $packages"
-    execute_command "$command"
-
-    CONFIG[dependenciesInstalled]="true"
-    saveConfig
-    echo -e "${COLOR_GREEN}\nDependencies installed successfully!\n${COLOR_RESET}"
-}
-
-# Function to select vmlinuz
-selectVmlinuz() {
-    local vmlinuzFiles=()
-    while IFS= read -r -d $'\0' file; do
-        vmlinuzFiles+=("$file")
-    done < <(find /boot -name 'vmlinuz*' -print0 | sort -z)
-
-    if [ ${#vmlinuzFiles[@]} -eq 0 ]; then
-        echo -e "${COLOR_RED}No vmlinuz files found in /boot!${COLOR_RESET}" >&2
-        return
-    fi
-
-    echo -e "${COLOR_GREEN}Available vmlinuz files:${COLOR_RESET}"
-    for i in "${!vmlinuzFiles[@]}"; do
-        echo -e "${COLOR_GREEN}$((i+1))) ${vmlinuzFiles[i]}${COLOR_RESET}"
-    done
-
-    local selection=$(getUserInput "Select vmlinuz file (1-${#vmlinuzFiles[@]}): ")
-    if [[ "$selection" =~ ^[0-9]+$ && $selection -ge 1 && $selection -le ${#vmlinuzFiles[@]} ]]; then
-        CONFIG[vmlinuzPath]="${vmlinuzFiles[$((selection-1))]}"
-        echo -e "${COLOR_CYAN}Selected: ${CONFIG[vmlinuzPath]}${COLOR_RESET}"
-        saveConfig
-    else
-        echo -e "${COLOR_RED}Invalid selection!${COLOR_RESET}" >&2
-    fi
-}
-
-# Function to generate mkinitcpio
-generateMkinitcpio() {
-    if [ -z "${CONFIG[vmlinuzPath]}" ]; then
-        echo -e "${COLOR_RED}Please select vmlinuz first!${COLOR_RESET}" >&2
-        return
-    fi
-
-    if [ -z "$BUILD_DIR" ]; then
-        echo -e "${COLOR_RED}Build directory not set!${COLOR_RESET}" >&2
-        return
-    fi
-
-    echo -e "${COLOR_CYAN}Generating initramfs...${COLOR_RESET}"
-    execute_command "cd $BUILD_DIR && sudo mkinitcpio -c mkinitcpio.conf -g $BUILD_DIR/boot/initramfs-x86_64.img"
-
-    CONFIG[mkinitcpioGenerated]="true"
-    saveConfig
-    echo -e "${COLOR_GREEN}mkinitcpio generated successfully!${COLOR_RESET}"
-}
-
-# Function to edit GRUB config
-editGrubCfg() {
-    if [ -z "$BUILD_DIR" ]; then
-        echo -e "${COLOR_RED}Build directory not set!${COLOR_RESET}" >&2
-        return
-    fi
-
-    local grubCfgPath="$BUILD_DIR/boot/grub/grub.cfg"
-    echo -e "${COLOR_CYAN}Editing GRUB config: $grubCfgPath${COLOR_RESET}"
-    execute_command "sudo nano $grubCfgPath"
-
-    CONFIG[grubEdited]="true"
-    saveConfig
-    echo -e "${COLOR_GREEN}GRUB config edited!${COLOR_RESET}"
-}
-
-# Function to set ISO tag
-setIsoTag() {
-    CONFIG[isoTag]=$(getUserInput "Enter ISO tag (e.g., 2025): ")
-    saveConfig
-}
-
-# Function to set ISO name
-setIsoName() {
-    CONFIG[isoName]=$(getUserInput "Enter ISO name (e.g., claudemods.iso): ")
-    saveConfig
-}
-
-# Function to set output directory
-setOutputDir() {
-    local defaultDir="/home/$USERNAME/Downloads"
-    echo -e "${COLOR_GREEN}Current output directory: "
-    if [ -z "${CONFIG[outputDir]}" ]; then
-        echo -e "${COLOR_YELLOW}Not set${COLOR_RESET}"
-    else
-        echo -e "${COLOR_CYAN}${CONFIG[outputDir]}${COLOR_RESET}"
-    fi
-    echo -e "${COLOR_GREEN}Default directory: ${COLOR_CYAN}$defaultDir${COLOR_RESET}"
-    
-    CONFIG[outputDir]=$(getUserInput "Enter output directory (e.g., $defaultDir or \$USER/Downloads): ")
-
-    # Replace $USER with actual username
-    CONFIG[outputDir]=${CONFIG[outputDir]//\$USER/$USERNAME}
-
-    # If empty, use default
-    if [ -z "${CONFIG[outputDir]}" ]; then
-        CONFIG[outputDir]="$defaultDir"
-    fi
-
-    # Create directory if it doesn't exist
-    execute_command "mkdir -p ${CONFIG[outputDir]}" "true"
-
-    saveConfig
 }
 
 # Function to show menu
 showMenu() {
     local title="$1"
-    local -n items="$2"
-    local selected="$3"
-    
-    clearScreen
-    printBanner
-    printConfigStatus
-
-    echo -e "${COLOR_CYAN}\n  $title${COLOR_RESET}"
-    echo -e "${COLOR_CYAN}  $(printf '%*s' "${#title}" '' | tr ' ' '-')${COLOR_RESET}"
-
-    for i in "${!items[@]}"; do
-        if [ $i -eq $selected ]; then
-            echo -e "${COLOR_HIGHLIGHT}➤ ${items[i]}${COLOR_RESET}"
-        else
-            echo -e "${COLOR_NORMAL}  ${items[i]}${COLOR_RESET}"
-        fi
-    done
-
-    read -rsn1 -t 0.1 # Clear any existing input
-    read -rsn1 input
-    case "$input" in
-        $'\x1b') # ESC sequence
-            read -rsn2 -t 0.1 input
-            case "$input" in
-                '[A') echo "UP" ;;
-                '[B') echo "DOWN" ;;
-            esac
-            ;;
-        $'\n') echo "ENTER" ;;
-        *) echo "$input" ;;
-    esac
-}
-
-# Function to show filesystem menu
-showFilesystemMenu() {
-    local -n items="$1"
+    shift
+    local items=("$@")
     local selected="$2"
     
     clearScreen
     printBanner
-
-    echo -e "${COLOR_CYAN}\n  Choose filesystem type:${COLOR_RESET}"
-    echo -e "${COLOR_CYAN}  ----------------------${COLOR_RESET}"
-
+    printConfigStatus
+    
+    echo -e "${COLOR_CYAN}\n  $title$COLOR_RESET"
+    echo -e "${COLOR_CYAN}  $(printf '%*s' "${#title}" '' | tr ' ' '-')$COLOR_RESET"
+    
     for i in "${!items[@]}"; do
-        if [ $i -eq $selected ]; then
-            echo -e "${COLOR_HIGHLIGHT}➤ ${items[i]}${COLOR_RESET}"
+        if [ "$i" -eq "$selected" ]; then
+            echo -e "${COLOR_HIGHLIGHT}➤ ${items[i]}$COLOR_RESET"
         else
-            echo -e "${COLOR_NORMAL}  ${items[i]}${COLOR_RESET}"
+            echo -e "${COLOR_NORMAL}  ${items[i]}$COLOR_RESET"
         fi
     done
+}
 
-    read -rsn1 -t 0.1 # Clear any existing input
-    read -rsn1 input
-    case "$input" in
-        $'\x1b') # ESC sequence
-            read -rsn2 -t 0.1 input
-            case "$input" in
-                '[A') echo "UP" ;;
-                '[B') echo "DOWN" ;;
-            esac
-            ;;
-        $'\n') echo "ENTER" ;;
-        *) echo "$input" ;;
-    esac
+# Function to check if setup is ready for ISO
+isReadyForISO() {
+    [ -n "$isoTag" ] && [ -n "$isoName" ] && [ -n "$outputDir" ] && \
+    [ -n "$vmlinuzPath" ] && [ "$mkinitcpioGenerated" = true ] && \
+    [ "$grubEdited" = true ] && [ "$dependenciesInstalled" = true ]
 }
 
 # Function to show setup menu
 showSetupMenu() {
     local items=(
         "Install Dependencies"
+        "Set Clone Directory"
         "Set ISO Tag"
         "Set ISO Name"
         "Set Output Directory"
@@ -429,189 +445,111 @@ showSetupMenu() {
         "Edit GRUB Config"
         "Back to Main Menu"
     )
-
+    
     local selected=0
     local key
-
+    
     while true; do
-        key=$(showMenu "ISO Creation Setup Menu:" items $selected)
-
+        showMenu "ISO Creation Setup Menu:" "${items[@]}" "$selected"
+        
+        read -rsn1 key
         case "$key" in
-            "UP")
-                if [ $selected -gt 0 ]; then
-                    ((selected--))
-                fi
+            $'\x1b')
+                read -rsn2 -t 0.1 key
+                case "$key" in
+                    "[A") [ $selected -gt 0 ] && ((selected--)) ;;
+                    "[B") [ $selected -lt $((${#items[@]}-1)) ] && ((selected++)) ;;
+                esac
                 ;;
-            "DOWN")
-                if [ $selected -lt $((${#items[@]}-1)) ]; then
-                    ((selected++))
-                fi
-                ;;
-            "ENTER")
+            "")
                 case $selected in
                     0) installDependencies ;;
-                    1) setIsoTag ;;
-                    2) setIsoName ;;
-                    3) setOutputDir ;;
-                    4) selectVmlinuz ;;
-                    5) generateMkinitcpio ;;
-                    6) editGrubCfg ;;
-                    7) return ;;
+                    1) setCloneDir ;;
+                    2) setIsoTag ;;
+                    3) setIsoName ;;
+                    4) setOutputDir ;;
+                    5) selectVmlinuz ;;
+                    6) generateMkinitcpio ;;
+                    7) editGrubCfg ;;
+                    8) return ;;
                 esac
-
-                # Pause to show result before returning to menu
-                if [ $selected -ne 7 ]; then
-                    echo -e "${COLOR_GREEN}\nPress any key to continue...${COLOR_RESET}"
-                    read -n1 -s
+                
+                if [ $selected -ne 8 ]; then
+                    echo -e "${COLOR_GREEN}\nPress any key to continue...$COLOR_RESET"
+                    getch >/dev/null
                 fi
                 ;;
         esac
     done
 }
 
-# Function to create image file
-createImageFile() {
-    local size="$1"
-    local filename="$2"
-    local command="sudo truncate -s $size $filename"
-    execute_command "$command" "true"
-    return $?
-}
-
-# Function to format filesystem
-formatFilesystem() {
-    local fsType="$1"
-    local filename="$2"
-
-    if [ "$fsType" == "btrfs" ]; then
-        echo -e "${COLOR_CYAN}Creating Btrfs filesystem with $BTRFS_COMPRESSION compression${COLOR_RESET}"
-
-        # Create temporary rootdir
-        execute_command "sudo mkdir -p $SOURCE_DIR/btrfs_rootdir" "true"
-
-        local command="sudo mkfs.btrfs -L \"$BTRFS_LABEL\" --compress=$BTRFS_COMPRESSION --rootdir=$SOURCE_DIR/btrfs_rootdir -f $filename"
-        execute_command "$command" "true"
-
-        # Cleanup temporary rootdir
-        execute_command "sudo rmdir $SOURCE_DIR/btrfs_rootdir" "true"
-    else
-        echo -e "${COLOR_CYAN}Formatting as ext4${COLOR_RESET}"
-        local command="sudo mkfs.ext4 -F -L \"SYSTEM_BACKUP\" $filename"
-        execute_command "$command" "true"
-    fi
-    return $?
-}
-
-# Function to mount filesystem
-mountFilesystem() {
-    local fsType="$1"
-    local filename="$2"
-    local mountPoint="$3"
-
-    execute_command "sudo mkdir -p $mountPoint" "true"
-
-    if [ "$fsType" == "btrfs" ]; then
-        local command="sudo mount $filename $mountPoint"
-        execute_command "$command" "true"
-    else
-        local options="loop,discard,noatime"
-        local command="sudo mount -o $options $filename $mountPoint"
-        execute_command "$command" "true"
-    fi
-    return $?
-}
-
 # Function to copy files with rsync
 copyFilesWithRsync() {
     local source="$1"
     local destination="$2"
-    local fsType="$3"
-
+    
+    echo -e "${COLOR_CYAN}Copying files...$COLOR_RESET"
+    
     local command="sudo rsync -aHAXSr --numeric-ids --info=progress2 \
-    --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
-    --exclude=/etc/udev/rules.d/70-persistent-net.rules \
-    --exclude=/etc/mtab \
-    --exclude=/etc/fstab \
-    --exclude=/dev/* \
-    --exclude=/proc/* \
-    --exclude=/sys/* \
-    --exclude=/tmp/* \
-    --exclude=/run/* \
-    --exclude=/mnt/* \
-    --exclude=/media/* \
-    --exclude=/lost+found \
-    --exclude=*rootfs1.img \
-    --exclude=btrfs_temp \
-    --exclude=system.img \
-    --exclude=rootfs.img \
-    $source $destination"
+        --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
+        --exclude=/etc/udev/rules.d/70-persistent-net.rules \
+        --exclude=/etc/mtab \
+        --exclude=/etc/fstab \
+        --exclude=/dev/* \
+        --exclude=/proc/* \
+        --exclude=/sys/* \
+        --exclude=/tmp/* \
+        --exclude=/run/* \
+        --exclude=/mnt/* \
+        --exclude=/media/* \
+        --exclude=/lost+found \
+        --exclude=clone_system_temp \
+        --include=dev \
+        --include=proc \
+        --include=tmp \
+        --include=sys \
+        --include=run \
+        --include=dev \
+        --include=proc \
+        --include=tmp \
+        --include=sys \
+        --include=usr \
+        \"$source/\" \"$destination/\""
+    
     execute_command "$command" "true"
-
-    if [ "$fsType" == "btrfs" ]; then
-        # Optimize compression after copy
-        echo -e "${COLOR_CYAN}Optimizing compression....${COLOR_RESET}"
-        execute_command "sudo btrfs filesystem defrag -r -v -c $BTRFS_COMPRESSION $destination" "true"
-
-        # Shrink to minimum size
-        echo -e "${COLOR_CYAN}Finalizing image...${COLOR_RESET}"
-        execute_command "sudo btrfs filesystem resize max $destination" "true"
-    fi
-
-    return $?
-}
-
-# Function to unmount and cleanup
-unmountAndCleanup() {
-    local mountPoint="$1"
-    sync
-    execute_command "sudo umount $mountPoint" "true"
-    execute_command "sudo rmdir $mountPoint" "true"
-    return $?
+    return 0
 }
 
 # Function to create SquashFS
 createSquashFS() {
-    local inputFile="$1"
+    local inputDir="$1"
     local outputFile="$2"
-
-    local command="sudo mksquashfs $inputFile $outputFile \
-    -comp $SQUASHFS_COMPRESSION \
-    $SQUASHFS_COMPRESSION_ARGS \
-    -noappend"
+    
+    echo -e "${COLOR_CYAN}Creating SquashFS image, this may take some time...$COLOR_RESET"
+    
+    local command="sudo mksquashfs \"$inputDir\" \"$outputFile\" \
+        -noappend -comp xz -b 256K -Xbcj x86"
+    
     execute_command "$command" "true"
-    return $?
+    return 0
 }
 
 # Function to create checksum
 createChecksum() {
     local filename="$1"
-    local command="md5sum $filename > $filename.md5"
-    execute_command "$command" "true"
-    return $?
+    execute_command "sha512sum \"$filename\" > \"$filename.sha512\"" "true"
+    return 0
 }
 
 # Function to print final message
 printFinalMessage() {
-    local fsType="$1"
-    local squashfsOutput="$2"
-
+    local outputFile="$1"
     echo
-    if [ "$fsType" == "btrfs" ]; then
-        echo -e "${COLOR_CYAN}Compressed BTRFS image created successfully: $squashfsOutput${COLOR_RESET}"
-    else
-        echo -e "${COLOR_CYAN}Ext4 image created successfully: $squashfsOutput${COLOR_RESET}"
-    fi
-    echo -e "${COLOR_CYAN}Checksum file: $squashfsOutput.md5${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}SquashFS image created successfully: $outputFile$COLOR_RESET"
+    echo -e "${COLOR_CYAN}Checksum file: $outputFile.sha512$COLOR_RESET"
     echo -ne "${COLOR_CYAN}Size: "
-    execute_command "sudo du -h $squashfsOutput | cut -f1" "true"
-    echo -ne "${COLOR_RESET}"
-}
-
-# Function to delete original image
-deleteOriginalImage() {
-    local imgName="$1"
-    echo -e "${COLOR_CYAN}Deleting original image file: $imgName${COLOR_RESET}"
-    execute_command "sudo rm -f $imgName" "true"
+    execute_command "sudo du -h \"$outputFile\" | cut -f1" "true"
+    echo -e "$COLOR_RESET"
 }
 
 # Function to get output directory
@@ -619,10 +557,10 @@ getOutputDirectory() {
     echo "/home/$USERNAME/.config/cmi/build-image-arch-img/LiveOS"
 }
 
-# Function to expand path with variables
+# Function to expand path
 expandPath() {
     local path="$1"
-    path="${path/#~/$HOME}"
+    path="${path//\~/$HOME}"
     path="${path//\$USER/$USERNAME}"
     echo "$path"
 }
@@ -630,130 +568,132 @@ expandPath() {
 # Function to create ISO
 createISO() {
     if ! isReadyForISO; then
-        echo -e "${COLOR_RED}Cannot create ISO - setup is incomplete!${COLOR_RESET}" >&2
+        echo -e "${COLOR_RED}Cannot create ISO - setup is incomplete!$COLOR_RESET"
         return 1
     fi
-
-    echo -e "${COLOR_CYAN}\nStarting ISO creation process...\n${COLOR_RESET}"
-
-    local expandedOutputDir=$(expandPath "${CONFIG[outputDir]}")
-
-    # Ensure output directory exists
-    execute_command "mkdir -p $expandedOutputDir" "true"
-
+    
+    echo -e "${COLOR_CYAN}\nStarting ISO creation process...\n$COLOR_RESET"
+    
+    local expandedOutputDir
+    expandedOutputDir=$(expandPath "$outputDir")
+    execute_command "mkdir -p \"$expandedOutputDir\"" "true"
+    
     local xorrisoCmd="sudo xorriso -as mkisofs \
-    --modification-date=\"$(date +%Y%m%d%H%M%S00)\" \
-    --protective-msdos-label \
-    -volid \"${CONFIG[isoTag]}\" \
-    -appid \"claudemods Linux Live/Rescue CD\" \
-    -publisher \"claudemods claudemods101@gmail.com >\" \
-    -preparer \"Prepared by user\" \
-    -r -graft-points -no-pad \
-    --sort-weight 0 / \
-    --sort-weight 1 /boot \
-    --grub2-mbr $BUILD_DIR/boot/grub/i386-pc/boot_hybrid.img \
-    -partition_offset 16 \
-    -b boot/grub/i386-pc/eltorito.img \
-    -c boot.catalog \
-    -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
-    -eltorito-alt-boot \
-    -append_partition 2 0xef $BUILD_DIR/boot/efi.img \
-    -e --interval:appended_partition_2:all:: \
-    -no-emul-boot \
-    -iso-level 3 \
-    -o \"$expandedOutputDir/${CONFIG[isoName]}\" \
-    $BUILD_DIR"
-
+        --modification-date=\"\$(date +%Y%m%d%H%M%S00)\" \
+        --protective-msdos-label \
+        -volid \"$isoTag\" \
+        -appid \"claudemods Linux Live/Rescue CD\" \
+        -publisher \"claudemods claudemods101@gmail.com >\" \
+        -preparer \"Prepared by user\" \
+        -r -graft-points -no-pad \
+        --sort-weight 0 / \
+        --sort-weight 1 /boot \
+        --grub2-mbr \"$BUILD_DIR/boot/grub/i386-pc/boot_hybrid.img\" \
+        -partition_offset 16 \
+        -b boot/grub/i386-pc/eltorito.img \
+        -c boot.catalog \
+        -no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info \
+        -eltorito-alt-boot \
+        -append_partition 2 0xef \"$BUILD_DIR/boot/efi.img\" \
+        -e --interval:appended_partition_2:all:: \
+        -no-emul-boot \
+        -iso-level 3 \
+        -o \"$expandedOutputDir/$isoName\" \
+        \"$BUILD_DIR\""
+    
     execute_command "$xorrisoCmd" "true"
-    echo -e "${COLOR_CYAN}ISO created successfully at $expandedOutputDir/${CONFIG[isoName]}${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}ISO created successfully at $expandedOutputDir/$isoName$COLOR_RESET"
     return 0
 }
 
 # Function to show guide
 showGuide() {
     local readmePath="/home/$USERNAME/.config/cmi/readme.txt"
-    execute_command "mkdir -p /home/$USERNAME/.config/cmi" "true"
-
-    # Set guide output color to cyan
-    echo -e "${COLOR_CYAN}"
-    execute_command "nano $readmePath" "true"
-    echo -e "${COLOR_RESET}"
+    execute_command "mkdir -p \"/home/$USERNAME/.config/cmi\"" "true"
+    execute_command "nano \"$readmePath\"" "true"
 }
 
 # Function to install ISO to USB
 installISOToUSB() {
-    if [ -z "${CONFIG[outputDir]}" ]; then
-        echo -e "${COLOR_RED}Output directory not set!${COLOR_RESET}" >&2
+    if [ -z "$outputDir" ]; then
+        echo -e "${COLOR_RED}Output directory not set!$COLOR_RESET"
         return
     fi
-
-    # List available ISO files in output directory
-    local expandedOutputDir=$(expandPath "${CONFIG[outputDir]}")
+    
+    local expandedOutputDir
+    expandedOutputDir=$(expandPath "$outputDir")
     local isoFiles=()
-    while IFS= read -r -d $'\0' file; do
-        isoFiles+=("$(basename "$file")")
-    done < <(find "$expandedOutputDir" -maxdepth 1 -name "*.iso" -print0 | sort -z)
-
-    if [ ${#isoFiles[@]} -eq 0 ]; then
-        echo -e "${COLOR_RED}No ISO files found in output directory!${COLOR_RESET}" >&2
+    
+    if [ -d "$expandedOutputDir" ]; then
+        while IFS= read -r -d $'\0' file; do
+            isoFiles+=("$(basename "$file")")
+        done < <(find "$expandedOutputDir" -maxdepth 1 -name "*.iso" -type f -print0)
+    else
+        echo -e "${COLOR_RED}Could not open output directory: $expandedOutputDir$COLOR_RESET"
         return
     fi
-
-    # Show available ISO files
-    echo -e "${COLOR_GREEN}Available ISO files:${COLOR_RESET}"
+    
+    if [ ${#isoFiles[@]} -eq 0 ]; then
+        echo -e "${COLOR_RED}No ISO files found in output directory!$COLOR_RESET"
+        return
+    fi
+    
+    echo -e "${COLOR_GREEN}Available ISO files:$COLOR_RESET"
     for i in "${!isoFiles[@]}"; do
-        echo -e "${COLOR_GREEN}$((i+1))) ${isoFiles[i]}${COLOR_RESET}"
+        echo -e "${COLOR_GREEN}$((i+1))) ${isoFiles[i]}$COLOR_RESET"
     done
-
-    # Get user selection
-    local selection=$(getUserInput "Select ISO file (1-${#isoFiles[@]}): ")
-    local choice
-    if [[ "$selection" =~ ^[0-9]+$ ]]; then
-        choice=$((selection-1))
-        if [ $choice -lt 0 ] || [ $choice -ge ${#isoFiles[@]} ]; then
-            echo -e "${COLOR_RED}Invalid selection!${COLOR_RESET}" >&2
+    
+    local selection
+    selection=$(getUserInput "Select ISO file (1-${#isoFiles[@]}): ")
+    
+    if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le ${#isoFiles[@]} ]; then
+        local selectedISO="$expandedOutputDir/${isoFiles[$((selection-1))]}"
+        
+        echo -e "${COLOR_CYAN}\nAvailable drives:$COLOR_RESET"
+        execute_command "lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'" "true"
+        
+        local targetDrive
+        targetDrive=$(getUserInput "\nEnter target drive (e.g., /dev/sda): ")
+        
+        if [ -z "$targetDrive" ]; then
+            echo -e "${COLOR_RED}No drive specified!$COLOR_RESET"
             return
         fi
+        
+        echo -e "${COLOR_RED}\nWARNING: This will overwrite all data on $targetDrive!$COLOR_RESET"
+        local confirm
+        confirm=$(getUserInput "Are you sure you want to continue? (y/N): ")
+        
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+            echo -e "${COLOR_CYAN}Operation cancelled.$COLOR_RESET"
+            return
+        fi
+        
+        echo -e "${COLOR_CYAN}\nWriting $selectedISO to $targetDrive...$COLOR_RESET"
+        execute_command "sudo dd if=\"$selectedISO\" of=\"$targetDrive\" bs=4M status=progress oflag=sync" "true"
+        
+        echo -e "${COLOR_GREEN}\nISO successfully written to USB drive!$COLOR_RESET"
+        echo -e "${COLOR_GREEN}Press any key to continue...$COLOR_RESET"
+        getch >/dev/null
     else
-        echo -e "${COLOR_RED}Invalid input!${COLOR_RESET}" >&2
-        return
+        echo -e "${COLOR_RED}Invalid selection!$COLOR_RESET"
     fi
-
-    local selectedISO="$expandedOutputDir/${isoFiles[$choice]}"
-
-    # Get target drive
-    echo -e "${COLOR_CYAN}\nAvailable drives:${COLOR_RESET}"
-    execute_command "lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'" "true"
-
-    local targetDrive=$(getUserInput "\nEnter target drive (e.g., /dev/sda): ")
-    if [ -z "$targetDrive" ]; then
-        echo -e "${COLOR_RED}No drive specified!${COLOR_RESET}" >&2
-        return
-    fi
-
-    # Confirm before writing
-    echo -e "${COLOR_RED}\nWARNING: This will overwrite all data on $targetDrive!${COLOR_RESET}"
-    local confirm=$(getUserInput "Are you sure you want to continue? (y/N): ")
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        echo -e "${COLOR_CYAN}Operation cancelled.${COLOR_RESET}"
-        return
-    fi
-
-    # Write ISO to USB
-    echo -e "${COLOR_CYAN}\nWriting $selectedISO to $targetDrive...${COLOR_RESET}"
-    local ddCommand="sudo dd if=$selectedISO of=$targetDrive bs=4M status=progress oflag=sync"
-    execute_command "$ddCommand" "true"
-
-    echo -e "${COLOR_GREEN}\nISO successfully written to USB drive!${COLOR_RESET}"
-    echo -e "${COLOR_GREEN}Press any key to continue...${COLOR_RESET}"
-    read -n1 -s
 }
 
 # Function to run CMI installer
 runCMIInstaller() {
-    execute_command "cmiinstaller" "true"
-    echo -e "${COLOR_GREEN}\nPress any key to continue...${COLOR_RESET}"
-    read -n1 -s
+    execute_command "cmirsyncinstaller" "true"
+    echo -e "${COLOR_GREEN}\nPress any key to continue...$COLOR_RESET"
+    getch >/dev/null
+}
+
+# Function to update script
+updateScript() {
+    echo -e "${COLOR_CYAN}\nUpdating script from GitHub...$COLOR_RESET"
+    execute_command "bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\""
+    echo -e "${COLOR_GREEN}\nScript updated successfully!$COLOR_RESET"
+    echo -e "${COLOR_GREEN}Press any key to continue...$COLOR_RESET"
+    getch >/dev/null
 }
 
 # Function to show main menu
@@ -766,97 +706,80 @@ showMainMenu() {
         "Show Disk Usage"
         "Install ISO to USB"
         "CMI BTRFS/EXT4 Installer"
+        "Update Script"
         "Exit"
     )
-
+    
     local selected=0
     local key
-
+    
     while true; do
-        key=$(showMenu "Main Menu:" items $selected)
-
+        showMenu "Main Menu:" "${items[@]}" "$selected"
+        
+        read -rsn1 key
         case "$key" in
-            "UP")
-                if [ $selected -gt 0 ]; then
-                    ((selected--))
-                fi
+            $'\x1b')
+                read -rsn2 -t 0.1 key
+                case "$key" in
+                    "[A") [ $selected -gt 0 ] && ((selected--)) ;;
+                    "[B") [ $selected -lt $((${#items[@]}-1)) ] && ((selected++)) ;;
+                esac
                 ;;
-            "DOWN")
-                if [ $selected -lt $((${#items[@]}-1)) ]; then
-                    ((selected++))
-                fi
-                ;;
-            "ENTER")
+            "")
                 case $selected in
-                    0) showGuide ;;
-                    1) showSetupMenu ;;
+                    0)
+                        showGuide
+                        ;;
+                    1)
+                        showSetupMenu
+                        ;;
                     2)
-                        local outputDir=$(getOutputDirectory)
-                        local outputOrigImgPath="$outputDir/$ORIG_IMG_NAME"
-                        local outputCompressedImgPath="$outputDir/$COMPRESSED_IMG_NAME"
-
-                        # Cleanup old files
-                        execute_command "sudo umount $MOUNT_POINT 2>/dev/null || true" "true"
-                        execute_command "sudo rm -rf $outputOrigImgPath" "true"
-                        execute_command "sudo mkdir -p $MOUNT_POINT" "true"
-                        execute_command "sudo mkdir -p $outputDir" "true"
-
-                        local imgSize=$(getUserInput "Enter the image size in GB (e.g., 6 for 6GB): ")G
-
-                        local fsOptions=("btrfs" "ext4")
-                        local fsSelected=0
-                        local fsKey
-                        local fsChosen=false
-
-                        while ! $fsChosen; do
-                            fsKey=$(showFilesystemMenu fsOptions $fsSelected)
-
-                            case "$fsKey" in
-                                "UP")
-                                    if [ $fsSelected -gt 0 ]; then
-                                        ((fsSelected--))
-                                    fi
-                                    ;;
-                                "DOWN")
-                                    if [ $fsSelected -lt $((${#fsOptions[@]}-1)) ]; then
-                                        ((fsSelected++))
-                                    fi
-                                    ;;
-                                "ENTER")
-                                    fsChosen=true
-                                    ;;
-                            esac
-                        done
-
-                        local fsType="${fsOptions[$fsSelected]}"
-
-                        if createImageFile "$imgSize" "$outputOrigImgPath" && \
-                           formatFilesystem "$fsType" "$outputOrigImgPath" && \
-                           mountFilesystem "$fsType" "$outputOrigImgPath" "$MOUNT_POINT" && \
-                           copyFilesWithRsync "$SOURCE_DIR" "$MOUNT_POINT" "$fsType"; then
-                            unmountAndCleanup "$MOUNT_POINT"
-                            createSquashFS "$outputOrigImgPath" "$outputCompressedImgPath"
-                            deleteOriginalImage "$outputOrigImgPath"
-                            createChecksum "$outputCompressedImgPath"
-                            printFinalMessage "$fsType" "$outputCompressedImgPath"
+                        if [ -z "$cloneDir" ]; then
+                            echo -e "${COLOR_RED}Clone directory not set! Please set it in Setup Scripts menu.$COLOR_RESET"
+                            echo -e "${COLOR_GREEN}\nPress any key to continue...$COLOR_RESET"
+                            getch >/dev/null
+                            break
                         fi
-
-                        echo -e "${COLOR_GREEN}\nPress any key to continue...${COLOR_RESET}"
-                        read -n1 -s
+                        
+                        local outputDir
+                        outputDir=$(getOutputDirectory)
+                        local finalImgPath="$outputDir/$FINAL_IMG_NAME"
+                        local expandedCloneDir
+                        expandedCloneDir=$(expandPath "$cloneDir")
+                        
+                        execute_command "sudo mkdir -p \"$expandedCloneDir\"" "true"
+                        
+                        if copyFilesWithRsync "$SOURCE_DIR" "$expandedCloneDir"; then
+                            createSquashFS "$expandedCloneDir" "$finalImgPath"
+                            createChecksum "$finalImgPath"
+                            printFinalMessage "$finalImgPath"
+                        fi
+                        
+                        echo -e "${COLOR_GREEN}\nPress any key to continue...$COLOR_RESET"
+                        getch >/dev/null
                         ;;
                     3)
                         createISO
-                        echo -e "${COLOR_GREEN}\nPress any key to continue...${COLOR_RESET}"
-                        read -n1 -s
+                        echo -e "${COLOR_GREEN}\nPress any key to continue...$COLOR_RESET"
+                        getch >/dev/null
                         ;;
                     4)
                         execute_command "df -h"
-                        echo -e "${COLOR_GREEN}\nPress any key to continue...${COLOR_RESET}"
-                        read -n1 -s
+                        echo -e "${COLOR_GREEN}\nPress any key to continue...$COLOR_RESET"
+                        getch >/dev/null
                         ;;
-                    5) installISOToUSB ;;
-                    6) runCMIInstaller ;;
-                    7) exit 0 ;;
+                    5)
+                        installISOToUSB
+                        ;;
+                    6)
+                        runCMIInstaller
+                        ;;
+                    7)
+                        updateScript
+                        ;;
+                    8)
+                        return
+                        ;;
                 esac
                 ;;
         esac
@@ -865,23 +788,31 @@ showMainMenu() {
 
 # Main function
 main() {
-    # Create config directory if it doesn't exist
+    USERNAME=$(whoami)
+    BUILD_DIR="/home/$USERNAME/.config/cmi/build-image-arch-img"
+    
     local configDir="/home/$USERNAME/.config/cmi"
-    execute_command "mkdir -p $configDir" "true"
-
-    # Load existing configuration
+    execute_command "mkdir -p \"$configDir\"" "true"
+    
     loadConfig
-
-    # Set terminal settings for arrow key detection
+    
+    # Start time update in background
+    update_time_thread &
+    local time_pid=$!
+    
+    # Set terminal to non-canonical mode
     local oldt
     oldt=$(stty -g)
-    stty -echo -icanon -icrnl time 0 min 0
-
+    stty -icanon
+    
     showMainMenu
-
-    # Restore terminal settings
+    
+    # Cleanup
+    time_thread_running=false
+    kill $time_pid 2>/dev/null
+    wait $time_pid 2>/dev/null
     stty "$oldt"
 }
 
-# Start the script
-main
+# Run main function
+main "$@"
