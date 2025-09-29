@@ -199,7 +199,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 26-07-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 29-07-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
@@ -284,12 +284,16 @@ std::string getUserInput(const std::string& prompt) {
 void installDependencies() {
     std::cout << COLOR_CYAN << "\nInstalling required dependencies...\n" << COLOR_RESET;
 
+    // First update the package database
+    std::cout << COLOR_CYAN << "Updating package database...\n" << COLOR_RESET;
+    execute_command("sudo pacman -Sy");
+
     std::string packages;
     for (const auto& pkg : DEPENDENCIES) {
         packages += pkg + " ";
     }
 
-    std::string command = "sudo pacman -Sy && sudo pacman -S --needed --noconfirm " + packages;
+    std::string command = "sudo pacman -S --needed --noconfirm " + packages;
     execute_command(command);
 
     config.dependenciesInstalled = true;
@@ -417,7 +421,7 @@ void setCloneDir() {
     std::string defaultDir = "/home/" + USERNAME;
     std::cout << COLOR_GREEN << "Current clone directory: " << (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.cloneDir) << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
-    
+
     // Get the parent directory from user
     std::string parentDir = getUserInput("Enter parent directory for clone_system_temp folder (e.g., " + defaultDir + " or $USER): ");
 
@@ -589,7 +593,7 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--include=sys "
     "--include=usr " +
     source + "/ " + destination + "/";
-    
+
     execute_command(command, true);
 
     return true;
@@ -817,10 +821,10 @@ void showMainMenu() {
                             getch();
                             break;
                         }
-                        
+
                         std::string outputDir = getOutputDirectory();
                         std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
-                        
+
                         // Use the user-specified clone directory (which now always ends with clone_system_temp)
                         std::string cloneDir = expandPath(config.cloneDir);
                         execute_command("sudo mkdir -p " + cloneDir, true);
