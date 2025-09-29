@@ -289,7 +289,7 @@ void installDependencies() {
         packages += pkg + " ";
     }
 
-    std::string command = "sudo pacman -Sy --needed --noconfirm " + packages;
+    std::string command = "sudo pacman -Sy && sudo pacman -S --needed --noconfirm " + packages;
     execute_command(command);
 
     config.dependenciesInstalled = true;
