@@ -268,10 +268,17 @@ std::string getUserInput(const std::string& prompt) {
             if (!input.empty()) {
                 input.pop_back();
                 std::cout << "\b \b";  // Move cursor back, overwrite with space, move back again
+                fflush(stdout);
+            }
+        } else if (ch == 27) {  // Escape sequence
+            // Handle arrow keys and other escape sequences
+            if (getchar() == '[') {
+                getchar(); // consume the third character
             }
         } else if (ch >= 32 && ch <= 126) {  // Printable characters
             input += ch;
             std::cout << ch;
+            fflush(stdout);
         }
     }
 
