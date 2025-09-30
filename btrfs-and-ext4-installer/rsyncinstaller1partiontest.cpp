@@ -156,7 +156,8 @@ void copy_system() {
     "/ /mnt";
     execute_command(rsync_cmd);
     
-    execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp,boot/efi}");
+    execute_command("mkdir -p /mnt/{proc,sys,dev,run,tmp}");
+    execute_command("mkdir -p /mnt/boot/efi"); // Ensure EFI directory exists
     execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
     execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
 }
@@ -168,26 +169,35 @@ void install_grub_ext4(const string& root_part) {
     execute_command("mount --bind /sys /mnt/sys");
     execute_command("mount --bind /run /mnt/run");
     
+    // Create proper fstab and install GRUB
     execute_command("chroot /mnt /bin/bash -c \""
-    "genfstab -U /; "
+    "mkdir -p /boot/efi; "
+    "mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null || true; "
+    "genfstab -U / > /etc/fstab; "  // THIS CREATES FSTAB THAT SURVIVES REBOOT
+    "echo 'EFI directory contents:'; ls -la /boot/efi/; "
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
-    "mkinitcpio -P\"");
+    "mkinitcpio -P; "
+    "echo '=== FSTAB CONTENTS ==='; cat /etc/fstab; echo '=== END FSTAB ==='\"");
 }
 
 void install_grub_btrfs(const string& root_part) {
-    execute_command("touch /mnt/etc/fstab");
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
     execute_command("mount --bind /proc /mnt/proc");
     execute_command("mount --bind /sys /mnt/sys");
     execute_command("mount --bind /run /mnt/run");
 
+    // Create proper fstab and install GRUB for Btrfs
     execute_command("chroot /mnt /bin/bash -c \""
+    "mkdir -p /boot/efi; "
+    "mount -t efivarfs efivarfs /sys/firmware/efi/efivars 2>/dev/null || true; "
+    "./opt/btrfsfstabcompressed.sh; "  // THIS SHOULD CREATE /etc/fstab FOR BTRFS
+    "echo 'EFI directory contents:'; ls -la /boot/efi/; "
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
-    "./opt/btrfsfstabcompressed.sh; "
-    "mkinitcpio -P\"");
+    "mkinitcpio -P; "
+    "echo '=== FSTAB CONTENTS ==='; cat /etc/fstab; echo '=== END FSTAB ==='\"");
 }
 
 int main() {
@@ -237,6 +247,7 @@ int main() {
     execute_command("umount -R /mnt");
 
     cout << COLOR_GREEN << "\nInstallation complete! You can now reboot into your new system." << COLOR_RESET << endl;
+    cout << COLOR_YELLOW << "IMPORTANT: Make sure your BIOS/UEFI is set to boot from the correct device." << COLOR_RESET << endl;
 
     return 0;
 }
