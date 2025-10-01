@@ -199,7 +199,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 29-07-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 01-10-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
