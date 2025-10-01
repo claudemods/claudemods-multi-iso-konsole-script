@@ -260,24 +260,63 @@ std::string getUserInput(const std::string& prompt) {
     newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-    while (1) {
+    // Track cursor position within input
+    size_t cursor_pos = 0;
+    
+    while (true) {
         ch = getchar();
+        
         if (ch == '\n') {  // Enter key pressed
             break;
-        } else if (ch == 127 || ch == 8) {  // Backspace key pressed
-            if (!input.empty()) {
-                input.pop_back();
-                std::cout << "\b \b";  // Move cursor back, overwrite with space, move back again
+        } else if (ch == 27) {  // Escape sequence (arrow keys)
+            if (getchar() == '[') {
+                char arrow = getchar();
+                if (arrow == 'D') {  // Left arrow
+                    if (cursor_pos > 0) {
+                        cursor_pos--;
+                        // Move cursor left
+                        std::cout << "\033[D";
+                    }
+                } else if (arrow == 'C') {  // Right arrow
+                    if (cursor_pos < input.length()) {
+                        cursor_pos++;
+                        // Move cursor right
+                        std::cout << "\033[C";
+                    }
+                }
+            }
+        } else if (ch == 127 || ch == 8) {  // Backspace key
+            if (cursor_pos > 0) {
+                // Remove character at cursor position
+                input.erase(cursor_pos - 1, 1);
+                cursor_pos--;
+                
+                // Move cursor back, clear from cursor to end of line, then reprint remaining characters
+                std::cout << "\b\033[K";
+                if (cursor_pos < input.length()) {
+                    std::cout << input.substr(cursor_pos);
+                    // Move cursor back to correct position
+                    for (size_t i = 0; i < input.length() - cursor_pos; i++) {
+                        std::cout << "\033[D";
+                    }
+                }
                 fflush(stdout);
             }
-        } else if (ch == 27) {  // Escape sequence
-            // Handle arrow keys and other escape sequences
-            if (getchar() == '[') {
-                getchar(); // consume the third character
-            }
         } else if (ch >= 32 && ch <= 126) {  // Printable characters
-            input += ch;
-            std::cout << ch;
+            // Insert character at cursor position
+            input.insert(cursor_pos, 1, ch);
+            
+            // Clear from cursor to end of line and reprint the rest of the string
+            std::cout << "\033[K" << input.substr(cursor_pos);
+            
+            // Move cursor back to position after the inserted character
+            if (cursor_pos < input.length() - 1) {
+                for (size_t i = 0; i < input.length() - cursor_pos - 1; i++) {
+                    std::cout << "\033[D";
+                }
+            }
+            
+            cursor_pos++;
             fflush(stdout);
         }
     }
@@ -843,6 +882,12 @@ void showMainMenu() {
 
                         // Create SquashFS from the clone directory
                         createSquashFS(cloneDir, finalImgPath);
+
+                        // Clean up the clone_system_temp directory after SquashFS creation
+                        std::cout << COLOR_CYAN << "Cleaning up temporary clone directory..." << COLOR_RESET << std::endl;
+                        std::string cleanupCmd = "sudo rm -rf " + cloneDir;
+                        execute_command(cleanupCmd, true);
+                        std::cout << COLOR_GREEN << "Temporary directory cleaned up: " << cloneDir << COLOR_RESET << std::endl;
 
                         createChecksum(finalImgPath);
                         printFinalMessage(finalImgPath);
