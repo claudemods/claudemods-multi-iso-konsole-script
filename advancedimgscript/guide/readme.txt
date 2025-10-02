@@ -2,7 +2,8 @@
 │ │
 │ ClaudeMods Img ISO Creator v2.01 Guide │
 │ │
-│ "Create Bootable ISO Images from Your EXT4/BTRFS System Without Separate Partitions" │
+│ "Create Bootable ISO Images from Your EXT4/BTRFS System Without │
+│ Separate Partitions" │
 │ │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ │
@@ -32,7 +33,8 @@
 │ - Select "Create Image" from main menu │
 │ - Enter your username when prompted │
 │ - Specify image size for ext4 (e.g., "6" for 6GB) │
-│ - Specify image size for btrfs will need to be uncompressed system size i need to fix mechanism but (e.g., "6" for 6GB) │
+│ - Specify image size for btrfs will need to be uncompressed system │
+│ size i need to fix mechanism but (e.g., "6" for 6GB) │
 │ - Choose filesystem type (btrfs or ext4) │
 │ - The script will automatically: │
 │ • Create blank image file │
@@ -52,14 +54,19 @@
 │ • Generate mkinitcpio - Create initramfs │
 │ • Edit GRUB Config - Customize bootloader settings │
 │ │
-│ 3️⃣ ISO Generation │
+│ 3️⃣ Calamares Setup │
+│ - edit the branding if need be in /usr/share/calamares/branding │
+│ - user the setup scripts menu to edit calamres .confs to you kernel │
+│ - to e.g linux-zen linux or leave as linux-cachyos as it is default │
+│ │
+│ 4️⃣ ISO Generation │
 │ - Select "Create ISO" from main menu │
 │ - The script will: │
 │ • Verify all required settings are configured │
 │ • Use xorriso to create bootable ISO │
 │ • Save to your specified output directory │
 │ │
-│ 4️⃣ Post-Creation │
+│ 5️⃣ Post-Creation │
 │ - Wait 4 minutes if writing directly to USB │
 │ - Test ISO in virtual machine before deployment │
 │ - Checksum file (.md5) is generated for verification │
@@ -68,7 +75,7 @@
 │ │
 │ 💡 Pro Tips │
 │ │
-│ • Configuration persists between runs in ~/.config/cmi/configuration.txt │
+│ • Configuration persists between runs in ~/.config/cmi/configuration.txt│
 │ • Main menu shows current configuration status │
 │ • For BTRFS: Uses zstd:22 compression by default │
 │ • For EXT4: Uses standard formatting with optimizations │
@@ -81,3 +88,4 @@
 │ • Large images will take time to process - be patient │
 │ │
 ╰──────────────────────────────────────────────────────────────────────────────╯
+
