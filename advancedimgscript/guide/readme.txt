@@ -55,7 +55,8 @@
 │ • Edit GRUB Config - Customize bootloader settings │
 │ │
 │ 3️⃣ Calamares Setup │
-│ - edit the branding if need be in /usr/share/calamares/branding │
+│ - use the setup scripts menu to edit calamres branding.desc │
+│ - edit the branding pictures if need be in /usr/share/calamares/branding │
 │ - use the setup scripts menu to edit calamres .confs to you kernel │
 │ - to e.g linux-zen linux or leave as linux-cachyos as it is default │
 │ │
