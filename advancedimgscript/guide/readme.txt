@@ -56,7 +56,7 @@
 │ │
 │ 3️⃣ Calamares Setup │
 │ - edit the branding if need be in /usr/share/calamares/branding │
-│ - user the setup scripts menu to edit calamres .confs to you kernel │
+│ - use the setup scripts menu to edit calamres .confs to you kernel │
 │ - to e.g linux-zen linux or leave as linux-cachyos as it is default │
 │ │
 │ 4️⃣ ISO Generation │
