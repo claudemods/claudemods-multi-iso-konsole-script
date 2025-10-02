@@ -108,14 +108,13 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
-        silent_command("cd /home/$USER && git clone https://github.com/claudemods/arch-calamares.git >/dev/null 2>&1");
-        silent_command("cd /home/$USER/arch-calamares/3.4.0.1/claudemods /home/$USER/.config/cmi >/dev/null 2>&1");
-        silent_command("sudo pacman -U calamares-3.4.0-1-x86_64.pkg.tar.zst calamares-oem-kde-settings-20240616-3-any.pkg.tar calamares-tools-0.1.0-1-any.pkg.tar.zst ckbcomp-1.227-2-any.pkg.tar /home/$USER/.config/cmi >/dev/null 2>&1");
-        silent_command("sudo cp -r calamares /etc/ >/dev/null 2>&1");
-        silent_command("sudo cp -r claudemods /usr/share/calamares/branding/ >/dev/null 2>&1");
-        silent_command("sudo unzip -o -q extras.zip -d / >/dev/null 2>&1");
-        silent_command("sudo cp -r calamares /etc/ >/dev/null 2>&1");
-        silent_command("sudo rm -rf /home/$USER/arch-calamares >/dev/null 2>&1");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript && qmake6 && make >/dev/null 2>&1");
+silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg /usr/bin/cmiimg");
+silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg/calamares /home/$USER/.config/cmi");
+silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
+silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
+silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+silent_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)\"");
     }
 
     // Cleanup
