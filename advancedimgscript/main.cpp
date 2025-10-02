@@ -199,7 +199,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 01-10-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script Beta v2.01 02-10-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
@@ -818,6 +818,12 @@ void runCMIInstaller() {
     getch();
 }
 
+void runCalamares() {
+    execute_command("sudo calamares", true);
+    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+    getch();
+}
+
 void updateScript() {
     std::cout << COLOR_CYAN << "\nUpdating script from GitHub..." << COLOR_RESET << std::endl;
     execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh )\"");
@@ -835,6 +841,7 @@ void showMainMenu() {
         "Show Disk Usage",
         "Install ISO to USB",
         "CMI BTRFS/EXT4 Installer",
+        "Calamares",
         "Update Script",
         "Exit"
     };
@@ -913,9 +920,12 @@ void showMainMenu() {
                         runCMIInstaller();
                         break;
                     case 7:
-                        updateScript();
+                        runCalamares();
                         break;
                     case 8:
+                        updateScript();
+                        break;
+                    case 9:
                         return;
                 }
                 break;
