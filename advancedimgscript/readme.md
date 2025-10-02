@@ -1,4 +1,6 @@
-calamares added with support for all operating systems i just fixed the installation method for calamares but all ive integrated it into the script
+calamares added with support for all operating systems i just fixed the installation method for calamares 
+
+also ive integrated it into the script
 
 please check the guide for updated information 
 
