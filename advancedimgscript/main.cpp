@@ -93,6 +93,8 @@ struct ConfigState {
     std::string cloneDir;
     bool mkinitcpioGenerated = false;
     bool grubEdited = false;
+    bool calamares1Edited = false;
+    bool calamares2Edited = false;
     bool dependenciesInstalled = false;
 
     bool isReadyForISO() const {
@@ -245,6 +247,14 @@ void printConfigStatus() {
     std::cout << " ";
     printCheckbox(config.grubEdited);
     std::cout << " GRUB Config Edited" << std::endl;
+
+    std::cout << " ";
+    printCheckbox(config.calamares1Edited);
+    std::cout << " Calamares 1st initcpio.conf Edited" << std::endl;
+
+    std::cout << " ";
+    printCheckbox(config.calamares2Edited);
+    std::cout << " Calamares 2nd initcpio.conf Edited" << std::endl;
 }
 
 std::string getUserInput(const std::string& prompt) {
@@ -433,6 +443,32 @@ void editGrubCfg() {
     std::cout << COLOR_GREEN << "GRUB config edited!" << COLOR_RESET << std::endl;
 }
 
+void editCalamares1() {
+    std::string calamares1Path = "/etc/calamares/modules/initcpio.conf";
+    std::cout << COLOR_CYAN << "Editing Calamares 1st initcpio.conf: " << calamares1Path << COLOR_RESET << std::endl;
+
+    // Set nano to use cyan color scheme
+    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + calamares1Path;
+    execute_command(nanoCommand);
+
+    config.calamares1Edited = true;
+    saveConfig();
+    std::cout << COLOR_GREEN << "Calamares 1st initcpio.conf edited!" << COLOR_RESET << std::endl;
+}
+
+void editCalamares2() {
+    std::string calamares2Path = "/usr/share/calamares/modules/initcpio.conf";
+    std::cout << COLOR_CYAN << "Editing Calamares 2nd initcpio.conf: " << calamares2Path << COLOR_RESET << std::endl;
+
+    // Set nano to use cyan color scheme
+    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + calamares2Path;
+    execute_command(nanoCommand);
+
+    config.calamares2Edited = true;
+    saveConfig();
+    std::cout << COLOR_GREEN << "Calamares 2nd initcpio.conf edited!" << COLOR_RESET << std::endl;
+}
+
 void setIsoTag() {
     config.isoTag = getUserInput("Enter ISO tag (e.g., 2025): ");
     saveConfig();
@@ -503,6 +539,8 @@ void saveConfig() {
         configFile << "cloneDir=" << config.cloneDir << "\n";
         configFile << "mkinitcpioGenerated=" << (config.mkinitcpioGenerated ? "1" : "0") << "\n";
         configFile << "grubEdited=" << (config.grubEdited ? "1" : "0") << "\n";
+        configFile << "calamares1Edited=" << (config.calamares1Edited ? "1" : "0") << "\n";
+        configFile << "calamares2Edited=" << (config.calamares2Edited ? "1" : "0") << "\n";
         configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
         configFile.close();
     } else {
@@ -528,6 +566,8 @@ void loadConfig() {
                 else if (key == "cloneDir") config.cloneDir = value;
                 else if (key == "mkinitcpioGenerated") config.mkinitcpioGenerated = (value == "1");
                 else if (key == "grubEdited") config.grubEdited = (value == "1");
+                else if (key == "calamares1Edited") config.calamares1Edited = (value == "1");
+                else if (key == "calamares2Edited") config.calamares2Edited = (value == "1");
                 else if (key == "dependenciesInstalled") config.dependenciesInstalled = (value == "1");
             }
         }
@@ -573,6 +613,8 @@ void showSetupMenu() {
         "Select vmlinuz",
         "Generate mkinitcpio",
         "Edit GRUB Config",
+        "Edit Calamares 1st initcpio.conf",
+        "Edit Calamares 2nd initcpio.conf",
         "Back to Main Menu"
     };
 
@@ -599,10 +641,12 @@ void showSetupMenu() {
                     case 5: selectVmlinuz(); break;
                     case 6: generateMkinitcpio(); break;
                     case 7: editGrubCfg(); break;
-                    case 8: return;
+                    case 8: editCalamares1(); break;
+                    case 9: editCalamares2(); break;
+                    case 10: return;
                 }
 
-                if (selected != 8) {
+                if (selected != 10) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                     getch();
                 }
