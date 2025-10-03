@@ -148,7 +148,7 @@ int main() {
     std::cin >> response;
 
     if (response == 'y' || response == 'Y') {
-        system(executable_name);
+        system("cd /home/$USER && cmiimg");
     }
 
     return EXIT_SUCCESS;
