@@ -29,3 +29,8 @@ bash -c "$(curl -fsSL bash -c "$(curl -fsSL https://raw.githubusercontent.com/cl
 
 
 <img width="1280" height="800" alt="Screenshot_archlinux_2025-10-02_23:15:32" src="https://github.com/user-attachments/assets/8b7777b8-f007-42d3-a008-81b429a6f6a4" />
+
+<img width="1280" height="800" alt="Screenshot_archlinux_2025-10-02_23:15:32" src="https://github.com/user-attachments/assets/8b7777b8-f007-42d3-a008-81b429a6f6a4" />
+
+
+
