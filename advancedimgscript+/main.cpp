@@ -167,6 +167,101 @@ bool extractEmbeddedZip() {
     return true;
 }
 
+// Function to extract Calamares resources
+bool extractCalamaresResources() {
+    std::cout << COLOR_CYAN << "Extracting Calamares resources..." << COLOR_RESET << std::endl;
+
+    std::string configDir = "/home/" + USERNAME + "/.config/cmi";
+    std::string calamaresDir = configDir + "/calamares";
+
+    // Create calamares directory
+    execute_command("mkdir -p " + calamaresDir, true);
+
+    // Step 1: Extract calamares.zip to cmi folder
+    std::cout << COLOR_CYAN << "Step 1: Extracting calamares.zip to cmi folder..." << COLOR_RESET << std::endl;
+    
+    std::string calamaresZipPath = configDir + "/calamares.zip";
+    QFile embeddedCalamaresZip(":/zip/calamares.zip");
+    if (!embeddedCalamaresZip.exists()) {
+        std::cerr << COLOR_RED << "Calamares embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Copy calamares.zip to filesystem
+    if (!embeddedCalamaresZip.copy(QString::fromStdString(calamaresZipPath))) {
+        std::cerr << COLOR_RED << "Failed to copy calamares resource to: " << calamaresZipPath << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Set proper permissions
+    QFile::setPermissions(QString::fromStdString(calamaresZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+
+    // Extract calamares.zip
+    std::string extractCalamaresCmd = "unzip -o " + calamaresZipPath + " -d " + configDir;
+    if (system(extractCalamaresCmd.c_str()) != 0) {
+        std::cerr << COLOR_RED << "Failed to extract calamares.zip" << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Clean up calamares.zip
+    execute_command("rm -f " + calamaresZipPath, true);
+
+    // Step 2: Extract branding.zip to cmi/calamares
+    std::cout << COLOR_CYAN << "Step 2: Extracting branding.zip to cmi/calamares..." << COLOR_RESET << std::endl;
+    
+    std::string brandingZipPath = configDir + "/branding.zip";
+    QFile embeddedBrandingZip(":/zip/branding.zip");
+    if (!embeddedBrandingZip.exists()) {
+        std::cerr << COLOR_RED << "Branding embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Copy branding.zip to filesystem
+    if (!embeddedBrandingZip.copy(QString::fromStdString(brandingZipPath))) {
+        std::cerr << COLOR_RED << "Failed to copy branding resource to: " << brandingZipPath << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Set proper permissions
+    QFile::setPermissions(QString::fromStdString(brandingZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+
+    // Extract branding.zip to calamares directory
+    std::string extractBrandingCmd = "unzip -o " + brandingZipPath + " -d " + calamaresDir;
+    if (system(extractBrandingCmd.c_str()) != 0) {
+        std::cerr << COLOR_RED << "Failed to extract branding.zip" << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Clean up branding.zip
+    execute_command("rm -f " + brandingZipPath, true);
+
+    // Step 3: Copy extras.zip to cmi/calamares
+    std::cout << COLOR_CYAN << "Step 3: Copying extras.zip to cmi/calamares..." << COLOR_RESET << std::endl;
+    
+    std::string extrasZipPath = calamaresDir + "/extras.zip";
+    QFile embeddedExtrasZip(":/zip/extras.zip");
+    if (!embeddedExtrasZip.exists()) {
+        std::cerr << COLOR_RED << "Extras embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Copy extras.zip to calamares directory
+    if (!embeddedExtrasZip.copy(QString::fromStdString(extrasZipPath))) {
+        std::cerr << COLOR_RED << "Failed to copy extras resource to: " << extrasZipPath << COLOR_RESET << std::endl;
+        return false;
+    }
+
+    // Set proper permissions
+    QFile::setPermissions(QString::fromStdString(extrasZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+
+    std::cout << COLOR_GREEN << "Calamares resources extracted successfully!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "- calamares.zip extracted to: " << configDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "- branding.zip extracted to: " << calamaresDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "- extras.zip copied to: " << calamaresDir << COLOR_RESET << std::endl;
+
+    return true;
+}
+
 // Function to check for updates
 bool checkForUpdates() {
     std::cout << COLOR_CYAN << "Checking for updates..." << COLOR_RESET << std::endl;
@@ -226,6 +321,16 @@ bool checkForUpdates() {
         if (!extractEmbeddedZip()) {
             std::cout << COLOR_YELLOW << "Failed to extract embedded resources. Some features may not work." << COLOR_RESET << std::endl;
         }
+
+        // Also extract Calamares resources on first run
+        if (!extractCalamaresResources()) {
+            std::cout << COLOR_YELLOW << "Failed to extract Calamares resources. Calamares features may not work." << COLOR_RESET << std::endl;
+        }
+
+        // Execute extrainstalls.sh after ALL zips are finished
+        std::cout << COLOR_CYAN << "Executing extra installations..." << COLOR_RESET << std::endl;
+        execute_command("bash /home/" + USERNAME + "/.config/cmi/extrainstalls.sh", true);
+
         return false;
     }
 
