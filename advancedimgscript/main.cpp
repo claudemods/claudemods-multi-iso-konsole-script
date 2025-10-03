@@ -282,10 +282,10 @@ std::string getUserInput(const std::string& prompt) {
 
     // Track cursor position within input
     size_t cursor_pos = 0;
-    
+
     while (true) {
         ch = getchar();
-        
+
         if (ch == '\n') {  // Enter key pressed
             break;
         } else if (ch == 27) {  // Escape sequence (arrow keys)
@@ -310,7 +310,7 @@ std::string getUserInput(const std::string& prompt) {
                 // Remove character at cursor position
                 input.erase(cursor_pos - 1, 1);
                 cursor_pos--;
-                
+
                 // Move cursor back, clear from cursor to end of line, then reprint remaining characters
                 std::cout << "\b\033[K";
                 if (cursor_pos < input.length()) {
@@ -325,17 +325,17 @@ std::string getUserInput(const std::string& prompt) {
         } else if (ch >= 32 && ch <= 126) {  // Printable characters
             // Insert character at cursor position
             input.insert(cursor_pos, 1, ch);
-            
+
             // Clear from cursor to end of line and reprint the rest of the string
             std::cout << "\033[K" << input.substr(cursor_pos);
-            
+
             // Move cursor back to position after the inserted character
             if (cursor_pos < input.length() - 1) {
                 for (size_t i = 0; i < input.length() - cursor_pos - 1; i++) {
                     std::cout << "\033[D";
                 }
             }
-            
+
             cursor_pos++;
             fflush(stdout);
         }
@@ -903,6 +903,205 @@ void updateScript() {
     getch();
 }
 
+// New function to check if a device is mounted
+bool isDeviceMounted(const std::string& device) {
+    std::string command = "mount | grep " + device + " > /dev/null 2>&1";
+    return system(command.c_str()) == 0;
+}
+
+// New function to mount a device
+bool mountDevice(const std::string& device, const std::string& mountPoint) {
+    std::cout << COLOR_CYAN << "Mounting " << device << " to " << mountPoint << "..." << COLOR_RESET << std::endl;
+    execute_command("sudo mkdir -p " + mountPoint, true);
+    std::string mountCmd = "sudo mount " + device + " " + mountPoint;
+    return system(mountCmd.c_str()) == 0;
+}
+
+// New function to clone current system
+void cloneCurrentSystem(const std::string& cloneDir) {
+    std::cout << COLOR_CYAN << "Cloning current system to " << cloneDir << "..." << COLOR_RESET << std::endl;
+    
+    if (!copyFilesWithRsync(SOURCE_DIR, cloneDir)) {
+        std::cerr << COLOR_RED << "Failed to clone current system!" << COLOR_RESET << std::endl;
+        return;
+    }
+    
+    std::cout << COLOR_GREEN << "Current system cloned successfully!" << COLOR_RESET << std::endl;
+}
+
+// New function to clone another drive
+void cloneAnotherDrive(const std::string& cloneDir) {
+    std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
+    execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep -v 'loop'", true);
+    
+    std::string drive = getUserInput("Enter drive to clone (e.g., /dev/sda2): ");
+    if (drive.empty()) {
+        std::cerr << COLOR_RED << "No drive specified!" << COLOR_RESET << std::endl;
+        return;
+    }
+    
+    // Check if drive exists
+    std::string checkCmd = "ls " + drive + " > /dev/null 2>&1";
+    if (system(checkCmd.c_str()) != 0) {
+        std::cerr << COLOR_RED << "Drive " << drive << " does not exist!" << COLOR_RESET << std::endl;
+        return;
+    }
+    
+    std::string tempMountPoint = "/mnt/temp_clone_mount";
+    
+    // Mount the drive if not already mounted
+    if (!isDeviceMounted(drive)) {
+        if (!mountDevice(drive, tempMountPoint)) {
+            std::cerr << COLOR_RED << "Failed to mount " << drive << "!" << COLOR_RESET << std::endl;
+            return;
+        }
+    } else {
+        // Get existing mount point
+        std::string mountCmd = "mount | grep " + drive + " | awk '{print $3}'";
+        FILE* fp = popen(mountCmd.c_str(), "r");
+        if (fp) {
+            char mountPath[256];
+            if (fgets(mountPath, sizeof(mountPath), fp)) {
+                tempMountPoint = mountPath;
+                // Remove newline
+                tempMountPoint.erase(tempMountPoint.find_last_not_of("\n") + 1);
+            }
+            pclose(fp);
+        }
+    }
+    
+    std::cout << COLOR_CYAN << "Cloning " << drive << " from " << tempMountPoint << " to " << cloneDir << "..." << COLOR_RESET << std::endl;
+    
+    if (!copyFilesWithRsync(tempMountPoint, cloneDir)) {
+        std::cerr << COLOR_RED << "Failed to clone drive " << drive << "!" << COLOR_RESET << std::endl;
+    } else {
+        std::cout << COLOR_GREEN << "Drive " << drive << " cloned successfully!" << COLOR_RESET << std::endl;
+    }
+    
+    // Unmount if we mounted it
+    if (!isDeviceMounted(drive) || system(("mount | grep " + drive + " | grep " + tempMountPoint).c_str()) == 0) {
+        execute_command("sudo umount " + tempMountPoint, true);
+        execute_command("sudo rmdir " + tempMountPoint, true);
+    }
+}
+
+// New function to clone swap partition using rsync
+void cloneSwapPartition(const std::string& cloneDir) {
+    std::cout << COLOR_CYAN << "\nAvailable swap partitions:" << COLOR_RESET << std::endl;
+    execute_command("swapon --show=NAME,SIZE,TYPE | grep -v NAME", true);
+    execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep swap", true);
+    
+    std::string swapPartition = getUserInput("Enter swap partition to clone (e.g., /dev/sda3): ");
+    if (swapPartition.empty()) {
+        std::cerr << COLOR_RED << "No swap partition specified!" << COLOR_RESET << std::endl;
+        return;
+    }
+    
+    // Check if swap partition exists
+    std::string checkCmd = "ls " + swapPartition + " > /dev/null 2>&1";
+    if (system(checkCmd.c_str()) != 0) {
+        std::cerr << COLOR_RED << "Swap partition " << swapPartition << " does not exist!" << COLOR_RESET << std::endl;
+        return;
+    }
+    
+    std::string swapDir = cloneDir + "/home/swap";
+    execute_command("sudo mkdir -p " + swapDir, true);
+    
+    std::cout << COLOR_CYAN << "Cloning swap partition " << swapPartition << " to " << swapDir << "..." << COLOR_RESET << std::endl;
+    
+    // Create swap directory structure and copy swap information using rsync
+    std::string swapRsyncCmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
+                              swapPartition + " " + swapDir + "/";
+    execute_command(swapRsyncCmd, true);
+    
+    // Create a info file with swap partition details
+    std::string infoCmd = "sudo sh -c 'lsblk -f " + swapPartition + " > " + swapDir + "/swap_info.txt'";
+    execute_command(infoCmd, true);
+    
+    // Get swap partition size and details
+    std::string sizeCmd = "sudo sh -c 'fdisk -l " + swapPartition + " >> " + swapDir + "/swap_info.txt'";
+    execute_command(sizeCmd, true);
+    
+    // Get current swap status if active
+    std::string statusCmd = "sudo sh -c 'swapon --show=NAME,SIZE,TYPE | grep " + swapPartition + " >> " + swapDir + "/swap_info.txt 2>/dev/null'";
+    execute_command(statusCmd, true);
+    
+    std::cout << COLOR_GREEN << "Swap partition " << swapPartition << " cloned successfully to " << swapDir << "!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Swap data: " << swapDir << "/" << swapPartition.substr(5) << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Swap info: " << swapDir << "/swap_info.txt" << COLOR_RESET << std::endl;
+}
+
+// New function to show clone options menu
+void showCloneOptionsMenu() {
+    std::vector<std::string> items = {
+        "Clone Current System (as it is now)",
+        "Clone Another Drive (e.g., /dev/sda2)",
+        "Clone Swap Partition (e.g., /dev/sda3)",
+        "Back to Main Menu"
+    };
+
+    int selected = 0;
+    int key;
+
+    while (true) {
+        key = showMenu("Clone Options - Select Source:", items, selected);
+
+        switch (key) {
+            case 'A':
+                if (selected > 0) selected--;
+                break;
+            case 'B':
+                if (selected < static_cast<int>(items.size()) - 1) selected++;
+                break;
+            case '\n':
+                if (config.cloneDir.empty()) {
+                    std::cerr << COLOR_RED << "Clone directory not set! Please set it in Setup Scripts menu." << COLOR_RESET << std::endl;
+                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                    getch();
+                    break;
+                }
+
+                std::string cloneDir = expandPath(config.cloneDir);
+                execute_command("sudo mkdir -p " + cloneDir, true);
+
+                switch (selected) {
+                    case 0:
+                        cloneCurrentSystem(cloneDir);
+                        break;
+                    case 1:
+                        cloneAnotherDrive(cloneDir);
+                        break;
+                    case 2:
+                        cloneSwapPartition(cloneDir);
+                        break;
+                    case 3:
+                        return;
+                }
+
+                if (selected != 3) {
+                    // Create SquashFS after cloning
+                    std::string outputDir = getOutputDirectory();
+                    std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
+                    
+                    createSquashFS(cloneDir, finalImgPath);
+
+                    // Clean up the clone_system_temp directory after SquashFS creation
+                    std::cout << COLOR_CYAN << "Cleaning up temporary clone directory..." << COLOR_RESET << std::endl;
+                    std::string cleanupCmd = "sudo rm -rf " + cloneDir;
+                    execute_command(cleanupCmd, true);
+                    std::cout << COLOR_GREEN << "Temporary directory cleaned up: " << cloneDir << COLOR_RESET << std::endl;
+
+                    createChecksum(finalImgPath);
+                    printFinalMessage(finalImgPath);
+
+                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                    getch();
+                }
+                break;
+        }
+    }
+}
+
 void showMainMenu() {
     std::vector<std::string> items = {
         "Guide",
@@ -938,42 +1137,9 @@ void showMainMenu() {
                     case 1:
                         showSetupMenu();
                         break;
-                    case 2: {
-                        if (config.cloneDir.empty()) {
-                            std::cerr << COLOR_RED << "Clone directory not set! Please set it in Setup Scripts menu." << COLOR_RESET << std::endl;
-                            std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                            getch();
-                            break;
-                        }
-
-                        std::string outputDir = getOutputDirectory();
-                        std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
-
-                        // Use the user-specified clone directory (which now always ends with clone_system_temp)
-                        std::string cloneDir = expandPath(config.cloneDir);
-                        execute_command("sudo mkdir -p " + cloneDir, true);
-
-                        // Directly rsync into the clone directory
-                        if (!copyFilesWithRsync(SOURCE_DIR, cloneDir)) {
-                            break;
-                        }
-
-                        // Create SquashFS from the clone directory
-                        createSquashFS(cloneDir, finalImgPath);
-
-                        // Clean up the clone_system_temp directory after SquashFS creation
-                        std::cout << COLOR_CYAN << "Cleaning up temporary clone directory..." << COLOR_RESET << std::endl;
-                        std::string cleanupCmd = "sudo rm -rf " + cloneDir;
-                        execute_command(cleanupCmd, true);
-                        std::cout << COLOR_GREEN << "Temporary directory cleaned up: " << cloneDir << COLOR_RESET << std::endl;
-
-                        createChecksum(finalImgPath);
-                        printFinalMessage(finalImgPath);
-
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
+                    case 2:
+                        showCloneOptionsMenu();
                         break;
-                    }
                     case 3:
                         createISO();
                         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
