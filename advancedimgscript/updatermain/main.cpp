@@ -160,7 +160,7 @@ int main() {
 
     if (choice == "2") {
         // Copy custom mount.conf to Calamares modules
-        silent_command("cp /home/$USER/.config/cmi/btrfs-custom-config/mount.conf /usr/share/calamares/modules/ 2>/dev/null");
+        silent_command("cd /home/$USER/.config/cmi/btrfs-custom-config && sudo cp * /usr/share/calamares/modules 2>/dev/null");
         std::cout << COLOR_GREEN << "\nCustom Btrfs config applied.\n" << COLOR_RESET;
     } else if (choice == "1") {
         std::cout << COLOR_GREEN << "\nUsing default Calamares Btrfs config.\n" << COLOR_RESET;
