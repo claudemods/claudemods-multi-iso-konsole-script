@@ -108,7 +108,7 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg/calamares /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
+        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
         
         // Apply remote patch
         silent_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/arch-calamares/refs/heads/main/3.4.0.1/claudemods/patch.sh)\"");
