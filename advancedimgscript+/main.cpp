@@ -139,13 +139,13 @@ bool extractEmbeddedZip() {
     // Use Qt resource system to access embedded zip
     QFile embeddedZip(":/zip/build-image-arch-img.zip");
     if (!embeddedZip.exists()) {
-        std::cerr << COLOR_RED << "Embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
     // Copy embedded resource to filesystem
     if (!embeddedZip.copy(QString::fromStdString(zipPath))) {
-        std::cerr << COLOR_RED << "Failed to copy embedded resource to: " << zipPath << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -154,9 +154,9 @@ bool extractEmbeddedZip() {
 
     // Extract zip file
     std::cout << COLOR_CYAN << "Extracting zip file..." << COLOR_RESET << std::endl;
-    std::string extractCmd = "unzip -o " + zipPath + " -d " + extractPath;
+    std::string extractCmd = "unzip -o " + zipPath + " -d " + extractPath + " >/dev/null 2>&1";
     if (system(extractCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Failed to extract zip file" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -172,24 +172,24 @@ bool extractCalamaresResources() {
     std::cout << COLOR_CYAN << "Extracting Calamares resources..." << COLOR_RESET << std::endl;
 
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-    std::string calamaresDir = configDir + "/calamares";
+    std::string calamaresDir = configDir + "/calamares-files";
 
     // Create calamares directory
     execute_command("mkdir -p " + calamaresDir, true);
 
     // Step 1: Extract calamares.zip to cmi folder
     std::cout << COLOR_CYAN << "Step 1: Extracting calamares.zip to cmi folder..." << COLOR_RESET << std::endl;
-    
+
     std::string calamaresZipPath = configDir + "/calamares.zip";
     QFile embeddedCalamaresZip(":/zip/calamares.zip");
     if (!embeddedCalamaresZip.exists()) {
-        std::cerr << COLOR_RED << "Calamares embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
     // Copy calamares.zip to filesystem
     if (!embeddedCalamaresZip.copy(QString::fromStdString(calamaresZipPath))) {
-        std::cerr << COLOR_RED << "Failed to copy calamares resource to: " << calamaresZipPath << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -197,9 +197,9 @@ bool extractCalamaresResources() {
     QFile::setPermissions(QString::fromStdString(calamaresZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
 
     // Extract calamares.zip
-    std::string extractCalamaresCmd = "unzip -o " + calamaresZipPath + " -d " + configDir;
+    std::string extractCalamaresCmd = "unzip -o " + calamaresZipPath + " -d " + configDir + " >/dev/null 2>&1";
     if (system(extractCalamaresCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Failed to extract calamares.zip" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -207,18 +207,18 @@ bool extractCalamaresResources() {
     execute_command("rm -f " + calamaresZipPath, true);
 
     // Step 2: Extract branding.zip to cmi/calamares
-    std::cout << COLOR_CYAN << "Step 2: Extracting branding.zip to cmi/calamares..." << COLOR_RESET << std::endl;
-    
+    std::cout << COLOR_CYAN << "Step 2: Extracting branding.zip to cmi/calamares-files..." << COLOR_RESET << std::endl;
+
     std::string brandingZipPath = configDir + "/branding.zip";
     QFile embeddedBrandingZip(":/zip/branding.zip");
     if (!embeddedBrandingZip.exists()) {
-        std::cerr << COLOR_RED << "Branding embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
     // Copy branding.zip to filesystem
     if (!embeddedBrandingZip.copy(QString::fromStdString(brandingZipPath))) {
-        std::cerr << COLOR_RED << "Failed to copy branding resource to: " << brandingZipPath << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -226,9 +226,9 @@ bool extractCalamaresResources() {
     QFile::setPermissions(QString::fromStdString(brandingZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
 
     // Extract branding.zip to calamares directory
-    std::string extractBrandingCmd = "unzip -o " + brandingZipPath + " -d " + calamaresDir;
+    std::string extractBrandingCmd = "unzip -o " + brandingZipPath + " -d " + calamaresDir + " >/dev/null 2>&1";
     if (system(extractBrandingCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Failed to extract branding.zip" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -236,18 +236,18 @@ bool extractCalamaresResources() {
     execute_command("rm -f " + brandingZipPath, true);
 
     // Step 3: Copy extras.zip to cmi/calamares
-    std::cout << COLOR_CYAN << "Step 3: Copying extras.zip to cmi/calamares..." << COLOR_RESET << std::endl;
-    
+    std::cout << COLOR_CYAN << "Step 3: Copying extras.zip to cmi/calamares-files..." << COLOR_RESET << std::endl;
+
     std::string extrasZipPath = calamaresDir + "/extras.zip";
     QFile embeddedExtrasZip(":/zip/extras.zip");
     if (!embeddedExtrasZip.exists()) {
-        std::cerr << COLOR_RED << "Extras embedded resource not found in Qt resources!" << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
     // Copy extras.zip to calamares directory
     if (!embeddedExtrasZip.copy(QString::fromStdString(extrasZipPath))) {
-        std::cerr << COLOR_RED << "Failed to copy extras resource to: " << extrasZipPath << COLOR_RESET << std::endl;
+        // Silent failure - no error reporting
         return false;
     }
 
@@ -296,7 +296,7 @@ bool checkForUpdates() {
     }
 
     // Read new version
-    std::string newVersionPath = cloneDir + "/advancedimgscript/version/version.txt";
+    std::string newVersionPath = cloneDir + "/advancedimgscript+/version/version.txt";
     std::string newVersion = "";
 
     std::ifstream newFile(newVersionPath);
@@ -319,12 +319,12 @@ bool checkForUpdates() {
 
         // First run - extract embedded resources
         if (!extractEmbeddedZip()) {
-            std::cout << COLOR_YELLOW << "Failed to extract embedded resources. Some features may not work." << COLOR_RESET << std::endl;
+            // Silent failure - no error reporting
         }
 
         // Also extract Calamares resources on first run
         if (!extractCalamaresResources()) {
-            std::cout << COLOR_YELLOW << "Failed to extract Calamares resources. Calamares features may not work." << COLOR_RESET << std::endl;
+            // Silent failure - no error reporting
         }
 
         // Execute extrainstalls.sh after ALL zips are finished
@@ -430,7 +430,8 @@ void printCheckbox(bool checked) {
 }
 
 void printBanner() {
-    clearScreen();
+    // Clear screen and move cursor to top
+    std::cout << "\033[2J\033[1;1H";
 
     std::cout << COLOR_RED << R"(
 ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
@@ -834,7 +835,8 @@ void loadConfig() {
 }
 
 int showMenu(const std::string &title, const std::vector<std::string> &items, int selected) {
-    clearScreen();
+    // Clear screen and move cursor to top for every menu display
+    std::cout << "\033[2J\033[1;1H";
     printBanner();
     printConfigStatus();
 
@@ -1029,7 +1031,15 @@ bool createISO() {
     BUILD_DIR;
 
     execute_command(xorrisoCmd, true);
-    std::cout << COLOR_CYAN << "ISO created successfully at " << expandedOutputDir << "/" << config.isoName << COLOR_RESET << std::endl;
+
+    // Change ownership of the created ISO to the current user
+    std::string isoPath = expandedOutputDir + "/" + config.isoName;
+    std::string chownCmd = "sudo chown " + USERNAME + ":" + USERNAME + " \"" + isoPath + "\"";
+    execute_command(chownCmd, true);
+
+    std::cout << COLOR_CYAN << "ISO created successfully at " << isoPath << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Ownership changed to current user: " << USERNAME << COLOR_RESET << std::endl;
+
     return true;
 }
 
@@ -1130,7 +1140,7 @@ void runCalamares() {
 
 void updateScript() {
     std::cout << COLOR_CYAN << "\nUpdating script from GitHub..." << COLOR_RESET << std::endl;
-    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh )\"");
+    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript+/installer/patch.sh )\"");
     std::cout << COLOR_GREEN << "\nScript updated successfully!" << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
     getch();
