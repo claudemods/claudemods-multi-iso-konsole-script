@@ -119,6 +119,81 @@ const std::string COLOR_RESET = "\033[0m";
 const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
 const std::string COLOR_NORMAL = "\033[34m";
 
+// Function to check for updates
+bool checkForUpdates() {
+    std::cout << COLOR_CYAN << "Checking for updates..." << COLOR_RESET << std::endl;
+    
+    // Get username
+    struct passwd *pw = getpwuid(getuid());
+    std::string username = pw ? pw->pw_name : "";
+    if (username.empty()) {
+        std::cerr << COLOR_RED << "Failed to get username!" << COLOR_RESET << std::endl;
+        return false;
+    }
+    
+    std::string cloneDir = "/home/" + username + "/claudemods-multi-iso-konsole-script";
+    
+    // Try to clone the repository
+    std::string cloneCmd = "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git " + cloneDir + " 2>/dev/null";
+    int cloneResult = system(cloneCmd.c_str());
+    
+    if (cloneResult != 0) {
+        std::cout << COLOR_YELLOW << "Failed to check for updates. Continuing with current version." << COLOR_RESET << std::endl;
+        return false;
+    }
+    
+    // Read current version
+    std::string currentVersionPath = "/home/" + username + "/.config/cmi/version.txt";
+    std::string currentVersion = "";
+    
+    std::ifstream currentFile(currentVersionPath);
+    if (currentFile.is_open()) {
+        std::getline(currentFile, currentVersion);
+        currentFile.close();
+    }
+    
+    // Read new version
+    std::string newVersionPath = cloneDir + "/advancedimgscript/version/version.txt";
+    std::string newVersion = "";
+    
+    std::ifstream newFile(newVersionPath);
+    if (newFile.is_open()) {
+        std::getline(newFile, newVersion);
+        newFile.close();
+    }
+    
+    // Clean up cloned directory
+    std::string cleanupCmd = "rm -rf " + cloneDir;
+    system(cleanupCmd.c_str());
+    
+    if (newVersion.empty()) {
+        std::cout << COLOR_YELLOW << "Could not retrieve new version information." << COLOR_RESET << std::endl;
+        return false;
+    }
+    
+    if (currentVersion.empty()) {
+        std::cout << COLOR_YELLOW << "No current version found. Assuming first run." << COLOR_RESET << std::endl;
+        return false;
+    }
+    
+    std::cout << COLOR_CYAN << "Current version: " << currentVersion << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Latest version: " << newVersion << COLOR_RESET << std::endl;
+    
+    if (currentVersion != newVersion) {
+        std::cout << COLOR_GREEN << "New version available!" << COLOR_RESET << std::endl;
+        std::string response = getUserInput("Do you want to update? (yes/no): ");
+        
+        if (response == "yes" || response == "y" || response == "Y") {
+            std::cout << COLOR_CYAN << "Starting update process..." << COLOR_RESET << std::endl;
+            return true;
+        }
+    } else {
+        std::cout << COLOR_GREEN << "You are running the latest version." << COLOR_RESET << std::endl;
+    }
+    
+    return false;
+}
+
 void update_time_thread() {
     while (time_thread_running) {
         time_t now = time(NULL);
@@ -861,7 +936,7 @@ void installISOToUSB() {
     std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
     execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
 
-    std::string targetDrive = getUserInput("\nEnter target drive (e.g., /dev/sda): ");
+    std::string targetDrive = getUserInput("Enter target drive (e.g., /dev/sda): ");
     if (targetDrive.empty()) {
         std::cerr << COLOR_RED << "No drive specified!" << COLOR_RESET << std::endl;
         return;
@@ -943,7 +1018,7 @@ void cloneAnotherDrive(const std::string& cloneDir) {
     // Check if drive exists
     std::string checkCmd = "ls " + drive + " > /dev/null 2>&1";
     if (system(checkCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Drive " << drive << " does not exist!" << COLOR_RESET << std::endl;
+        std::cerr << COLOR_RED << "Drive " << drive + " does not exist!" << COLOR_RESET << std::endl;
         return;
     }
     
@@ -1171,6 +1246,13 @@ void showMainMenu() {
 }
 
 int main() {
+    // Check for updates first
+    if (checkForUpdates()) {
+        // If update is available and user wants to install, run the update script
+        updateScript();
+        return 0;
+    }
+
     struct passwd *pw = getpwuid(getuid());
     if (pw) {
         USERNAME = pw->pw_name;
