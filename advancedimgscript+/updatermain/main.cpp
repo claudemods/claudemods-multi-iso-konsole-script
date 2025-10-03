@@ -80,7 +80,7 @@ void* execute_update_thread(void* /*arg*/) {
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/version/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/version/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -94,24 +94,9 @@ void* execute_update_thread(void* /*arg*/) {
 
     // ARCH AND CACHYOS INSTALLATION
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/version/version.txt /home/$USER/.config/cmi/");
-        silent_command("wget https://sourceforge.net/projects/claudemods/files/build-image-arch-img.zip/download");
-        silent_command("unzip -o download -d /home/$USER/.config/cmi/");
-        silent_command("rm -rf download");
-        silent_command("cd /home/$USER/.config/cmi/working-hooks-btrfs-ext4 && sudo cp -r * /etc/initcpio");
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/btrfs-and-ext4-installer && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/btrfs-and-ext4-installer/cmirsyncinstaller /usr/bin/cmirsyncinstaller");
-        
-        // Build and install cmiimg
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg /usr/bin/cmiimg");
-        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg/calamares /home/$USER/.config/cmi");
-        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
-        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
-        silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
-        
-        // Apply remote patch
-        silent_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/arch-calamares/refs/heads/main/3.4.0.1/claudemods/patch.sh)\"");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscrip+/version/version.txt /home/$USER/.config/cmi/");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+ && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/cmiimg /usr/bin/cmiimg");
     }
 
     // Cleanup
@@ -148,25 +133,6 @@ int main() {
 
     while (!commands_completed) usleep(10000);
     pthread_join(thread, nullptr);
-
-    // >>> NEW: BTRFS CONFIG SELECTION PROMPT <<<
-    std::cout << COLOR_GREEN << "\nSelect Btrfs configuration for Calamares:\n"
-              << COLOR_GREEN << "1) Default Calamares config\n"
-              << "2) Claudemods custom config (new mounts + zstd level 22 compression)\n"
-              << COLOR_GREEN << "Enter choice (1 or 2): " << COLOR_RESET;
-
-    std::string choice;
-    std::getline(std::cin >> std::ws, choice); // std::ws eats leftover newlines
-
-    if (choice == "2") {
-        // Copy custom mount.conf to Calamares modules
-        silent_command("cd /home/$USER/.config/cmi/btrfs-custom-config && sudo cp * /usr/share/calamares/modules 2>/dev/null");
-        std::cout << COLOR_GREEN << "\nCustom Btrfs config applied.\n" << COLOR_RESET;
-    } else if (choice == "1") {
-        std::cout << COLOR_GREEN << "\nUsing default Calamares Btrfs config.\n" << COLOR_RESET;
-    } else {
-        std::cout << COLOR_YELLOW << "\nInvalid choice. Using default Calamares config.\n" << COLOR_RESET;
-    }
 
     // >>> ORIGINAL SUMMARY <<<
     std::cout << COLOR_GREEN << "\nInstallation complete!\n" << COLOR_RESET;
