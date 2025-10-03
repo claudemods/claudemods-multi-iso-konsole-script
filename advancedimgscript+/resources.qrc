@@ -1,5 +1,0 @@
-<RCC>
-    <qresource prefix="/zip">
-        <file>build-image-arch-img.zip</file>
-    </qresource>
-</RCC>
