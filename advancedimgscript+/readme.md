@@ -1,1 +1,1 @@
-more coming currently coding last piece of main.cpp for script with all files to work as intended e.g install once opened and save
+not ready yet should be ready it 15-20 minutes just fixing script up a little more
