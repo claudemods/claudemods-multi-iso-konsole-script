@@ -150,10 +150,10 @@ int main() {
     pthread_join(thread, nullptr);
 
     // >>> NEW: BTRFS CONFIG SELECTION PROMPT <<<
-    std::cout << COLOR_CYAN << "\nSelect Btrfs configuration for Calamares:\n"
-              << COLOR_YELLOW << "1) Default Calamares config\n"
+    std::cout << COLOR_GREEN << "\nSelect Btrfs configuration for Calamares:\n"
+              << COLOR_GREEN << "1) Default Calamares config\n"
               << "2) Claudemods custom config (new mounts + zstd level 22 compression)\n"
-              << COLOR_CYAN << "Enter choice (1 or 2): " << COLOR_RESET;
+              << COLOR_GREEN << "Enter choice (1 or 2): " << COLOR_RESET;
 
     std::string choice;
     std::getline(std::cin >> std::ws, choice); // std::ws eats leftover newlines
