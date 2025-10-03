@@ -40,6 +40,9 @@ Launch the menu after installation or type:
 - Make sure all applications are closed before proceeding
 - Go to the setup script and select directory to store clone
 - Create a SquashFS image using the menu option
+- options for cloning include current system another system or swap
+- when cloning your swap it will copy all files into clone_system_temp/home/swap
+- its then upto you to copy them files back to a swap once you install with calamares
 
 ### 7️⃣ ISO Creation  
 - Use the ISO Creator Menu to generate an ISO of your cloned system
@@ -50,6 +53,7 @@ Launch the menu after installation or type:
   - Same applies if generating directly to USB
 
 ### 8️⃣ Configure Calamares *(C++ and C Arch Only For Now)*  
+- during install it will ask you if you want default calamares config or my custom config with new mounts and btrfs level 22 compression
 - From the Setup Scripts Menu, select **Install Calamares**, or  
 - Execute: `gen-calamares` if you've installed the custom commands
 
