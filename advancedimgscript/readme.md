@@ -1,3 +1,11 @@
+
+new options for cloning in v2.01 03-10-2025
+
+<img width="1920" height="1200" alt="Screenshot_20251003_125440" src="https://github.com/user-attachments/assets/566ee886-9002-4e3f-9026-4636de023f63" />
+
+
+
+
 calamares added with support for all operating systems i just fixed the installation method for calamares 
 
 also ive integrated it into the script
