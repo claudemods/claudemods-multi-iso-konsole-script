@@ -8,6 +8,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <limits>
 
 #define COLOR_GREEN "\033[38;2;0;255;0m"
 #define COLOR_CYAN "\033[38;2;0;255;255m"
@@ -49,7 +50,7 @@ void* execute_update_thread(void* /*arg*/) {
     while (!loading_complete) usleep(10000);
 
     // 1. GIT CLONE
-    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git   ");
+    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git");
 
     // 2. CURRENT VERSION
     try {
@@ -64,7 +65,7 @@ void* execute_update_thread(void* /*arg*/) {
     try {
         std::string distro_output = run_command("cat /etc/os-release | grep '^ID=' | cut -d'=' -f2 | tr -d '\"'");
         if (distro_output == "arch" || distro_output == "cachyos") {
-            strcpy(detected_distro, distro_output.c_str()); // Store actual distro name
+            strcpy(detected_distro, distro_output.c_str());
         } else {
             std::cout << COLOR_RED << "\nError: Unsupported distribution. Only Arch Linux and CachyOS are supported.\n" << COLOR_RESET;
             exit(EXIT_FAILURE);
@@ -101,20 +102,16 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/btrfs-and-ext4-installer && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/btrfs-and-ext4-installer/cmirsyncinstaller /usr/bin/cmirsyncinstaller");
         
-        // Arch/CachyOS-specific commands
+        // Build and install cmiimg
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript && qmake6 && make >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg /usr/bin/cmiimg");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg/calamares /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
         silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript && qmake6 && make >/dev/null 2>&1");
-silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg /usr/bin/cmiimg");
-silent_command("cp -r /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/cmiimg/calamares /home/$USER/.config/cmi");
-silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/guide/readme.txt /home/$USER/.config/cmi");
-silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/changes.txt /home/$USER/.config/cmi");
-silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript/installer/patch.sh /home/$USER/.config/cmi >/dev/null 2>&1");
-silent_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/arch-calamares/refs/heads/main/3.4.0.1/claudemods/patch.sh)\"");
+        
+        // Apply remote patch
+        silent_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/arch-calamares/refs/heads/main/3.4.0.1/claudemods/patch.sh)\"");
     }
 
     // Cleanup
@@ -152,6 +149,26 @@ int main() {
     while (!commands_completed) usleep(10000);
     pthread_join(thread, nullptr);
 
+    // >>> NEW: BTRFS CONFIG SELECTION PROMPT <<<
+    std::cout << COLOR_CYAN << "\nSelect Btrfs configuration for Calamares:\n"
+              << COLOR_YELLOW << "1) Default Calamares config\n"
+              << "2) Claudemods custom config (new mounts + zstd level 22 compression)\n"
+              << COLOR_CYAN << "Enter choice (1 or 2): " << COLOR_RESET;
+
+    std::string choice;
+    std::getline(std::cin >> std::ws, choice); // std::ws eats leftover newlines
+
+    if (choice == "2") {
+        // Copy custom mount.conf to Calamares modules
+        silent_command("cp /home/$USER/.config/cmi/btrfs-custom-config/mount.conf /usr/share/calamares/modules/ 2>/dev/null");
+        std::cout << COLOR_GREEN << "\nCustom Btrfs config applied.\n" << COLOR_RESET;
+    } else if (choice == "1") {
+        std::cout << COLOR_GREEN << "\nUsing default Calamares Btrfs config.\n" << COLOR_RESET;
+    } else {
+        std::cout << COLOR_YELLOW << "\nInvalid choice. Using default Calamares config.\n" << COLOR_RESET;
+    }
+
+    // >>> ORIGINAL SUMMARY <<<
     std::cout << COLOR_GREEN << "\nInstallation complete!\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Executable installed to: /usr/bin/cmiimg\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Configuration files placed in: /home/$USER/.config/cmi/\n" << COLOR_RESET;
