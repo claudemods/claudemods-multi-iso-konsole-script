@@ -1284,8 +1284,8 @@ void cloneAnotherDrive(const std::string& cloneDir) {
     }
 }
 
-// Modified function to clone swap partition using rsync - ONLY RSYNC, NO SQUASHFS
-void cloneSwapPartition(const std::string& cloneDir) {
+// New function to clone folder or file using rsync
+void cloneFolderOrFile(const std::string& cloneDir) {
     if (!config.allCheckboxesChecked()) {
         std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
@@ -1293,51 +1293,46 @@ void cloneSwapPartition(const std::string& cloneDir) {
         return;
     }
 
-    std::cout << COLOR_CYAN << "\nAvailable swap partitions:" << COLOR_RESET << std::endl;
-    execute_command("swapon --show=NAME,SIZE,TYPE | grep -v NAME", true);
-    execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep swap", true);
+    std::cout << COLOR_CYAN << "\nClone Folder or File" << COLOR_RESET << std::endl;
+    std::cout << COLOR_YELLOW << "Enter the path to a folder or file you want to clone." << COLOR_RESET << std::endl;
+    std::cout << COLOR_YELLOW << "Examples:" << COLOR_RESET << std::endl;
+    std::cout << COLOR_YELLOW << "  - Folder: /home/" << USERNAME << "/Documents" << COLOR_RESET << std::endl;
+    std::cout << COLOR_YELLOW << "  - File: /home/" << USERNAME << "/file.txt" << COLOR_RESET << std::endl;
 
-    std::string swapPartition = getUserInput("Enter swap partition to clone (e.g., /dev/sda3): ");
-    if (swapPartition.empty()) {
-        std::cerr << COLOR_RED << "No swap partition specified!" << COLOR_RESET << std::endl;
+    std::string sourcePath = getUserInput("Enter folder or file path to clone: ");
+    if (sourcePath.empty()) {
+        std::cerr << COLOR_RED << "No path specified!" << COLOR_RESET << std::endl;
         return;
     }
 
-    // Check if swap partition exists
-    std::string checkCmd = "ls " + swapPartition + " > /dev/null 2>&1";
+    // Check if source exists
+    std::string checkCmd = "sudo test -e " + sourcePath + " > /dev/null 2>&1";
     if (system(checkCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Swap partition " << swapPartition << " does not exist!" << COLOR_RESET << std::endl;
+        std::cerr << COLOR_RED << "Source path does not exist: " << sourcePath << COLOR_RESET << std::endl;
         return;
     }
 
-    std::string swapDir = cloneDir + "/home/swap";
-    execute_command("sudo mkdir -p " + swapDir, true);
+    // Create userfiles directory in clone_system_temp
+    std::string userfilesDir = cloneDir + "/home/userfiles";
+    execute_command("sudo mkdir -p " + userfilesDir, true);
 
-    std::cout << COLOR_CYAN << "Cloning swap partition " << swapPartition << " to " << swapDir << "..." << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Cloning " << sourcePath << " to " << userfilesDir << "..." << COLOR_RESET << std::endl;
 
-    // Create swap directory structure and copy swap information using rsync
-    std::string swapRsyncCmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
-    swapPartition + " " + swapDir + "/";
-    execute_command(swapRsyncCmd, true);
-
-    // Create a info file with swap partition details
-    std::string infoCmd = "sudo sh -c 'lsblk -f " + swapPartition + " > " + swapDir + "/swap_info.txt'";
-    execute_command(infoCmd, true);
-
-    // Get swap partition size and details
-    std::string sizeCmd = "sudo sh -c 'fdisk -l " + swapPartition + " >> " + swapDir + "/swap_info.txt'";
-    execute_command(sizeCmd, true);
-
-    // Get current swap status if active
-    std::string statusCmd = "sudo sh -c 'swapon --show=NAME,SIZE,TYPE | grep " + swapPartition + " >> " + swapDir + "/swap_info.txt 2>/dev/null'";
-    execute_command(statusCmd, true);
-
-    std::cout << COLOR_GREEN << "Swap partition " << swapPartition << " cloned successfully to " << swapDir << "!" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Swap data: " << swapDir << "/" << swapPartition.substr(5) << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Swap info: " << swapDir << "/swap_info.txt" << COLOR_RESET << std::endl;
+    // Use rsync to copy the folder or file
+    std::string rsyncCmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
+                          sourcePath + " " + userfilesDir + "/";
     
-    // DO NOT CREATE SQUASHFS FOR SWAP PARTITION
-    std::cout << COLOR_YELLOW << "Note: Swap partition cloned to " << swapDir << " but no SquashFS image created." << COLOR_RESET << std::endl;
+    if (!execute_command(rsyncCmd, true)) {
+        std::cerr << COLOR_RED << "Failed to clone " << sourcePath << "!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::cout << COLOR_GREEN << "Successfully cloned " << sourcePath << " to " << userfilesDir << "!" << COLOR_RESET << std::endl;
+    
+    // Show what was copied
+    std::string listCmd = "sudo ls -la " + userfilesDir + " | head -20";
+    std::cout << COLOR_CYAN << "Contents of userfiles directory:" << COLOR_RESET << std::endl;
+    execute_command(listCmd, true);
 }
 
 // New function to show clone options menu
@@ -1345,7 +1340,7 @@ void showCloneOptionsMenu() {
     std::vector<std::string> items = {
         "Clone Current System (as it is now)",
         "Clone Another Drive (e.g., /dev/sda2)",
-        "Clone Swap Partition (e.g., /dev/sda3)",
+        "Clone Folder or File",
         "Back to Main Menu"
     };
 
@@ -1413,11 +1408,11 @@ void showCloneOptionsMenu() {
                         }
                         break;
                     case 2:
-                        cloneSwapPartition(cloneDir);
-                        // DO NOT CREATE SQUASHFS FOR SWAP PARTITION
-                        // DO NOT CLEAN UP CLONE_DIR FOR SWAP PARTITION
-                        std::cout << COLOR_YELLOW << "Swap partition cloned to " << cloneDir << "/home/swap" << COLOR_RESET << std::endl;
-                        std::cout << COLOR_YELLOW << "No SquashFS image created for swap partition." << COLOR_RESET << std::endl;
+                        cloneFolderOrFile(cloneDir);
+                        // Note: No SquashFS creation for individual files/folders
+                        // User can choose to create ISO with the cloned files
+                        std::cout << COLOR_YELLOW << "Folder/File cloned to " << cloneDir << "/home/userfiles" << COLOR_RESET << std::endl;
+                        std::cout << COLOR_YELLOW << "You can now create an ISO that includes these files." << COLOR_RESET << std::endl;
                         break;
                     case 3:
                         return;
