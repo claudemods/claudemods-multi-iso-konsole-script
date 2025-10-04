@@ -12,7 +12,7 @@ more to come hope you enjoy
 
 new install method Advanced C++ Arch Img Iso Script+ Beta v2.02
 
-bash -c "$(curl -fsSL bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B/installer/patch.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B/installer/patch.sh)"
 
 <img width="1920" height="1200" alt="Screenshot_20251004_001455" src="https://github.com/user-attachments/assets/a80e12f9-3947-4e2f-8d0a-1b113a6e3b4f" />
 
