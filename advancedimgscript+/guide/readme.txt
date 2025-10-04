@@ -30,16 +30,9 @@
 │ 📝 Step-by-Step Usage Guide │
 │ │
 │ 1️⃣ System Image Creation │
-│ - Select "Create Image" from main menu │
-│ - Enter your username when prompted │
-│ - Specify image size for ext4 (e.g., "6" for 6GB) │
-│ - Specify image size for btrfs will need to be uncompressed system │
-│ size i need to fix mechanism but (e.g., "6" for 6GB) │
-│ - Choose filesystem type (btrfs or ext4) │
+│ - Select "Create Image" from main menu ││
 │ - The script will automatically: │
-│ • Create blank image file │
-│ • Format with selected filesystem │
-│ • Mount and clone your system │
+│ • clone your system │
 │ • Compress into SquashFS format │
 │ • Generate MD5 checksum │
 │ │
@@ -79,8 +72,6 @@
 │ │
 │ • Configuration persists between runs in ~/.config/cmi/configuration.txt│
 │ • Main menu shows current configuration status │
-│ • For BTRFS: Uses zstd:22 compression by default │
-│ • For EXT4: Uses standard formatting with optimizations │
 │ • Excludes temporary and system directories automatically │
 │ │
 │ ⚠️ Important Notes │
