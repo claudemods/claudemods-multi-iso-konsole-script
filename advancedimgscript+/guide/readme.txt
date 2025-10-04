@@ -53,6 +53,7 @@
 │ • Select vmlinuz - Choose kernel from /boot │
 │ • Generate mkinitcpio - Create initramfs │
 │ • Edit GRUB Config - Customize bootloader settings │
+│ • Edit Boot Text │
 │ │
 │ 3️⃣ Calamares Setup │
 │ - use the setup scripts menu to edit calamres branding.desc │
