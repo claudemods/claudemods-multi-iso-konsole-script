@@ -104,6 +104,7 @@ struct ConfigState {
     std::string cloneDir;
     bool mkinitcpioGenerated = false;
     bool grubEdited = false;
+    bool bootTextEdited = false;
     bool calamaresBrandingEdited = false;
     bool calamares1Edited = false;
     bool calamares2Edited = false;
@@ -112,6 +113,13 @@ struct ConfigState {
     bool isReadyForISO() const {
         return !isoTag.empty() && !isoName.empty() && !outputDir.empty() &&
         !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited && dependenciesInstalled;
+    }
+
+    bool allCheckboxesChecked() const {
+        return dependenciesInstalled && !isoTag.empty() && !isoName.empty() &&
+        !outputDir.empty() && !vmlinuzPath.empty() && !cloneDir.empty() &&
+        mkinitcpioGenerated && grubEdited && bootTextEdited &&
+        calamaresBrandingEdited && calamares1Edited && calamares2Edited;
     }
 } config;
 
@@ -124,6 +132,7 @@ const std::string COLOR_YELLOW = "\033[33m";
 const std::string COLOR_RESET = "\033[0m";
 const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
 const std::string COLOR_NORMAL = "\033[34m";
+const std::string COLOR_DISABLED = "\033[90m"; // Added for disabled menu items
 
 // Function to extract embedded zip using Qt resource system
 bool extractEmbeddedZip() {
@@ -489,6 +498,10 @@ void printConfigStatus() {
     std::cout << " GRUB Config Edited" << std::endl;
 
     std::cout << " ";
+    printCheckbox(config.bootTextEdited);
+    std::cout << " Boot Text Edited" << std::endl;
+
+    std::cout << " ";
     printCheckbox(config.calamaresBrandingEdited);
     std::cout << " Calamares Branding Edited" << std::endl;
 
@@ -687,6 +700,24 @@ void editGrubCfg() {
     std::cout << COLOR_GREEN << "GRUB config edited!" << COLOR_RESET << std::endl;
 }
 
+void editBootText() {
+    if (BUILD_DIR.empty()) {
+        std::cerr << COLOR_RED << "Build directory not set!" << COLOR_RESET << std::endl;
+        return;
+    }
+
+    std::string bootTextPath = BUILD_DIR + "/boot/grub/kernels.cfg";
+    std::cout << COLOR_CYAN << "Editing Boot Text: " << bootTextPath << COLOR_RESET << std::endl;
+
+    // Set nano to use cyan color scheme
+    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + bootTextPath;
+    execute_command(nanoCommand);
+
+    config.bootTextEdited = true;
+    saveConfig();
+    std::cout << COLOR_GREEN << "Boot Text edited!" << COLOR_RESET << std::endl;
+}
+
 void editCalamaresBranding() {
     std::string calamaresBrandingPath = "/usr/share/calamares/branding/claudemods/branding.desc";
     std::cout << COLOR_CYAN << "Editing Calamares Branding: " << calamaresBrandingPath << COLOR_RESET << std::endl;
@@ -796,6 +827,7 @@ void saveConfig() {
         configFile << "cloneDir=" << config.cloneDir << "\n";
         configFile << "mkinitcpioGenerated=" << (config.mkinitcpioGenerated ? "1" : "0") << "\n";
         configFile << "grubEdited=" << (config.grubEdited ? "1" : "0") << "\n";
+        configFile << "bootTextEdited=" << (config.bootTextEdited ? "1" : "0") << "\n";
         configFile << "calamaresBrandingEdited=" << (config.calamaresBrandingEdited ? "1" : "0") << "\n";
         configFile << "calamares1Edited=" << (config.calamares1Edited ? "1" : "0") << "\n";
         configFile << "calamares2Edited=" << (config.calamares2Edited ? "1" : "0") << "\n";
@@ -824,6 +856,7 @@ void loadConfig() {
                 else if (key == "cloneDir") config.cloneDir = value;
                 else if (key == "mkinitcpioGenerated") config.mkinitcpioGenerated = (value == "1");
                 else if (key == "grubEdited") config.grubEdited = (value == "1");
+                else if (key == "bootTextEdited") config.bootTextEdited = (value == "1");
                 else if (key == "calamaresBrandingEdited") config.calamaresBrandingEdited = (value == "1");
                 else if (key == "calamares1Edited") config.calamares1Edited = (value == "1");
                 else if (key == "calamares2Edited") config.calamares2Edited = (value == "1");
@@ -873,6 +906,7 @@ void showSetupMenu() {
         "Select vmlinuz",
         "Generate mkinitcpio",
         "Edit GRUB Config",
+        "Edit Boot Text",
         "Edit Calamares Branding",
         "Edit Calamares 1st initcpio.conf",
         "Edit Calamares 2nd initcpio.conf",
@@ -902,13 +936,14 @@ void showSetupMenu() {
                     case 5: selectVmlinuz(); break;
                     case 6: generateMkinitcpio(); break;
                     case 7: editGrubCfg(); break;
-                    case 8: editCalamaresBranding(); break;
-                    case 9: editCalamares1(); break;
-                    case 10: editCalamares2(); break;
-                    case 11: return;
+                    case 8: editBootText(); break;
+                    case 9: editCalamaresBranding(); break;
+                    case 10: editCalamares1(); break;
+                    case 11: editCalamares2(); break;
+                    case 12: return;
                 }
 
-                if (selected != 11) {
+                if (selected != 12) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                     getch();
                 }
@@ -996,6 +1031,13 @@ std::string expandPath(const std::string& path) {
 }
 
 bool createISO() {
+    if (!config.allCheckboxesChecked()) {
+        std::cerr << COLOR_RED << "Cannot create ISO - all setup steps must be completed first!" << COLOR_RESET << std::endl;
+        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+        getch();
+        return false;
+    }
+
     if (!config.isReadyForISO()) {
         std::cerr << COLOR_RED << "Cannot create ISO - setup is incomplete!" << COLOR_RESET << std::endl;
         return false;
@@ -1162,6 +1204,13 @@ bool mountDevice(const std::string& device, const std::string& mountPoint) {
 
 // New function to clone current system
 void cloneCurrentSystem(const std::string& cloneDir) {
+    if (!config.allCheckboxesChecked()) {
+        std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
+        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+        getch();
+        return;
+    }
+
     std::cout << COLOR_CYAN << "Cloning current system to " << cloneDir << "..." << COLOR_RESET << std::endl;
 
     if (!copyFilesWithRsync(SOURCE_DIR, cloneDir)) {
@@ -1174,6 +1223,13 @@ void cloneCurrentSystem(const std::string& cloneDir) {
 
 // New function to clone another drive
 void cloneAnotherDrive(const std::string& cloneDir) {
+    if (!config.allCheckboxesChecked()) {
+        std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
+        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+        getch();
+        return;
+    }
+
     std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
     execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep -v 'loop'", true);
 
@@ -1230,6 +1286,13 @@ void cloneAnotherDrive(const std::string& cloneDir) {
 
 // New function to clone swap partition using rsync
 void cloneSwapPartition(const std::string& cloneDir) {
+    if (!config.allCheckboxesChecked()) {
+        std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
+        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+        getch();
+        return;
+    }
+
     std::cout << COLOR_CYAN << "\nAvailable swap partitions:" << COLOR_RESET << std::endl;
     execute_command("swapon --show=NAME,SIZE,TYPE | grep -v NAME", true);
     execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep swap", true);
@@ -1345,6 +1408,7 @@ void showCloneOptionsMenu() {
     }
 }
 
+// Modified showMainMenu function to block "Create Image" until all checkboxes are checked
 void showMainMenu() {
     std::vector<std::string> items = {
         "Guide",
@@ -1363,6 +1427,9 @@ void showMainMenu() {
     int key;
 
     while (true) {
+        // Check if all checkboxes are checked for the "Create Image" option
+        bool allChecked = config.allCheckboxesChecked();
+
         key = showMenu("Main Menu:", items, selected);
 
         switch (key) {
@@ -1380,13 +1447,18 @@ void showMainMenu() {
                     case 1:
                         showSetupMenu();
                         break;
-                    case 2:
-                        showCloneOptionsMenu();
+                    case 2: // Create Image option
+                        if (!allChecked) {
+                            std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
+                            std::cout << COLOR_RED << "Please complete all checkboxes in the Setup Scripts menu." << COLOR_RESET << std::endl;
+                            std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
+                            getch();
+                        } else {
+                            showCloneOptionsMenu();
+                        }
                         break;
                     case 3:
                         createISO();
-                        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                        getch();
                         break;
                     case 4:
                         execute_command("df -h");
