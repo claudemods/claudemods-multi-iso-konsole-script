@@ -31,8 +31,10 @@
 │ │
 │ 1️⃣ System Image Creation │
 │ - Select "Create Image" from main menu ││
-│ - The script will automatically: │
-│ • clone your system │
+│ - The script can: │
+│ • clone your current system │
+│ • clone your secondary system │
+│ • clone a file or folder of choice │
 │ • Compress into SquashFS format │
 │ • Generate MD5 checksum │
 │ │
