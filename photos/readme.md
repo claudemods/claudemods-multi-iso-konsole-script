@@ -1,28 +1,5 @@
+you can now clone and make bootable isos after many weeks of no updates lots has been tested the cloning was the last thing to fix 
 
-new custom installer
+<img width="1280" height="800" alt="Screenshot_archlinux_2025-09-26_22:16:41" src="https://github.com/user-attachments/assets/8eb69452-e686-4aa9-8ae1-e8a7dbca4459" />
 
-![Screenshot_20250621_042011](https://github.com/user-attachments/assets/d2537d88-ced0-4d09-8936-9b2c764d0536)
-
-
-
-current ubuntu ui 
-
-![Screenshot_20250621_021005](https://github.com/user-attachments/assets/ec20e88d-7399-45a3-8dd8-4ed421655fe5)
-
-
-custom commands 
-
-![Screenshot_20250621_021040](https://github.com/user-attachments/assets/9076bfed-8f5f-4863-b420-d3179c8c95f8)
-
-
-new time updates guide menu option and ui rearrangement currently only in c++ only
-
-![Screenshot_20250624_222046](https://github.com/user-attachments/assets/c3b7665a-6aae-46f1-bc54-4ab15a625c5d)
-
-
-
-new calamares menu option and gen-calamares command currently in c++ version and for arch 
-
-![Screenshot_20250623_235111](https://github.com/user-attachments/assets/d2d4e1d2-2c3a-4da7-802e-d75ed04ddb4c)
-
-
+<img width="1280" height="800" alt="Screenshot_archlinux_2025-09-26_22:19:25" src="https://github.com/user-attachments/assets/15dbb4be-cae1-4c08-aada-b86299da5ac9" />
