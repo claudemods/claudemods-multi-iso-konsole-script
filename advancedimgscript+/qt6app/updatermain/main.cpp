@@ -50,7 +50,7 @@ void* execute_update_thread(void* /*arg*/) {
     while (!loading_complete) usleep(10000);
 
     // 1. GIT CLONE
-    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git");
+    silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  ");
 
     // 2. CURRENT VERSION
     try {
@@ -143,13 +143,8 @@ int main() {
     std::cout << COLOR_GREEN << "Downloaded version: " << downloaded_version << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Installed version: " << installed_version << COLOR_RESET << std::endl;
 
-    std::cout << COLOR_CYAN << "\nLaunch now? (y/n): " << COLOR_RESET;
-    char response;
-    std::cin >> response;
-
-    if (response == 'y' || response == 'Y') {
-        system("cd /home/$USER && cmiimg");
-    }
+    // Automatically launch cmiimg without prompting
+    system("cd /home/$USER && cmiimg");
 
     return EXIT_SUCCESS;
 }
