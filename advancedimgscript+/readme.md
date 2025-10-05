@@ -1,6 +1,6 @@
 cmi arch img iso creator+ v2.03.1 05-10-2025
 
-new automatic modes works fine from tests not much changed in the whole script hope you enjoy
+new automatic mode works fine from tests not much changed in the whole script hope you enjoy
 
 <img width="1280" height="800" alt="Screenshot_archlinux_2025-10-05_19:20:00" src="https://github.com/user-attachments/assets/8e1ed8b2-f205-4140-b64c-0caa929e40a6" />
 
