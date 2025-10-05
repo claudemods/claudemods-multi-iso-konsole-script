@@ -450,7 +450,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script+ Beta v2.03 04-10-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script+ Beta v2.03.1 05-10-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
@@ -1321,11 +1321,11 @@ void cloneFolderOrFile(const std::string& cloneDir) {
     // Use rsync to copy the folder or file
     std::string rsyncCmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
                           sourcePath + " " + userfilesDir + "/";
-    
+
     execute_command(rsyncCmd, true);
 
     std::cout << COLOR_GREEN << "Successfully cloned " << sourcePath << " to " << userfilesDir << "!" << COLOR_RESET << std::endl;
-    
+
     // Show what was copied
     std::string listCmd = "sudo ls -la " + userfilesDir + " | head -20";
     std::cout << COLOR_CYAN << "Contents of userfiles directory:" << COLOR_RESET << std::endl;
@@ -1424,10 +1424,126 @@ void showCloneOptionsMenu() {
     }
 }
 
-// Modified showMainMenu function to block "Create Image" until all checkboxes are checked
+// New function for Auto Mode
+void runAutoMode() {
+    std::cout << COLOR_CYAN << "\n=== Starting Auto Mode ===" << COLOR_RESET << std::endl;
+    std::cout << COLOR_YELLOW << "This will run all setup steps sequentially and then create an image." << COLOR_RESET << std::endl;
+    
+    // Step 1: Install Dependencies
+    std::cout << COLOR_CYAN << "\nStep 1: Installing Dependencies..." << COLOR_RESET << std::endl;
+    installDependencies();
+    
+    // Step 2: Set Clone Directory
+    std::cout << COLOR_CYAN << "\nStep 2: Setting Clone Directory..." << COLOR_RESET << std::endl;
+    setCloneDir();
+    
+    // Step 3: Set ISO Tag
+    std::cout << COLOR_CYAN << "\nStep 3: Setting ISO Tag..." << COLOR_RESET << std::endl;
+    setIsoTag();
+    
+    // Step 4: Set ISO Name
+    std::cout << COLOR_CYAN << "\nStep 4: Setting ISO Name..." << COLOR_RESET << std::endl;
+    setIsoName();
+    
+    // Step 5: Set Output Directory
+    std::cout << COLOR_CYAN << "\nStep 5: Setting Output Directory..." << COLOR_RESET << std::endl;
+    setOutputDir();
+    
+    // Step 6: Select vmlinuz
+    std::cout << COLOR_CYAN << "\nStep 6: Selecting vmlinuz..." << COLOR_RESET << std::endl;
+    selectVmlinuz();
+    
+    // Step 7: Generate mkinitcpio
+    std::cout << COLOR_CYAN << "\nStep 7: Generating mkinitcpio..." << COLOR_RESET << std::endl;
+    generateMkinitcpio();
+    
+    // Step 8: Edit GRUB Config
+    std::cout << COLOR_CYAN << "\nStep 8: Editing GRUB Config..." << COLOR_RESET << std::endl;
+    editGrubCfg();
+    
+    // Step 9: Edit Boot Text
+    std::cout << COLOR_CYAN << "\nStep 9: Editing Boot Text..." << COLOR_RESET << std::endl;
+    editBootText();
+    
+    // Step 10: Edit Calamares Branding
+    std::cout << COLOR_CYAN << "\nStep 10: Editing Calamares Branding..." << COLOR_RESET << std::endl;
+    editCalamaresBranding();
+    
+    // Step 11: Edit Calamares 1st initcpio.conf
+    std::cout << COLOR_CYAN << "\nStep 11: Editing Calamares 1st initcpio.conf..." << COLOR_RESET << std::endl;
+    editCalamares1();
+    
+    // Step 12: Edit Calamares 2nd initcpio.conf
+    std::cout << COLOR_CYAN << "\nStep 12: Editing Calamares 2nd initcpio.conf..." << COLOR_RESET << std::endl;
+    editCalamares2();
+    
+    std::cout << COLOR_GREEN << "\nAll setup steps completed successfully!" << COLOR_RESET << std::endl;
+    
+    // Ask about file/folder copy
+    std::string copyChoice = getUserInput("Would you like to copy a file or folder to the image? (yes/no): ");
+    if (copyChoice == "yes" || copyChoice == "y" || copyChoice == "Y") {
+        std::cout << COLOR_CYAN << "\nCopying file/folder..." << COLOR_RESET << std::endl;
+        cloneFolderOrFile(config.cloneDir);
+    }
+    
+    // Ask about cloning
+    std::string cloneChoice = getUserInput("Would you like to clone current system or another system? (current/another/no): ");
+    if (cloneChoice == "current" || cloneChoice == "c") {
+        std::cout << COLOR_CYAN << "\nCloning current system..." << COLOR_RESET << std::endl;
+        cloneCurrentSystem(config.cloneDir);
+        
+        // Create SquashFS after cloning
+        std::string outputDir = getOutputDirectory();
+        std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
+        
+        std::cout << COLOR_CYAN << "\nCreating SquashFS image..." << COLOR_RESET << std::endl;
+        createSquashFS(config.cloneDir, finalImgPath);
+        
+        // Clean up temporary directory
+        std::cout << COLOR_CYAN << "Cleaning up temporary clone directory..." << COLOR_RESET << std::endl;
+        std::string cleanupCmd = "sudo rm -rf " + config.cloneDir;
+        execute_command(cleanupCmd, true);
+        
+        createChecksum(finalImgPath);
+        printFinalMessage(finalImgPath);
+        
+    } else if (cloneChoice == "another" || cloneChoice == "a") {
+        std::cout << COLOR_CYAN << "\nCloning another system..." << COLOR_RESET << std::endl;
+        cloneAnotherDrive(config.cloneDir);
+        
+        // Create SquashFS after cloning
+        std::string outputDir = getOutputDirectory();
+        std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
+        
+        std::cout << COLOR_CYAN << "\nCreating SquashFS image..." << COLOR_RESET << std::endl;
+        createSquashFS(config.cloneDir, finalImgPath);
+        
+        // Clean up temporary directory
+        std::cout << COLOR_CYAN << "Cleaning up temporary clone directory..." << COLOR_RESET << std::endl;
+        std::string cleanupCmd = "sudo rm -rf " + config.cloneDir;
+        execute_command(cleanupCmd, true);
+        
+        createChecksum(finalImgPath);
+        printFinalMessage(finalImgPath);
+    }
+    
+    // Create ISO
+    std::string createIsoChoice = getUserInput("Would you like to create an ISO now? (yes/no): ");
+    if (createIsoChoice == "yes" || createIsoChoice == "y" || createIsoChoice == "Y") {
+        std::cout << COLOR_CYAN << "\nCreating ISO..." << COLOR_RESET << std::endl;
+        createISO();
+    }
+    
+    std::cout << COLOR_GREEN << "\nAuto Mode completed!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
+    getch();
+}
+
+// Modified showMainMenu function to include Auto Mode
 void showMainMenu() {
     std::vector<std::string> items = {
         "Guide",
+        "Run Auto Mode",
         "Setup Scripts",
         "Create Image",
         "Create ISO",
@@ -1460,10 +1576,13 @@ void showMainMenu() {
                     case 0:
                         showGuide();
                         break;
-                    case 1:
+                    case 1: // New Auto Mode option
+                        runAutoMode();
+                        break;
+                    case 2:
                         showSetupMenu();
                         break;
-                    case 2: // Create Image option
+                    case 3: // Create Image option
                         if (!allChecked) {
                             std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
                             std::cout << COLOR_RED << "Please complete all checkboxes in the Setup Scripts menu." << COLOR_RESET << std::endl;
@@ -1473,27 +1592,27 @@ void showMainMenu() {
                             showCloneOptionsMenu();
                         }
                         break;
-                    case 3:
+                    case 4:
                         createISO();
                         break;
-                    case 4:
+                    case 5:
                         execute_command("df -h");
                         std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                         getch();
                         break;
-                    case 5:
+                    case 6:
                         installISOToUSB();
                         break;
-                    case 6:
+                    case 7:
                         runCMIInstaller();
                         break;
-                    case 7:
+                    case 8:
                         runCalamares();
                         break;
-                    case 8:
+                    case 9:
                         updateScript();
                         break;
-                    case 9:
+                    case 10:
                         return;
                 }
                 break;
