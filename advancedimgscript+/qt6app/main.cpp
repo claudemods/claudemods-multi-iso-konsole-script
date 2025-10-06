@@ -1,4 +1,4 @@
-#include <QApplication>
+anlyze this script #include <QApplication>
 #include <QMainWindow>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -54,11 +54,6 @@
 // Forward declarations
 void saveConfig();
 void execute_command(const std::string& cmd, bool continueOnError = false);
-void printCheckbox(bool checked);
-std::string getUserInput(const std::string& prompt);
-void clearScreen();
-int getch();
-int kbhit();
 
 // Time-related globals
 std::atomic<bool> time_thread_running(true);
@@ -74,7 +69,7 @@ const std::string SOURCE_DIR = "/";
 const std::string COMPRESSION_LEVEL = "22";
 const std::string SQUASHFS_COMPRESSION = "zstd";
 const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
-std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-img";
+std::string BUILD_DIR = "";
 std::string USERNAME = "";
 
 // Password storage (in-memory only)
@@ -174,7 +169,7 @@ public:
         QHBoxLayout *buttonLayout = new QHBoxLayout();
         QPushButton *okButton = new QPushButton("OK");
         QPushButton *cancelButton = new QPushButton("Cancel");
-        
+
         buttonLayout->addWidget(okButton);
         buttonLayout->addWidget(cancelButton);
         layout->addLayout(buttonLayout);
@@ -199,12 +194,73 @@ private:
     QString password;
 };
 
+// Username Dialog Class
+class UsernameDialog : public QDialog {
+    Q_OBJECT
+
+public:
+    UsernameDialog(QWidget *parent = nullptr) : QDialog(parent) {
+        setWindowTitle("Enter Username");
+        setModal(true);
+        setFixedSize(350, 150);
+
+        QVBoxLayout *layout = new QVBoxLayout(this);
+
+        QLabel *label = new QLabel("Please enter your current username:");
+        layout->addWidget(label);
+
+        usernameEdit = new QLineEdit();
+
+        // Try to get current username as default
+        struct passwd *pw = getpwuid(getuid());
+        if (pw) {
+            usernameEdit->setText(pw->pw_name);
+        }
+
+        layout->addWidget(usernameEdit);
+
+        QLabel *infoLabel = new QLabel("This will be used for all home directory paths");
+        infoLabel->setStyleSheet("color: gray; font-size: 10px;");
+        layout->addWidget(infoLabel);
+
+        QHBoxLayout *buttonLayout = new QHBoxLayout();
+        QPushButton *okButton = new QPushButton("OK");
+        QPushButton *cancelButton = new QPushButton("Cancel");
+
+        buttonLayout->addWidget(okButton);
+        buttonLayout->addWidget(cancelButton);
+        layout->addLayout(buttonLayout);
+
+        connect(okButton, &QPushButton::clicked, this, &UsernameDialog::onOkClicked);
+        connect(cancelButton, &QPushButton::clicked, this, &UsernameDialog::reject);
+        connect(usernameEdit, &QLineEdit::returnPressed, this, &UsernameDialog::onOkClicked);
+    }
+
+    QString getUsername() const {
+        return username;
+    }
+
+private slots:
+    void onOkClicked() {
+        username = usernameEdit->text().trimmed();
+        if (username.isEmpty()) {
+            QMessageBox::warning(this, "Invalid Username", "Username cannot be empty!");
+            return;
+        }
+        accept();
+    }
+
+private:
+    QLineEdit *usernameEdit;
+    QString username;
+};
+
 // Function to request sudo password
 bool requestSudoPassword() {
     PasswordDialog dialog;
     if (dialog.exec() == QDialog::Accepted) {
         SUDO_PASSWORD = dialog.getPassword().toStdString();
-        
+
         // Validate password by testing sudo
         QProcess process;
         process.start("sudo", QStringList() << "-S" << "echo" << "password_valid");
@@ -212,7 +268,7 @@ bool requestSudoPassword() {
         process.write("\n");
         process.closeWriteChannel();
         process.waitForFinished(5000);
-        
+
         if (process.exitCode() == 0) {
             PASSWORD_VALIDATED = true;
             return true;
@@ -226,15 +282,49 @@ bool requestSudoPassword() {
     return false;
 }
 
+// Function to request username
+bool requestUsername() {
+    UsernameDialog dialog;
+    if (dialog.exec() == QDialog::Accepted) {
+        USERNAME = dialog.getUsername().toStdString();
+
+        // Validate username by checking if home directory exists
+        std::string homeDir = "/home/" + USERNAME;
+        struct stat info;
+        if (stat(homeDir.c_str(), &info) != 0) {
+            QMessageBox::critical(nullptr, "Error",
+                                  QString("Home directory for user '%1' does not exist!\nPlease enter a valid username.")
+                                  .arg(QString::fromStdString(USERNAME)));
+            USERNAME.clear();
+            return false;
+        } else if (!(info.st_mode & S_IFDIR)) {
+            QMessageBox::critical(nullptr, "Error",
+                                  QString("Path '/home/%1' is not a directory!\nPlease enter a valid username.")
+                                  .arg(QString::fromStdString(USERNAME)));
+            USERNAME.clear();
+            return false;
+        }
+
+        // Update BUILD_DIR with the actual username
+        BUILD_DIR = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+
+        QMessageBox::information(nullptr, "Success",
+                                 QString("Username set to: %1\nBuild directory: %2")
+                                 .arg(QString::fromStdString(USERNAME), QString::fromStdString(BUILD_DIR)));
+        return true;
+    }
+    return false;
+}
+
 // Enhanced execute_command with proper password handling
 void execute_command(const std::string& cmd, bool continueOnError) {
     // Check if command requires sudo
     bool requiresSudo = (cmd.find("sudo") == 0);
-    
+
     if (requiresSudo && !PASSWORD_VALIDATED) {
         if (!requestSudoPassword()) {
             if (!continueOnError) {
-                std::cerr << "Sudo password required but not provided!" << std::endl;
+                QMessageBox::critical(nullptr, "Error", "Sudo password required but not provided!");
                 exit(1);
             }
             return;
@@ -243,7 +333,7 @@ void execute_command(const std::string& cmd, bool continueOnError) {
 
     QProcess process;
     process.setProcessChannelMode(QProcess::MergedChannels);
-    
+
     if (requiresSudo && PASSWORD_VALIDATED) {
         // Extract the actual command without sudo
         std::string actualCmd = cmd.substr(5); // Remove "sudo "
@@ -253,44 +343,29 @@ void execute_command(const std::string& cmd, bool continueOnError) {
     } else {
         process.start("sh", QStringList() << "-c" << QString::fromStdString(cmd));
     }
-    
+
     process.closeWriteChannel();
-    
+
     if (!process.waitForStarted()) {
-        std::cerr << "Error: Failed to start command: " << cmd << std::endl;
+        QMessageBox::critical(nullptr, "Error", QString("Failed to start command: %1").arg(QString::fromStdString(cmd)));
         if (!continueOnError) exit(1);
         return;
     }
 
-    // Read output while process is running
-    QByteArray output;
-    while (process.waitForReadyRead(-1)) {
-        output.append(process.readAll());
-    }
-
     process.waitForFinished(-1);
 
-    // Print output
-    std::cout << output.toStdString();
-
     if (process.exitStatus() != QProcess::NormalExit || (process.exitCode() != 0 && !continueOnError)) {
-        std::cerr << "Error executing: " << cmd << std::endl;
+        QMessageBox::critical(nullptr, "Error", QString("Error executing: %1").arg(QString::fromStdString(cmd)));
         if (!continueOnError) exit(1);
     } else if (process.exitCode() != 0) {
-        std::cerr << "Command failed but continuing: " << cmd << std::endl;
+        QMessageBox::warning(nullptr, "Warning", QString("Command failed but continuing: %1").arg(QString::fromStdString(cmd)));
     }
 }
 
 // Function to extract embedded zip using Qt resource system
 bool extractEmbeddedZip() {
     try {
-        struct passwd *pw = getpwuid(getuid());
-        std::string username = pw ? pw->pw_name : "";
-        if (username.empty()) {
-            return false;
-        }
-
-        std::string configDir = "/home/" + username + "/.config/cmi";
+        std::string configDir = "/home/" + USERNAME + "/.config/cmi";
         std::string zipPath = configDir + "/build-image-arch-img.zip";
         std::string extractPath = configDir;
 
@@ -312,10 +387,8 @@ bool extractEmbeddedZip() {
         QFile::setPermissions(QString::fromStdString(zipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
 
         // Extract zip file
-        std::string extractCmd = "unzip -o " + zipPath + " -d " + extractPath + " >/dev/null 2>&1";
-        if (system(extractCmd.c_str()) != 0) {
-            return false;
-        }
+        std::string extractCmd = "unzip -o " + zipPath + " -d " + extractPath;
+        execute_command(extractCmd, true);
 
         // Clean up zip file
         execute_command("rm -f " + zipPath, true);
@@ -329,13 +402,7 @@ bool extractEmbeddedZip() {
 // Function to extract Calamares resources
 bool extractCalamaresResources() {
     try {
-        struct passwd *pw = getpwuid(getuid());
-        std::string username = pw ? pw->pw_name : "";
-        if (username.empty()) {
-            return false;
-        }
-
-        std::string configDir = "/home/" + username + "/.config/cmi";
+        std::string configDir = "/home/" + USERNAME + "/.config/cmi";
         std::string calamaresDir = configDir + "/calamares-files";
 
         // Create calamares directory
@@ -357,10 +424,8 @@ bool extractCalamaresResources() {
         QFile::setPermissions(QString::fromStdString(calamaresZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
 
         // Extract calamares.zip
-        std::string extractCalamaresCmd = "unzip -o " + calamaresZipPath + " -d " + configDir + " >/dev/null 2>&1";
-        if (system(extractCalamaresCmd.c_str()) != 0) {
-            return false;
-        }
+        std::string extractCalamaresCmd = "unzip -o " + calamaresZipPath + " -d " + configDir;
+        execute_command(extractCalamaresCmd, true);
 
         // Clean up calamares.zip
         execute_command("rm -f " + calamaresZipPath, true);
@@ -381,10 +446,8 @@ bool extractCalamaresResources() {
         QFile::setPermissions(QString::fromStdString(brandingZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
 
         // Extract branding.zip to calamares directory
-        std::string extractBrandingCmd = "unzip -o " + brandingZipPath + " -d " + calamaresDir + " >/dev/null 2>&1";
-        if (system(extractBrandingCmd.c_str()) != 0) {
-            return false;
-        }
+        std::string extractBrandingCmd = "unzip -o " + brandingZipPath + " -d " + calamaresDir;
+        execute_command(extractBrandingCmd, true);
 
         // Clean up branding.zip
         execute_command("rm -f " + brandingZipPath, true);
@@ -425,363 +488,6 @@ void update_time_thread() {
     }
 }
 
-void clearScreen() {
-    std::cout << "\033[2J\033[1;1H";
-}
-
-int getch() {
-    struct termios oldt, newt;
-    int ch;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    ch = getchar();
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return ch;
-}
-
-int kbhit() {
-    struct termios oldt, newt;
-    int ch;
-    int oldf;
-
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
-
-    ch = getchar();
-
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    fcntl(STDIN_FILENO, F_SETFL, oldf);
-
-    if (ch != EOF) {
-        ungetc(ch, stdin);
-        return 1;
-    }
-
-    return 0;
-}
-
-void printCheckbox(bool checked) {
-    if (checked) {
-        std::cout << "[✓]";
-    } else {
-        std::cout << "[ ]";
-    }
-}
-
-void printBanner() {
-    // Clear screen and move cursor to top
-    std::cout << "\033[2J\033[1;1H";
-
-    std::cout << R"(
-░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
-██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
-██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
-██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
-╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
-░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
-)" << std::endl;
-std::cout << " Advanced C++ Arch Img Iso Script+ Beta v2.03 04-10-2025" << std::endl;
-
-{
-    std::lock_guard<std::mutex> lock(time_mutex);
-    std::cout << "Current UK Time: " << current_time_str << std::endl;
-}
-
-std::cout << "Filesystem      Size  Used Avail Use% Mounted on" << std::endl;
-execute_command("df -h / | tail -1");
-std::cout << std::endl;
-}
-
-void printConfigStatus() {
-    std::cout << "Current Configuration:" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.dependenciesInstalled);
-    std::cout << " Dependencies Installed" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(!config.isoTag.empty());
-    std::cout << " ISO Tag: " << (config.isoTag.empty() ? "Not set" : config.isoTag) << std::endl;
-
-    std::cout << " ";
-    printCheckbox(!config.isoName.empty());
-    std::cout << " ISO Name: " << (config.isoName.empty() ? "Not set" : config.isoName) << std::endl;
-
-    std::cout << " ";
-    printCheckbox(!config.outputDir.empty());
-    std::cout << " Output Directory: " << (config.outputDir.empty() ? "Not set" : config.outputDir) << std::endl;
-
-    std::cout << " ";
-    printCheckbox(!config.vmlinuzPath.empty());
-    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? "Not selected" : config.vmlinuzPath) << std::endl;
-
-    std::cout << " ";
-    printCheckbox(!config.cloneDir.empty());
-    std::cout << " Clone Directory: " << (config.cloneDir.empty() ? "Not set" : config.cloneDir) << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.mkinitcpioGenerated);
-    std::cout << " mkinitcpio Generated" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.grubEdited);
-    std::cout << " GRUB Config Edited" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.bootTextEdited);
-    std::cout << " Boot Text Edited" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.calamaresBrandingEdited);
-    std::cout << " Calamares Branding Edited" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.calamares1Edited);
-    std::cout << " Calamares 1st initcpio.conf Edited" << std::endl;
-
-    std::cout << " ";
-    printCheckbox(config.calamares2Edited);
-    std::cout << " Calamares 2nd initcpio.conf Edited" << std::endl;
-}
-
-std::string getUserInput(const std::string& prompt) {
-    std::cout << prompt;
-    std::string input;
-    std::getline(std::cin, input);
-    return input;
-}
-
-void installDependencies() {
-    std::cout << "\nInstalling required dependencies...\n";
-
-    // First update the package database
-    std::cout << "Updating package database...\n";
-    execute_command("sudo pacman -Sy", true);
-
-    std::string packages;
-    for (const auto& pkg : DEPENDENCIES) {
-        packages += pkg + " ";
-    }
-
-    std::string command = "sudo pacman -S --needed --noconfirm " + packages;
-    execute_command(command, true);
-
-    config.dependenciesInstalled = true;
-    saveConfig();
-    std::cout << "\nDependencies installed successfully!\n" << std::endl;
-}
-
-void selectVmlinuz() {
-    DIR *dir;
-    struct dirent *ent;
-    std::vector<std::string> vmlinuzFiles;
-
-    if ((dir = opendir("/boot")) != nullptr) {
-        while ((ent = readdir(dir)) != nullptr) {
-            std::string filename = ent->d_name;
-            if (filename.find("vmlinuz") == 0) {
-                vmlinuzFiles.push_back("/boot/" + filename);
-            }
-        }
-        closedir(dir);
-    } else {
-        std::cerr << "Could not open /boot directory" << std::endl;
-        return;
-    }
-
-    if (vmlinuzFiles.empty()) {
-        std::cerr << "No vmlinuz files found in /boot!" << std::endl;
-        return;
-    }
-
-    std::cout << "Available vmlinuz files:" << std::endl;
-    for (size_t i = 0; i < vmlinuzFiles.size(); i++) {
-        std::cout << (i+1) << ") " << vmlinuzFiles[i] << std::endl;
-    }
-
-    std::string selection = getUserInput("Select vmlinuz file (1-" + std::to_string(vmlinuzFiles.size()) + "): ");
-    try {
-        int choice = std::stoi(selection);
-        if (choice > 0 && choice <= static_cast<int>(vmlinuzFiles.size())) {
-            config.vmlinuzPath = vmlinuzFiles[choice-1];
-
-            std::string destPath = BUILD_DIR + "/boot/vmlinuz-x86_64";
-            std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
-            execute_command(copyCmd, true);
-
-            std::cout << "Selected: " << config.vmlinuzPath << std::endl;
-            std::cout << "Copied to: " << destPath << std::endl;
-            saveConfig();
-        } else {
-            std::cerr << "Invalid selection!" << std::endl;
-        }
-    } catch (...) {
-        std::cerr << "Invalid input!" << std::endl;
-    }
-}
-
-void generateMkinitcpio() {
-    if (config.vmlinuzPath.empty()) {
-        std::cerr << "Please select vmlinuz first!" << std::endl;
-        return;
-    }
-
-    // FIXED: Hardcoded paths for initramfs generation
-    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
-    
-    std::cout << "Generating initramfs with hardcoded paths..." << std::endl;
-    std::cout << "Build directory: " << buildDir << std::endl;
-    
-    // Use hardcoded absolute paths
-    std::string mkinitcpioConfPath = buildDir + "/mkinitcpio.conf";
-    std::string initramfsOutputPath = buildDir + "/boot/initramfs-x86_64.img";
-    
-    std::cout << "mkinitcpio config: " << mkinitcpioConfPath << std::endl;
-    std::cout << "initramfs output: " << initramfsOutputPath << std::endl;
-
-    // Change to build directory and run mkinitcpio with hardcoded paths
-    std::string command = "cd " + buildDir + " && sudo mkinitcpio -c " + mkinitcpioConfPath + " -g " + initramfsOutputPath + " -k " + config.vmlinuzPath;
-    
-    std::cout << "Executing command: " << command << std::endl;
-    execute_command(command, true);
-
-    config.mkinitcpioGenerated = true;
-    saveConfig();
-    std::cout << "mkinitcpio generated successfully with hardcoded paths!" << std::endl;
-}
-
-void editGrubCfg() {
-    // FIXED: Hardcoded path for GRUB config
-    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
-    std::string grubCfgPath = buildDir + "/boot/grub/grub.cfg";
-    
-    std::cout << "Editing GRUB config: " << grubCfgPath << std::endl;
-
-    // Use kate to edit
-    std::string kateCommand = "kate " + grubCfgPath;
-    execute_command(kateCommand, true);
-
-    config.grubEdited = true;
-    saveConfig();
-    std::cout << "GRUB config edited!" << std::endl;
-}
-
-void editBootText() {
-    // FIXED: Hardcoded path for boot text
-    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
-    std::string bootTextPath = buildDir + "/boot/grub/kernels.cfg";
-    
-    std::cout << "Editing Boot Text: " << bootTextPath << std::endl;
-
-    // Use kate to edit
-    std::string kateCommand = "kate " + bootTextPath;
-    execute_command(kateCommand, true);
-
-    config.bootTextEdited = true;
-    saveConfig();
-    std::cout << "Boot Text edited!" << std::endl;
-}
-
-void editCalamaresBranding() {
-    std::string calamaresBrandingPath = "/usr/share/calamares/branding/claudemods/branding.desc";
-    std::cout << "Editing Calamares Branding: " << calamaresBrandingPath << std::endl;
-
-    // Use kate to edit with sudo
-    std::string kateCommand = "sudo kate " + calamaresBrandingPath;
-    execute_command(kateCommand, true);
-
-    config.calamaresBrandingEdited = true;
-    saveConfig();
-    std::cout << "Calamares Branding edited!" << std::endl;
-}
-
-void editCalamares1() {
-    std::string calamares1Path = "/etc/calamares/modules/initcpio.conf";
-    std::cout << "Editing Calamares 1st initcpio.conf: " << calamares1Path << std::endl;
-
-    // Use kate to edit with sudo
-    std::string kateCommand = "sudo kate " + calamares1Path;
-    execute_command(kateCommand, true);
-
-    config.calamares1Edited = true;
-    saveConfig();
-    std::cout << "Calamares 1st initcpio.conf edited!" << std::endl;
-}
-
-void editCalamares2() {
-    std::string calamares2Path = "/usr/share/calamares/modules/initcpio.conf";
-    std::cout << "Editing Calamares 2nd initcpio.conf: " << calamares2Path << std::endl;
-
-    // Use kate to edit with sudo
-    std::string kateCommand = "sudo kate " + calamares2Path;
-    execute_command(kateCommand, true);
-
-    config.calamares2Edited = true;
-    saveConfig();
-    std::cout << "Calamares 2nd initcpio.conf edited!" << std::endl;
-}
-
-void setIsoTag() {
-    config.isoTag = getUserInput("Enter ISO tag (e.g., 2025): ");
-    saveConfig();
-}
-
-void setIsoName() {
-    config.isoName = getUserInput("Enter ISO name (e.g., claudemods.iso): ");
-    saveConfig();
-}
-
-void setOutputDir() {
-    std::string defaultDir = "/home/" + USERNAME + "/Downloads";
-    std::cout << "Current output directory: " << (config.outputDir.empty() ? "Not set" : config.outputDir) << std::endl;
-    std::cout << "Default directory: " << defaultDir << std::endl;
-    config.outputDir = getUserInput("Enter output directory (e.g., " + defaultDir + " or $USER/Downloads): ");
-
-    size_t user_pos;
-    if ((user_pos = config.outputDir.find("$USER")) != std::string::npos) {
-        config.outputDir.replace(user_pos, 5, USERNAME);
-    }
-
-    if (config.outputDir.empty()) {
-        config.outputDir = defaultDir;
-    }
-
-    execute_command("mkdir -p " + config.outputDir, true);
-
-    saveConfig();
-}
-
-void setCloneDir() {
-    std::string defaultDir = "/home/" + USERNAME;
-    std::cout << "Current clone directory: " << (config.cloneDir.empty() ? "Not set" : config.cloneDir) << std::endl;
-    std::cout << "Default directory: " << defaultDir << std::endl;
-
-    // Get the parent directory from user
-    std::string parentDir = getUserInput("Enter parent directory for clone_system_temp folder (e.g., " + defaultDir + " or $USER): ");
-
-    size_t user_pos;
-    if ((user_pos = parentDir.find("$USER")) != std::string::npos) {
-        parentDir.replace(user_pos, 5, USERNAME);
-    }
-
-    if (parentDir.empty()) {
-        parentDir = defaultDir;
-    }
-
-    // Always use clone_system_temp as the folder name
-    config.cloneDir = parentDir + "/clone_system_temp";
-
-    execute_command("sudo mkdir -p " + config.cloneDir, true);
-
-    saveConfig();
-}
-
 std::string getConfigFilePath() {
     return "/home/" + USERNAME + "/.config/cmi/configuration.txt";
 }
@@ -804,7 +510,7 @@ void saveConfig() {
         configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
         configFile.close();
     } else {
-        std::cerr << "Failed to save configuration to " << configPath << std::endl;
+        QMessageBox::critical(nullptr, "Error", QString("Failed to save configuration to %1").arg(QString::fromStdString(configPath)));
     }
 }
 
@@ -837,10 +543,9 @@ void loadConfig() {
     }
 }
 
-bool copyFilesWithRsync(const std::string& source, const std::string& destination) {
-    std::cout << "Copying files..." << std::endl;
-
-    std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
+// Consolidated rsync command
+std::string getRsyncCommand(const std::string& source, const std::string& destination) {
+    return "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
     "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
     "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
     "--exclude=/etc/mtab "
@@ -865,16 +570,15 @@ bool copyFilesWithRsync(const std::string& source, const std::string& destinatio
     "--include=sys "
     "--include=usr " +
     source + "/ " + destination + "/";
+}
 
+bool copyFilesWithRsync(const std::string& source, const std::string& destination) {
+    std::string command = getRsyncCommand(source, destination);
     execute_command(command, true);
-
     return true;
 }
 
 bool createSquashFS(const std::string& inputDir, const std::string& outputFile) {
-    std::cout << "Creating SquashFS image, this may take some time..." << std::endl;
-
-    // Use exact same mksquashfs arguments as in the bash script
     std::string command = "sudo mksquashfs " + inputDir + " " + outputFile +
     " -noappend -comp xz -b 256K -Xbcj x86";
 
@@ -886,15 +590,6 @@ bool createChecksum(const std::string& filename) {
     std::string command = "sha512sum " + filename + " > " + filename + ".sha512";
     execute_command(command, true);
     return true;
-}
-
-void printFinalMessage(const std::string& outputFile) {
-    std::cout << std::endl;
-    std::cout << "SquashFS image created successfully: " << outputFile << std::endl;
-    std::cout << "Checksum file: " << outputFile + ".sha512" << std::endl;
-    std::cout << "Size: ";
-    execute_command("sudo du -h " + outputFile + " | cut -f1", true);
-    std::cout << std::endl;
 }
 
 std::string getOutputDirectory() {
@@ -915,29 +610,9 @@ std::string expandPath(const std::string& path) {
     return result;
 }
 
-bool createISO() {
-    if (!config.allCheckboxesChecked()) {
-        std::cerr << "Cannot create ISO - all setup steps must be completed first!" << std::endl;
-        std::cout << "\nPress any key to continue...";
-        getch();
-        return false;
-    }
-
-    if (!config.isReadyForISO()) {
-        std::cerr << "Cannot create ISO - setup is incomplete!" << std::endl;
-        return false;
-    }
-
-    std::cout << "\nStarting ISO creation process...\n";
-
-    std::string expandedOutputDir = expandPath(config.outputDir);
-
-    execute_command("mkdir -p " + expandedOutputDir, true);
-
-    // FIXED: Hardcoded build directory path
-    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
-
-    std::string xorrisoCmd = "sudo xorriso -as mkisofs "
+// Consolidated ISO creation command
+std::string getXorrisoCommand(const std::string& buildDir, const std::string& outputPath) {
+    return "sudo xorriso -as mkisofs "
     "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
     "--protective-msdos-label "
     "-volid \"" + config.isoTag + "\" "
@@ -957,121 +632,37 @@ bool createISO() {
     "-e --interval:appended_partition_2:all:: "
     "-no-emul-boot "
     "-iso-level 3 "
-    "-o \"" + expandedOutputDir + "/" + config.isoName + "\" " +
+    "-o \"" + outputPath + "\" " +
     buildDir;
+}
 
+bool createISO() {
+    if (!config.allCheckboxesChecked()) {
+        QMessageBox::critical(nullptr, "Error", "Cannot create ISO - all setup steps must be completed first!");
+        return false;
+    }
+
+    if (!config.isReadyForISO()) {
+        QMessageBox::critical(nullptr, "Error", "Cannot create ISO - setup is incomplete!");
+        return false;
+    }
+
+    std::string expandedOutputDir = expandPath(config.outputDir);
+    execute_command("mkdir -p " + expandedOutputDir, true);
+
+    // FIXED: Build directory uses actual username
+    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+    std::string outputPath = expandedOutputDir + "/" + config.isoName;
+
+    std::string xorrisoCmd = getXorrisoCommand(buildDir, outputPath);
     execute_command(xorrisoCmd, true);
 
     // Change ownership of the created ISO to the current user
-    std::string isoPath = expandedOutputDir + "/" + config.isoName;
-    std::string chownCmd = "sudo chown " + USERNAME + ":" + USERNAME + " \"" + isoPath + "\"";
+    std::string chownCmd = "sudo chown " + USERNAME + ":" + USERNAME + " \"" + outputPath + "\"";
     execute_command(chownCmd, true);
 
-    std::cout << "ISO created successfully at " << isoPath << std::endl;
-    std::cout << "Ownership changed to current user: " << USERNAME << std::endl;
-
+    QMessageBox::information(nullptr, "Success", QString("ISO created successfully at %1").arg(QString::fromStdString(outputPath)));
     return true;
-}
-
-void showGuide() {
-    std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
-    execute_command("mkdir -p /home/" + USERNAME + "/.config/cmi", true);
-
-    execute_command("kate " + readmePath, true);
-}
-
-void installISOToUSB() {
-    if (config.outputDir.empty()) {
-        std::cerr << "Output directory not set!" << std::endl;
-        return;
-    }
-
-    DIR *dir;
-    struct dirent *ent;
-    std::vector<std::string> isoFiles;
-
-    std::string expandedOutputDir = expandPath(config.outputDir);
-    if ((dir = opendir(expandedOutputDir.c_str())) != nullptr) {
-        while ((ent = readdir(dir)) != nullptr) {
-            std::string filename = ent->d_name;
-            if (filename.find(".iso") != std::string::npos) {
-                isoFiles.push_back(filename);
-            }
-        }
-        closedir(dir);
-    } else {
-        std::cerr << "Could not open output directory: " << expandedOutputDir << std::endl;
-        return;
-    }
-
-    if (isoFiles.empty()) {
-        std::cerr << "No ISO files found in output directory!" << std::endl;
-        return;
-    }
-
-    std::cout << "Available ISO files:" << std::endl;
-    for (size_t i = 0; i < isoFiles.size(); i++) {
-        std::cout << (i+1) << ") " << isoFiles[i] << std::endl;
-    }
-
-    std::string selection = getUserInput("Select ISO file (1-" + std::to_string(isoFiles.size()) + "): ");
-    int choice;
-    try {
-        choice = std::stoi(selection);
-        if (choice < 1 || choice > static_cast<int>(isoFiles.size())) {
-            std::cerr << "Invalid selection!" << std::endl;
-            return;
-        }
-    } catch (...) {
-        std::cerr << "Invalid input!" << std::endl;
-        return;
-    }
-
-    std::string selectedISO = expandedOutputDir + "/" + isoFiles[choice-1];
-
-    std::cout << "\nAvailable drives:" << std::endl;
-    execute_command("lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop'", true);
-
-    std::string targetDrive = getUserInput("Enter target drive (e.g., /dev/sda): ");
-    if (targetDrive.empty()) {
-        std::cerr << "No drive specified!" << std::endl;
-        return;
-    }
-
-    std::cout << "\nWARNING: This will overwrite all data on " << targetDrive << "!" << std::endl;
-    std::string confirm = getUserInput("Are you sure you want to continue? (y/N): ");
-    if (confirm != "y" && confirm != "Y") {
-        std::cout << "Operation cancelled." << std::endl;
-        return;
-    }
-
-    std::cout << "\nWriting " + selectedISO + " to " + targetDrive + "...\n";
-    std::string ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
-    execute_command(ddCommand, true);
-
-    std::cout << "\nISO successfully written to USB drive!" << std::endl;
-    std::cout << "Press any key to continue...";
-    getch();
-}
-
-void runCMIInstaller() {
-    execute_command("cmirsyncinstaller", true);
-    std::cout << "\nPress any key to continue...";
-    getch();
-}
-
-void runCalamares() {
-    execute_command("sudo calamares", true);
-    std::cout << "\nPress any key to continue...";
-    getch();
-}
-
-void updateScript() {
-    std::cout << "\nUpdating script from GitHub..." << std::endl;
-    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript+/installer/patch.sh)\"", true);
-    std::cout << "\nScript updated successfully!" << std::endl;
-    std::cout << "Press any key to continue...";
-    getch();
 }
 
 // Worker Thread Class
@@ -1104,7 +695,7 @@ protected:
 
             // Check if command requires sudo
             bool requiresSudo = m_command.contains("sudo");
-            
+
             if (requiresSudo && !PASSWORD_VALIDATED) {
                 emit commandOutput("Error: Sudo password required but not available in worker thread!\n");
                 emit commandFinished(false);
@@ -1161,7 +752,7 @@ public:
         if (pw) {
             USERNAME = pw->pw_name;
         } else {
-            std::cerr << "Failed to get username!" << std::endl;
+            QMessageBox::critical(nullptr, "Error", "Failed to get username!");
             return;
         }
 
@@ -1176,7 +767,7 @@ public:
         loadConfig();
         startTimeThread();
 
-        // FIXED: Request sudo password FIRST on startup
+        // Request sudo password FIRST on startup, then username, then check for updates
         QTimer::singleShot(100, this, &MainWindow::requestSudoOnStartup);
     }
 
@@ -1191,13 +782,28 @@ private slots:
     void requestSudoOnStartup() {
         logOutputText("=== SYSTEM STARTUP ===\n", "cyan");
         logOutputText("Requesting sudo password for system operations...\n", "cyan");
-        
+
         if (!requestSudoPassword()) {
             logOutputText("Sudo password is required for most operations. You will be prompted when needed.\n", "yellow");
-            // Continue without sudo for now
+            // Continue without sudo for now, but still ask for username
+            QTimer::singleShot(500, this, &MainWindow::requestUsernameOnStartup);
         } else {
             logOutputText("Sudo password validated successfully!\n", "green");
-            // FIXED: Now check for updates after sudo is validated
+            // Now ask for username after sudo validation
+            QTimer::singleShot(500, this, &MainWindow::requestUsernameOnStartup);
+        }
+    }
+
+    void requestUsernameOnStartup() {
+        logOutputText("Requesting username for home directory paths...\n", "cyan");
+
+        if (!requestUsername()) {
+            logOutputText("Username is required for proper operation. Using system detected username: " + QString::fromStdString(USERNAME) + "\n", "yellow");
+            // Continue with system-detected username
+            QTimer::singleShot(500, this, &MainWindow::checkForUpdates);
+        } else {
+            logOutputText("Username set successfully to: " + QString::fromStdString(USERNAME) + "\n", "green");
+            // Now check for updates after username is set
             QTimer::singleShot(500, this, &MainWindow::checkForUpdates);
         }
     }
@@ -1296,18 +902,18 @@ private slots:
                                                  "Choose vmlinuz file:", vmlinuzFiles, 0, false, &ok);
         if (ok && !selected.isEmpty()) {
             config.vmlinuzPath = selected.toStdString();
-            
-            // FIXED: Hardcoded destination path
-            QString destPath = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img/boot/vmlinuz-x86_64";
-            
+
+            // FIXED: Destination path uses actual username
+            std::string destPath = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/boot/vmlinuz-x86_64";
+
             if (!PASSWORD_VALIDATED && !requestSudoPassword()) {
                 logOutputText("Sudo password required for copying vmlinuz!\n", "red");
                 return;
             }
-            
-            worker->executeCommand("sudo cp " + selected + " " + destPath, true);
+
+            worker->executeCommand("sudo cp " + selected + " " + QString::fromStdString(destPath), true);
             logOutputText("Selected vmlinuz: " + selected + "\n", "green");
-            logOutputText("Copied to: " + destPath + "\n", "cyan");
+            logOutputText("Copied to: " + QString::fromStdString(destPath) + "\n", "cyan");
             saveConfig();
             updateConfigStatus();
         }
@@ -1324,35 +930,27 @@ private slots:
             return;
         }
 
-        logOutputText("Generating initramfs with hardcoded paths...\n", "cyan");
+        logOutputText("Generating initramfs using geninit.sh script...\n", "cyan");
         progressBar->setValue(30);
-        
-        // FIXED: Hardcoded paths for initramfs generation
-        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
-        QString mkinitcpioConfPath = buildDir + "/mkinitcpio.conf";
-        QString initramfsOutputPath = buildDir + "/boot/initramfs-x86_64.img";
-        
-        logOutputText("Build directory: " + buildDir + "\n", "cyan");
-        logOutputText("mkinitcpio config: " + mkinitcpioConfPath + "\n", "cyan");
-        logOutputText("initramfs output: " + initramfsOutputPath + "\n", "cyan");
 
-        QString command = "cd " + buildDir + " && sudo mkinitcpio -c " + mkinitcpioConfPath + " -g " + initramfsOutputPath + " -k " + QString::fromStdString(config.vmlinuzPath);
-        
-        logOutputText("Executing command: " + command + "\n", "cyan");
-        worker->executeCommand(command, true);
+        // FIXED: Proper string concatenation using std::string
+        std::string geninitScript = "/home/" + USERNAME + "/.config/cmi/geninit.sh";
+
+        logOutputText("Executing script: " + QString::fromStdString(geninitScript) + "\n", "cyan");
+        worker->executeCommand("sudo bash " + QString::fromStdString(geninitScript), true);
 
         config.mkinitcpioGenerated = true;
         saveConfig();
         updateConfigStatus();
-        logOutputText("mkinitcpio generated successfully with hardcoded paths!\n", "green");
+        logOutputText("mkinitcpio generated successfully using geninit.sh script!\n", "green");
     }
 
     void onEditGrubCfg() {
-        // FIXED: Hardcoded path for GRUB config
-        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
-        QString grubCfgPath = buildDir + "/boot/grub/grub.cfg";
-        
-        logOutputText("Editing GRUB config: " + grubCfgPath + "\n", "cyan");
+        // FIXED: GRUB config path uses actual username
+        std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+        std::string grubCfgPath = buildDir + "/boot/grub/grub.cfg";
+
+        logOutputText("Editing GRUB config: " + QString::fromStdString(grubCfgPath) + "\n", "cyan");
 
         QDialog editorDialog(this);
         editorDialog.setWindowTitle("Edit GRUB Configuration");
@@ -1364,7 +962,7 @@ private slots:
         QPushButton cancelButton("Cancel");
 
         // Read current grub.cfg content
-        QFile file(grubCfgPath);
+        QFile file(QString::fromStdString(grubCfgPath));
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             textEdit.setPlainText(file.readAll());
             file.close();
@@ -1397,11 +995,11 @@ private slots:
     }
 
     void onEditBootText() {
-        // FIXED: Hardcoded path for boot text
-        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
-        QString bootTextPath = buildDir + "/boot/grub/kernels.cfg";
-        
-        logOutputText("Editing Boot Text: " + bootTextPath + "\n", "cyan");
+        // FIXED: Boot text path uses actual username
+        std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+        std::string bootTextPath = buildDir + "/boot/grub/kernels.cfg";
+
+        logOutputText("Editing Boot Text: " + QString::fromStdString(bootTextPath) + "\n", "cyan");
 
         QDialog editorDialog(this);
         editorDialog.setWindowTitle("Edit Boot Text");
@@ -1413,7 +1011,7 @@ private slots:
         QPushButton cancelButton("Cancel");
 
         // Read current kernels.cfg content
-        QFile file(bootTextPath);
+        QFile file(QString::fromStdString(bootTextPath));
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             textEdit.setPlainText(file.readAll());
             file.close();
@@ -1680,40 +1278,18 @@ private slots:
         std::string expandedOutputDir = expandPath(config.outputDir);
         worker->executeCommand("mkdir -p " + QString::fromStdString(expandedOutputDir), true);
 
-        // FIXED: Hardcoded build directory path
-        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
-        
-        std::string xorrisoCmd = "sudo xorriso -as mkisofs "
-        "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
-        "--protective-msdos-label "
-        "-volid \"" + config.isoTag + "\" "
-        "-appid \"claudemods Linux Live/Rescue CD\" "
-        "-publisher \"claudemods claudemods101@gmail.com >\" "
-        "-preparer \"Prepared by user\" "
-        "-r -graft-points -no-pad "
-        "--sort-weight 0 / "
-        "--sort-weight 1 /boot "
-        "--grub2-mbr " + buildDir.toStdString() + "/boot/grub/i386-pc/boot_hybrid.img "
-        "-partition_offset 16 "
-        "-b boot/grub/i386-pc/eltorito.img "
-        "-c boot.catalog "
-        "-no-emul-boot -boot-load-size 4 -boot-info-table --grub2-boot-info "
-        "-eltorito-alt-boot "
-        "-append_partition 2 0xef " + buildDir.toStdString() + "/boot/efi.img "
-        "-e --interval:appended_partition_2:all:: "
-        "-no-emul-boot "
-        "-iso-level 3 "
-        "-o \"" + expandedOutputDir + "/" + config.isoName + "\" " +
-        buildDir.toStdString();
+        // FIXED: Build directory path uses actual username
+        std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+        std::string outputPath = expandedOutputDir + "/" + config.isoName;
 
+        std::string xorrisoCmd = getXorrisoCommand(buildDir, outputPath);
         worker->executeCommand(QString::fromStdString(xorrisoCmd), true);
 
         // Change ownership of the created ISO to the current user
-        std::string isoPath = expandedOutputDir + "/" + config.isoName;
-        std::string chownCmd = "sudo chown " + USERNAME + ":" + USERNAME + " \"" + isoPath + "\"";
+        std::string chownCmd = "sudo chown " + USERNAME + ":" + USERNAME + " \"" + outputPath + "\"";
         worker->executeCommand(QString::fromStdString(chownCmd), true);
 
-        logOutputText("ISO created successfully at " + QString::fromStdString(isoPath) + "\n", "green");
+        logOutputText("ISO created successfully at " + QString::fromStdString(outputPath) + "\n", "green");
         logOutputText("Ownership changed to current user: " + QString::fromStdString(USERNAME) + "\n", "cyan");
     }
 
@@ -1792,19 +1368,20 @@ private slots:
     void onUpdateScript() {
         logOutputText("Updating script from GitHub...\n", "cyan");
         progressBar->setValue(90);
-        
+
         // FIXED: Ensure sudo password is available for updater
         if (!PASSWORD_VALIDATED && !requestSudoPassword()) {
             logOutputText("Sudo password required for updating script!\n", "red");
             return;
         }
-        
+
         worker->executeCommand("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript+/installer/patch.sh)\"", true);
     }
 
     void onShowGuide() {
-        QString readmePath = QDir::homePath() + "/.config/cmi/readme.txt";
-        worker->executeCommand("mkdir -p " + QDir::homePath() + "/.config/cmi", true);
+        // FIXED: Readme path uses actual username
+        std::string readmePath = "/home/" + USERNAME + "/.config/cmi/readme.txt";
+        worker->executeCommand("mkdir -p " + QString::fromStdString("/home/" + USERNAME + "/.config/cmi"), true);
 
         QDialog guideDialog(this);
         guideDialog.setWindowTitle("User Guide");
@@ -1815,7 +1392,7 @@ private slots:
         textEdit.setReadOnly(true);
 
         // Read guide content
-        QFile file(readmePath);
+        QFile file(QString::fromStdString(readmePath));
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             textEdit.setPlainText(file.readAll());
             file.close();
@@ -1830,6 +1407,37 @@ private slots:
         connect(&closeButton, &QPushButton::clicked, &guideDialog, &QDialog::accept);
 
         guideDialog.exec();
+    }
+
+    void onSetupScripts() {
+        // Show setup scripts dialog
+        QDialog setupDialog(this);
+        setupDialog.setWindowTitle("Setup Scripts");
+        setupDialog.setMinimumSize(400, 500);
+
+        QVBoxLayout *layout = new QVBoxLayout(&setupDialog);
+
+        QStringList setupButtons = {
+            "Install Dependencies", "Set Clone Directory", "Set ISO Tag", "Set ISO Name",
+            "Set Output Directory", "Select vmlinuz", "Generate mkinitcpio", "Edit GRUB Config",
+            "Edit Boot Text", "Edit Calamares Branding", "Edit Calamares 1st initcpio.conf",
+            "Edit Calamares 2nd initcpio.conf"
+        };
+
+        for (const QString &buttonText : setupButtons) {
+            QPushButton *btn = new QPushButton(buttonText);
+            layout->addWidget(btn);
+            connect(btn, &QPushButton::clicked, [&, buttonText]() {
+                handleSetupButton(buttonText);
+                setupDialog.accept();
+            });
+        }
+
+        QPushButton *closeButton = new QPushButton("Close");
+        layout->addWidget(closeButton);
+        connect(closeButton, &QPushButton::clicked, &setupDialog, &QDialog::reject);
+
+        setupDialog.exec();
     }
 
     void onCommandOutput(const QString &output) {
@@ -1865,18 +1473,11 @@ private slots:
     void checkForUpdates() {
         logOutputText("Checking for updates...\n", "cyan");
 
-        // Get username
-        struct passwd *pw = getpwuid(getuid());
-        std::string username = pw ? pw->pw_name : "";
-        if (username.empty()) {
-            logOutputText("Failed to get username!\n", "red");
-            return;
-        }
-
-        std::string cloneDir = "/home/" + username + "/claudemods-multi-iso-konsole-script";
+        // FIXED: Clone directory uses actual username
+        std::string cloneDir = "/home/" + USERNAME + "/claudemods-multi-iso-konsole-script";
 
         // Try to clone the repository
-        std::string cloneCmd = "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git " + cloneDir + " 2>/dev/null";
+        std::string cloneCmd = "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git " + cloneDir;
         int cloneResult = system(cloneCmd.c_str());
 
         if (cloneResult != 0) {
@@ -1885,7 +1486,8 @@ private slots:
         }
 
         // Read current version
-        std::string currentVersionPath = "/home/" + username + "/.config/cmi/version.txt";
+        // FIXED: Version path uses actual username
+        std::string currentVersionPath = "/home/" + USERNAME + "/.config/cmi/version.txt";
         std::string currentVersion = "";
 
         std::ifstream currentFile(currentVersionPath);
@@ -1920,7 +1522,7 @@ private slots:
             if (extractEmbeddedZip()) {
                 logOutputText("Base resources extracted successfully.\n", "green");
             }
-            
+
             // Extract Calamares resources
             if (extractCalamaresResources()) {
                 logOutputText("Calamares resources extracted successfully.\n", "green");
@@ -1928,7 +1530,9 @@ private slots:
 
             // Execute extrainstalls.sh after ALL zips are finished
             logOutputText("Executing extra installations...\n", "cyan");
-            execute_command("bash /home/" + USERNAME + "/.config/cmi/extrainstalls.sh", true);
+            // FIXED: extrainstalls.sh path uses actual username
+            std::string extraInstallsPath = "/home/" + USERNAME + "/.config/cmi/extrainstalls.sh";
+            execute_command("bash " + extraInstallsPath, true);
 
             return;
         }
@@ -1975,12 +1579,6 @@ private:
         diskUsageLabel->setStyleSheet("QLabel { color: #00ff00; }");
         mainLayout->addWidget(diskUsageLabel);
 
-        // Progress bar
-        progressBar = new QProgressBar();
-        progressBar->setStyleSheet("QProgressBar { border: 2px solid grey; border-radius: 5px; text-align: center; color: white; } QProgressBar::chunk { background-color: #ff0000; }");
-        progressBar->setValue(0);
-        mainLayout->addWidget(progressBar);
-
         // Content area
         QHBoxLayout *contentLayout = new QHBoxLayout();
 
@@ -1988,32 +1586,20 @@ private:
         QWidget *buttonPanel = new QWidget();
         QVBoxLayout *buttonLayout = new QVBoxLayout(buttonPanel);
 
-        // Setup group
-        QGroupBox *setupGroup = new QGroupBox("Setup Scripts");
-        QVBoxLayout *setupLayout = new QVBoxLayout(setupGroup);
-
-        QStringList setupButtons = {
-            "Install Dependencies", "Set Clone Directory", "Set ISO Tag", "Set ISO Name",
-            "Set Output Directory", "Select vmlinuz", "Generate mkinitcpio", "Edit GRUB Config",
-            "Edit Boot Text", "Edit Calamares Branding", "Edit Calamares 1st initcpio.conf",
-            "Edit Calamares 2nd initcpio.conf"
-        };
-
-        for (const QString &buttonText : setupButtons) {
-            QPushButton *btn = new QPushButton(buttonText);
-            setupLayout->addWidget(btn);
-            connect(btn, &QPushButton::clicked, this, [this, buttonText]() {
-                handleSetupButton(buttonText);
-            });
-        }
-
-        // Main group
+        // Main group - moved Setup Scripts below Guide
         QGroupBox *mainGroup = new QGroupBox("Main Menu");
         QVBoxLayout *mainGroupLayout = new QVBoxLayout(mainGroup);
 
         QStringList mainButtons = {
-            "Guide", "Create Image", "Create ISO", "Show Disk Usage", "Install ISO to USB",
-            "CMI BTRFS/EXT4 Installer", "Calamares", "Update Script"
+            "Guide",
+            "Setup Scripts",  // Moved here below Guide
+            "Create Image",
+            "Create ISO",
+            "Show Disk Usage",
+            "Install ISO to USB",
+            "CMI BTRFS/EXT4 Installer",
+            "Calamares",
+            "Update Script"
         };
 
         for (const QString &buttonText : mainButtons) {
@@ -2024,7 +1610,6 @@ private:
             });
         }
 
-        buttonLayout->addWidget(setupGroup);
         buttonLayout->addWidget(mainGroup);
         buttonLayout->addStretch();
 
@@ -2053,6 +1638,12 @@ private:
         contentLayout->addWidget(rightPanel, 2);
 
         mainLayout->addLayout(contentLayout);
+
+        // Progress bar - MOVED TO BOTTOM
+        progressBar = new QProgressBar();
+        progressBar->setStyleSheet("QProgressBar { border: 2px solid grey; border-radius: 5px; text-align: center; color: white; } QProgressBar::chunk { background-color: #ff0000; }");
+        progressBar->setValue(0);
+        mainLayout->addWidget(progressBar);
 
         // Worker thread
         worker = new WorkerThread(this);
@@ -2093,6 +1684,7 @@ private:
     void handleMainButton(const QString &buttonText) {
         static QHash<QString, void(MainWindow::*)()> buttonMap = {
             {"Guide", &MainWindow::onShowGuide},
+            {"Setup Scripts", &MainWindow::onSetupScripts},  // Added this
             {"Create Image", &MainWindow::onCreateImage},
             {"Create ISO", &MainWindow::onCreateISO},
             {"Show Disk Usage", &MainWindow::onShowDiskUsage},
@@ -2154,31 +1746,7 @@ private:
         logOutputText("Cloning current system to " + cloneDir + "...\n", "cyan");
         progressBar->setValue(25);
 
-        std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 "
-        "--exclude=/etc/udev/rules.d/70-persistent-cd.rules "
-        "--exclude=/etc/udev/rules.d/70-persistent-net.rules "
-        "--exclude=/etc/mtab "
-        "--exclude=/etc/fstab "
-        "--exclude=/dev/* "
-        "--exclude=/proc/* "
-        "--exclude=/sys/* "
-        "--exclude=/tmp/* "
-        "--exclude=/run/* "
-        "--exclude=/mnt/* "
-        "--exclude=/media/* "
-        "--exclude=/lost+found "
-        "--exclude=clone_system_temp "
-        "--include=dev "
-        "--include=proc "
-        "--include=tmp "
-        "--include=sys "
-        "--include=run "
-        "--include=dev "
-        "--include=proc "
-        "--include=tmp "
-        "--include=sys "
-        "--include=usr / " + cloneDir.toStdString() + "/";
-
+        std::string command = getRsyncCommand("/", cloneDir.toStdString());
         worker->executeCommand(QString::fromStdString(command), true);
 
         // Create SquashFS after cloning
@@ -2216,9 +1784,7 @@ private:
         worker->executeCommand("sudo mkdir -p " + tempMountPoint, true);
         worker->executeCommand("sudo mount " + drive + " " + tempMountPoint, true);
 
-        std::string command = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
-        tempMountPoint.toStdString() + "/ " + cloneDir.toStdString() + "/";
-
+        std::string command = getRsyncCommand(tempMountPoint.toStdString(), cloneDir.toStdString());
         worker->executeCommand(QString::fromStdString(command), true);
         worker->executeCommand("sudo umount " + tempMountPoint, true);
         worker->executeCommand("sudo rmdir " + tempMountPoint, true);
