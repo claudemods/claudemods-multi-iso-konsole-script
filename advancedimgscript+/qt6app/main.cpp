@@ -632,40 +632,35 @@ void generateMkinitcpio() {
         return;
     }
 
-    if (BUILD_DIR.empty()) {
-        std::cerr << "Build directory not set!" << std::endl;
-        return;
-    }
+    // FIXED: Hardcoded paths for initramfs generation
+    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
+    
+    std::cout << "Generating initramfs with hardcoded paths..." << std::endl;
+    std::cout << "Build directory: " << buildDir << std::endl;
+    
+    // Use hardcoded absolute paths
+    std::string mkinitcpioConfPath = buildDir + "/mkinitcpio.conf";
+    std::string initramfsOutputPath = buildDir + "/boot/initramfs-x86_64.img";
+    
+    std::cout << "mkinitcpio config: " << mkinitcpioConfPath << std::endl;
+    std::cout << "initramfs output: " << initramfsOutputPath << std::endl;
 
-    // FIXED PATH: Use absolute path for mkinitcpio
-    std::string buildDir = BUILD_DIR;
-    size_t user_pos;
-    if ((user_pos = buildDir.find("$USER")) != std::string::npos) {
-        buildDir.replace(user_pos, 5, USERNAME);
-    }
-
-    std::cout << "Generating initramfs..." << std::endl;
-    std::string command = "cd " + buildDir + " && sudo mkinitcpio -c " + buildDir + "/mkinitcpio.conf -g " + buildDir + "/boot/initramfs-x86_64.img";
+    // Change to build directory and run mkinitcpio with hardcoded paths
+    std::string command = "cd " + buildDir + " && sudo mkinitcpio -c " + mkinitcpioConfPath + " -g " + initramfsOutputPath + " -k " + config.vmlinuzPath;
+    
+    std::cout << "Executing command: " << command << std::endl;
     execute_command(command, true);
 
     config.mkinitcpioGenerated = true;
     saveConfig();
-    std::cout << "mkinitcpio generated successfully!" << std::endl;
+    std::cout << "mkinitcpio generated successfully with hardcoded paths!" << std::endl;
 }
 
 void editGrubCfg() {
-    if (BUILD_DIR.empty()) {
-        std::cerr << "Build directory not set!" << std::endl;
-        return;
-    }
-
-    std::string buildDir = BUILD_DIR;
-    size_t user_pos;
-    if ((user_pos = buildDir.find("$USER")) != std::string::npos) {
-        buildDir.replace(user_pos, 5, USERNAME);
-    }
-
+    // FIXED: Hardcoded path for GRUB config
+    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
     std::string grubCfgPath = buildDir + "/boot/grub/grub.cfg";
+    
     std::cout << "Editing GRUB config: " << grubCfgPath << std::endl;
 
     // Use kate to edit
@@ -678,18 +673,10 @@ void editGrubCfg() {
 }
 
 void editBootText() {
-    if (BUILD_DIR.empty()) {
-        std::cerr << "Build directory not set!" << std::endl;
-        return;
-    }
-
-    std::string buildDir = BUILD_DIR;
-    size_t user_pos;
-    if ((user_pos = buildDir.find("$USER")) != std::string::npos) {
-        buildDir.replace(user_pos, 5, USERNAME);
-    }
-
+    // FIXED: Hardcoded path for boot text
+    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
     std::string bootTextPath = buildDir + "/boot/grub/kernels.cfg";
+    
     std::cout << "Editing Boot Text: " << bootTextPath << std::endl;
 
     // Use kate to edit
@@ -947,12 +934,8 @@ bool createISO() {
 
     execute_command("mkdir -p " + expandedOutputDir, true);
 
-    // Fix BUILD_DIR path expansion
-    std::string buildDir = BUILD_DIR;
-    size_t user_pos;
-    if ((user_pos = buildDir.find("$USER")) != std::string::npos) {
-        buildDir.replace(user_pos, 5, USERNAME);
-    }
+    // FIXED: Hardcoded build directory path
+    std::string buildDir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img";
 
     std::string xorrisoCmd = "sudo xorriso -as mkisofs "
     "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
@@ -1062,7 +1045,7 @@ void installISOToUSB() {
         return;
     }
 
-    std::cout << "\nWriting " << selectedISO << " to " << targetDrive << "..." << std::endl;
+    std::cout << "\nWriting " + selectedISO + " to " + targetDrive + "...\n";
     std::string ddCommand = "sudo dd if=" + selectedISO + " of=" + targetDrive + " bs=4M status=progress oflag=sync";
     execute_command(ddCommand, true);
 
@@ -1193,11 +1176,8 @@ public:
         loadConfig();
         startTimeThread();
 
-        // Request sudo password on startup
-        QTimer::singleShot(500, this, &MainWindow::requestSudoOnStartup);
-        
-        // Check for updates after UI is loaded
-        QTimer::singleShot(1000, this, &MainWindow::checkForUpdates);
+        // FIXED: Request sudo password FIRST on startup
+        QTimer::singleShot(100, this, &MainWindow::requestSudoOnStartup);
     }
 
     ~MainWindow() {
@@ -1209,10 +1189,16 @@ public:
 
 private slots:
     void requestSudoOnStartup() {
+        logOutputText("=== SYSTEM STARTUP ===\n", "cyan");
+        logOutputText("Requesting sudo password for system operations...\n", "cyan");
+        
         if (!requestSudoPassword()) {
             logOutputText("Sudo password is required for most operations. You will be prompted when needed.\n", "yellow");
+            // Continue without sudo for now
         } else {
             logOutputText("Sudo password validated successfully!\n", "green");
+            // FIXED: Now check for updates after sudo is validated
+            QTimer::singleShot(500, this, &MainWindow::checkForUpdates);
         }
     }
 
@@ -1310,7 +1296,9 @@ private slots:
                                                  "Choose vmlinuz file:", vmlinuzFiles, 0, false, &ok);
         if (ok && !selected.isEmpty()) {
             config.vmlinuzPath = selected.toStdString();
-            QString destPath = QString::fromStdString(BUILD_DIR) + "/boot/vmlinuz-x86_64";
+            
+            // FIXED: Hardcoded destination path
+            QString destPath = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img/boot/vmlinuz-x86_64";
             
             if (!PASSWORD_VALIDATED && !requestSudoPassword()) {
                 logOutputText("Sudo password required for copying vmlinuz!\n", "red");
@@ -1336,23 +1324,34 @@ private slots:
             return;
         }
 
-        logOutputText("Generating initramfs...\n", "cyan");
+        logOutputText("Generating initramfs with hardcoded paths...\n", "cyan");
         progressBar->setValue(30);
         
-        // FIXED: Use expanded BUILD_DIR path
-        QString buildDir = QString::fromStdString(BUILD_DIR).replace("$USER", QString::fromStdString(USERNAME));
-        QString command = "cd " + buildDir + " && sudo mkinitcpio -c " + buildDir + "/mkinitcpio.conf -g " + buildDir + "/boot/initramfs-x86_64.img";
+        // FIXED: Hardcoded paths for initramfs generation
+        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
+        QString mkinitcpioConfPath = buildDir + "/mkinitcpio.conf";
+        QString initramfsOutputPath = buildDir + "/boot/initramfs-x86_64.img";
         
+        logOutputText("Build directory: " + buildDir + "\n", "cyan");
+        logOutputText("mkinitcpio config: " + mkinitcpioConfPath + "\n", "cyan");
+        logOutputText("initramfs output: " + initramfsOutputPath + "\n", "cyan");
+
+        QString command = "cd " + buildDir + " && sudo mkinitcpio -c " + mkinitcpioConfPath + " -g " + initramfsOutputPath + " -k " + QString::fromStdString(config.vmlinuzPath);
+        
+        logOutputText("Executing command: " + command + "\n", "cyan");
         worker->executeCommand(command, true);
 
         config.mkinitcpioGenerated = true;
         saveConfig();
         updateConfigStatus();
+        logOutputText("mkinitcpio generated successfully with hardcoded paths!\n", "green");
     }
 
     void onEditGrubCfg() {
-        QString buildDir = QString::fromStdString(BUILD_DIR).replace("$USER", QString::fromStdString(USERNAME));
+        // FIXED: Hardcoded path for GRUB config
+        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
         QString grubCfgPath = buildDir + "/boot/grub/grub.cfg";
+        
         logOutputText("Editing GRUB config: " + grubCfgPath + "\n", "cyan");
 
         QDialog editorDialog(this);
@@ -1398,8 +1397,10 @@ private slots:
     }
 
     void onEditBootText() {
-        QString buildDir = QString::fromStdString(BUILD_DIR).replace("$USER", QString::fromStdString(USERNAME));
+        // FIXED: Hardcoded path for boot text
+        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
         QString bootTextPath = buildDir + "/boot/grub/kernels.cfg";
+        
         logOutputText("Editing Boot Text: " + bootTextPath + "\n", "cyan");
 
         QDialog editorDialog(this);
@@ -1679,8 +1680,8 @@ private slots:
         std::string expandedOutputDir = expandPath(config.outputDir);
         worker->executeCommand("mkdir -p " + QString::fromStdString(expandedOutputDir), true);
 
-        // FIXED: Use expanded BUILD_DIR path
-        QString buildDir = QString::fromStdString(BUILD_DIR).replace("$USER", QString::fromStdString(USERNAME));
+        // FIXED: Hardcoded build directory path
+        QString buildDir = "/home/" + QString::fromStdString(USERNAME) + "/.config/cmi/build-image-arch-img";
         
         std::string xorrisoCmd = "sudo xorriso -as mkisofs "
         "--modification-date=\"$(date +%Y%m%d%H%M%S00)\" "
@@ -1915,7 +1916,7 @@ private slots:
         if (currentVersion.empty()) {
             logOutputText("No current version found. Assuming first run.\n", "yellow");
 
-            // FIXED: Extract embedded resources with proper error handling
+            // Extract embedded resources
             if (extractEmbeddedZip()) {
                 logOutputText("Base resources extracted successfully.\n", "green");
             }
