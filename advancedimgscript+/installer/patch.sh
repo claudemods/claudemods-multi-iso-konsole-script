@@ -69,7 +69,7 @@ detect_distro
 # Conditional logic based on the detected distribution
 if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     # Commands for Arch/CachyOS
-    
+    print_status "Advanced C++ Arch Img Iso Script+ Beta v2.03.1 06-10-2025 Installer"
     print_status "Updating pacman database"
     print_status "Installing dependencies"
     print_status "git clone and install main script"
