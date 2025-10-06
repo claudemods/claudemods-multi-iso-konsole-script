@@ -52,49 +52,6 @@ const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level
 std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-img";
 std::string USERNAME = "";
 
-// Dependencies list
-const std::vector<std::string> DEPENDENCIES = {
-    "rsync",
-    "squashfs-tools",
-    "xorriso",
-    "grub",
-    "dosfstools",
-    "unzip",
-    "nano",
-    "arch-install-scripts",
-    "bash-completion",
-    "erofs-utils",
-    "findutils",
-    "unzip",
-    "jq",
-    "libarchive",
-    "libisoburn",
-    "lsb-release",
-    "lvm2",
-    "mkinitcpio-archiso",
-    "mkinitcpio-nfs-utils",
-    "mtools",
-    "nbd",
-    "pacman-contrib",
-    "parted",
-    "procps-ng",
-    "pv",
-    "python",
-    "sshfs",
-    "syslinux",
-    "xdg-utils",
-    "zsh-completions",
-    "kernel-modules-hook",
-    "virt-manager",
-    "qt6-tools",
-    "btrfs-progs",
-    "e2fsprogs",
-    "f2fs-tools",
-    "xfsprogs",
-    "xfsdump",
-    "qt5-tools"
-};
-
 // Configuration state
 struct ConfigState {
     std::string isoTag;
@@ -595,23 +552,12 @@ std::string getUserInput(const std::string& prompt) {
 }
 
 void installDependencies() {
-    std::cout << COLOR_CYAN << "\nInstalling required dependencies...\n" << COLOR_RESET;
-
-    // First update the package database
-    std::cout << COLOR_CYAN << "Updating package database...\n" << COLOR_RESET;
-    execute_command("sudo pacman -Sy");
-
-    std::string packages;
-    for (const auto& pkg : DEPENDENCIES) {
-        packages += pkg + " ";
-    }
-
-    std::string command = "sudo pacman -S --needed --noconfirm " + packages;
-    execute_command(command);
-
+    std::cout << COLOR_CYAN << "\nDependencies installation has been removed from this version.\n" << COLOR_RESET;
+    std::cout << COLOR_YELLOW << "Please ensure all required packages are manually installed before proceeding.\n" << COLOR_RESET;
+    
     config.dependenciesInstalled = true;
     saveConfig();
-    std::cout << COLOR_GREEN << "\nDependencies installed successfully!\n" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "\nDependencies check marked as completed!\n" << COLOR_RESET << std::endl;
 }
 
 void selectVmlinuz() {
