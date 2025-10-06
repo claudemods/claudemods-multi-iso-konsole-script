@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Color definitions
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
 # Function to detect the distribution
 detect_distro() {
     if [ -f /etc/os-release ]; then
@@ -21,21 +40,18 @@ detect_distro
 # Conditional logic based on the detected distribution
 if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     # Commands for Arch/CachyOS
-    echo installing dependencies before git clone and install
-    echo updating pacman database
-    echo 3
-    echo 2
-    echo 1
+    print_status "Installing dependencies before git clone and install"
+    print_status "Updating pacman database"
     sudo pacman -Sy
-    echo installing dependencies
+    print_status "Installing dependencies"
     sudo pacman -S --needed --noconfirm git rsync squashfs-tools xorriso grub dosfstools unzip nano arch-install-scripts bash-completion erofs-utils findutils jq libarchive libisoburn lsb-release lvm2 mkinitcpio-archiso mkinitcpio-nfs-utils mtools nbd pacman-contrib parted procps-ng pv python sshfs syslinux xdg-utils zsh-completions kernel-modules-hook virt-manager qt6-tools btrfs-progs e2fsprogs f2fs-tools xfsprogs xfsdump cmake
-    echo git cloning repository
+    print_status "Git cloning repository"
     git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1
-    echo building installer
+    print_status "Building installer"
     cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/updatermain && qmake6 && make >/dev/null 2>&1
-    echo installing
+    print_status "Installing"
     ./advancedcscriptupdater.bin && rm -rf /home/$USER/claudemods-multi-iso-konsole-script
 else
-    echo "Unsupported distribution: $DISTRO"
+    print_error "Unsupported distribution: $DISTRO"
     exit 1
 fi
