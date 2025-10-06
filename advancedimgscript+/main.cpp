@@ -65,15 +65,14 @@ struct ConfigState {
     bool calamaresBrandingEdited = false;
     bool calamares1Edited = false;
     bool calamares2Edited = false;
-    bool dependenciesInstalled = false;
 
     bool isReadyForISO() const {
         return !isoTag.empty() && !isoName.empty() && !outputDir.empty() &&
-        !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited && dependenciesInstalled;
+        !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited;
     }
 
     bool allCheckboxesChecked() const {
-        return dependenciesInstalled && !isoTag.empty() && !isoName.empty() &&
+        return !isoTag.empty() && !isoName.empty() &&
         !outputDir.empty() && !vmlinuzPath.empty() && !cloneDir.empty() &&
         mkinitcpioGenerated && grubEdited && bootTextEdited &&
         calamaresBrandingEdited && calamares1Edited && calamares2Edited;
@@ -423,10 +422,6 @@ void printConfigStatus() {
     std::cout << COLOR_CYAN << "Current Configuration:" << COLOR_RESET << std::endl;
 
     std::cout << " ";
-    printCheckbox(config.dependenciesInstalled);
-    std::cout << " Dependencies Installed" << std::endl;
-
-    std::cout << " ";
     printCheckbox(!config.isoTag.empty());
     std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << std::endl;
 
@@ -549,15 +544,6 @@ std::string getUserInput(const std::string& prompt) {
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     std::cout << std::endl;
     return input;
-}
-
-void installDependencies() {
-    std::cout << COLOR_CYAN << "\nDependencies installation has been removed from this version.\n" << COLOR_RESET;
-    std::cout << COLOR_YELLOW << "Please ensure all required packages are manually installed before proceeding.\n" << COLOR_RESET;
-    
-    config.dependenciesInstalled = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "\nDependencies check marked as completed!\n" << COLOR_RESET << std::endl;
 }
 
 void selectVmlinuz() {
@@ -777,7 +763,6 @@ void saveConfig() {
         configFile << "calamaresBrandingEdited=" << (config.calamaresBrandingEdited ? "1" : "0") << "\n";
         configFile << "calamares1Edited=" << (config.calamares1Edited ? "1" : "0") << "\n";
         configFile << "calamares2Edited=" << (config.calamares2Edited ? "1" : "0") << "\n";
-        configFile << "dependenciesInstalled=" << (config.dependenciesInstalled ? "1" : "0") << "\n";
         configFile.close();
     } else {
         std::cerr << COLOR_RED << "Failed to save configuration to " << configPath << COLOR_RESET << std::endl;
@@ -806,7 +791,6 @@ void loadConfig() {
                 else if (key == "calamaresBrandingEdited") config.calamaresBrandingEdited = (value == "1");
                 else if (key == "calamares1Edited") config.calamares1Edited = (value == "1");
                 else if (key == "calamares2Edited") config.calamares2Edited = (value == "1");
-                else if (key == "dependenciesInstalled") config.dependenciesInstalled = (value == "1");
             }
         }
         configFile.close();
@@ -844,7 +828,6 @@ bool validateSizeInput(const std::string& input) {
 
 void showSetupMenu() {
     std::vector<std::string> items = {
-        "Install Dependencies",
         "Set Clone Directory",
         "Set ISO Tag",
         "Set ISO Name",
@@ -874,22 +857,21 @@ void showSetupMenu() {
                 break;
             case '\n':
                 switch (selected) {
-                    case 0: installDependencies(); break;
-                    case 1: setCloneDir(); break;
-                    case 2: setIsoTag(); break;
-                    case 3: setIsoName(); break;
-                    case 4: setOutputDir(); break;
-                    case 5: selectVmlinuz(); break;
-                    case 6: generateMkinitcpio(); break;
-                    case 7: editGrubCfg(); break;
-                    case 8: editBootText(); break;
-                    case 9: editCalamaresBranding(); break;
-                    case 10: editCalamares1(); break;
-                    case 11: editCalamares2(); break;
-                    case 12: return;
+                    case 0: setCloneDir(); break;
+                    case 1: setIsoTag(); break;
+                    case 2: setIsoName(); break;
+                    case 3: setOutputDir(); break;
+                    case 4: selectVmlinuz(); break;
+                    case 5: generateMkinitcpio(); break;
+                    case 6: editGrubCfg(); break;
+                    case 7: editBootText(); break;
+                    case 8: editCalamaresBranding(); break;
+                    case 9: editCalamares1(); break;
+                    case 10: editCalamares2(); break;
+                    case 11: return;
                 }
 
-                if (selected != 12) {
+                if (selected != 11) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                     getch();
                 }
@@ -1375,52 +1357,48 @@ void runAutoMode() {
     std::cout << COLOR_CYAN << "\n=== Starting Auto Mode ===" << COLOR_RESET << std::endl;
     std::cout << COLOR_YELLOW << "This will run all setup steps sequentially and then create an image." << COLOR_RESET << std::endl;
     
-    // Step 1: Install Dependencies
-    std::cout << COLOR_CYAN << "\nStep 1: Installing Dependencies..." << COLOR_RESET << std::endl;
-    installDependencies();
-    
-    // Step 2: Set Clone Directory
-    std::cout << COLOR_CYAN << "\nStep 2: Setting Clone Directory..." << COLOR_RESET << std::endl;
+    // Step 1: Set Clone Directory
+    std::cout << COLOR_CYAN << "\nStep 1: Setting Clone Directory..." << COLOR_RESET << std::endl;
     setCloneDir();
     
-    // Step 3: Set ISO Tag
-    std::cout << COLOR_CYAN << "\nStep 3: Setting ISO Tag..." << COLOR_RESET << std::endl;
+    // Step 2: Set ISO Tag
+    std::cout << COLOR_CYAN << "\nStep 2: Setting ISO Tag..." << COLOR_RESET << std::endl;
     setIsoTag();
     
-    // Step 4: Set ISO Name
-    std::cout << COLOR_CYAN << "\nStep 4: Setting ISO Name..." << COLOR_RESET << std::endl;
+    // Step 3: Set ISO Name
+    std::cout << COLOR_CYAN << "\nStep 3: Setting ISO Name..." << COLOR_RESET << std::endl;
     setIsoName();
     
-    // Step 5: Set Output Directory
-    std::cout << COLOR_CYAN << "\nStep 5: Setting Output Directory..." << COLOR_RESET << std::endl;
+    // Step 4: Set Output Directory
+    std::cout << COLOR_CYAN << "\nStep 4: Setting Output Directory..." << COLOR_RESET << std::endl;
     setOutputDir();
     
-    // Step 6: Select vmlinuz
-    std::cout << COLOR_CYAN << "\nStep 6: Selecting vmlinuz..." << COLOR_RESET << std::endl;
+    // Step 5: Select vmlinuz
+    std::cout << COLOR_CYAN << "\nStep 5: Selecting vmlinuz..." << COLOR_RESET << std::endl;
     selectVmlinuz();
     
-    // Step 7: Generate mkinitcpio
-    std::cout << COLOR_CYAN << "\nStep 7: Generating mkinitcpio..." << COLOR_RESET << std::endl;
+    // Step 6: Generate mkinitcpio
+    std::cout << COLOR_CYAN << "\nStep 6: Generating mkinitcpio..." << COLOR_RESET << std::endl;
     generateMkinitcpio();
     
-    // Step 8: Edit GRUB Config
-    std::cout << COLOR_CYAN << "\nStep 8: Editing GRUB Config..." << COLOR_RESET << std::endl;
+    // Step 7: Edit GRUB Config
+    std::cout << COLOR_CYAN << "\nStep 7: Editing GRUB Config..." << COLOR_RESET << std::endl;
     editGrubCfg();
     
-    // Step 9: Edit Boot Text
-    std::cout << COLOR_CYAN << "\nStep 9: Editing Boot Text..." << COLOR_RESET << std::endl;
+    // Step 8: Edit Boot Text
+    std::cout << COLOR_CYAN << "\nStep 8: Editing Boot Text..." << COLOR_RESET << std::endl;
     editBootText();
     
-    // Step 10: Edit Calamares Branding
-    std::cout << COLOR_CYAN << "\nStep 10: Editing Calamares Branding..." << COLOR_RESET << std::endl;
+    // Step 9: Edit Calamares Branding
+    std::cout << COLOR_CYAN << "\nStep 9: Editing Calamares Branding..." << COLOR_RESET << std::endl;
     editCalamaresBranding();
     
-    // Step 11: Edit Calamares 1st initcpio.conf
-    std::cout << COLOR_CYAN << "\nStep 11: Editing Calamares 1st initcpio.conf..." << COLOR_RESET << std::endl;
+    // Step 10: Edit Calamares 1st initcpio.conf
+    std::cout << COLOR_CYAN << "\nStep 10: Editing Calamares 1st initcpio.conf..." << COLOR_RESET << std::endl;
     editCalamares1();
     
-    // Step 12: Edit Calamares 2nd initcpio.conf
-    std::cout << COLOR_CYAN << "\nStep 12: Editing Calamares 2nd initcpio.conf..." << COLOR_RESET << std::endl;
+    // Step 11: Edit Calamares 2nd initcpio.conf
+    std::cout << COLOR_CYAN << "\nStep 11: Editing Calamares 2nd initcpio.conf..." << COLOR_RESET << std::endl;
     editCalamares2();
     
     std::cout << COLOR_GREEN << "\nAll setup steps completed successfully!" << COLOR_RESET << std::endl;
