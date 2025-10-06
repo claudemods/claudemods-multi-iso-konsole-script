@@ -21,6 +21,7 @@ detect_distro
 # Conditional logic based on the detected distribution
 if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     # Commands for Arch/CachyOS
+    sudo pacman -Sy
     sudo pacman -S --noconfirm git rsync squashfs-tools xorriso grub dosfstools unzip nano arch-install-scripts bash-completion erofs-utils findutils jq libarchive libisoburn lsb-release lvm2 mkinitcpio-archiso mkinitcpio-nfs-utils mtools nbd pacman-contrib parted procps-ng pv python sshfs syslinux xdg-utils zsh-completions kernel-modules-hook virt-manager qt6-tools btrfs-progs e2fsprogs f2fs-tools xfsprogs xfsdump cmake
     git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git  >/dev/null 2>&1
     cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/updatermain && qmake6 && make >/dev/null 2>&1
