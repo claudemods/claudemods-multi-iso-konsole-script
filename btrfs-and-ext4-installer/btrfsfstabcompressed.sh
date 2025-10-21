@@ -15,7 +15,7 @@ cat << 'EOF'
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
-echo -e "${cyan_color}claudemods BtrfsGenFstab v1.01 Zstd Level 22 Compression${reset_color}"
+echo -e "${cyan_color}claudemods BtrfsGenFstab Arch/Cachyos v1.02 Zstd Level 22 Compression${reset_color}"
 
 # Set ALL remaining text to cyan
 echo -e "${cyan_color}"
@@ -45,6 +45,8 @@ echo "Checking and adding subvolume entries..."
     run_privileged grep -q "UUID=$ROOT_UUID.*/var/cache" /etc/fstab || echo "UUID=$ROOT_UUID /var/cache     btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@cache 0 0"
     run_privileged grep -q "UUID=$ROOT_UUID.*/var/tmp" /etc/fstab   || echo "UUID=$ROOT_UUID /var/tmp       btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@tmp 0 0"
     run_privileged grep -q "UUID=$ROOT_UUID.*/var/log" /etc/fstab   || echo "UUID=$ROOT_UUID /var/log       btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@log 0 0"
+    run_privileged grep -q "UUID=$ROOT_UUID.*/var/lib/portables" /etc/fstab || echo "UUID=$ROOT_UUID /var/lib/portables btrfs rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@/var/lib/portables 0 0"
+    run_privileged grep -q "UUID=$ROOT_UUID.*/var/lib/machines" /etc/fstab || echo "UUID=$ROOT_UUID /var/lib/machines btrfs rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@/var/lib/machines 0 0"
 } | run_privileged tee -a /etc/fstab >/dev/null
 
 echo -e "\nInstallation Complete"
