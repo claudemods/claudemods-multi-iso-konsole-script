@@ -64,7 +64,7 @@ EOF
 prepare_target_partitions() {
     local drive="$1"
     local fs_type="$2"
-    
+
     execute_command "umount -f ${drive}* 2>/dev/null || true"
     execute_command "wipefs -a $drive"
     execute_command "parted -s $drive mklabel gpt"
@@ -93,7 +93,7 @@ prepare_target_partitions() {
 # Function to setup Btrfs subvolumes
 setup_btrfs_subvolumes() {
     local root_part="$1"
-    
+
     # Mount root partition temporarily to create subvolumes
     execute_command "mount $root_part /mnt"
 
@@ -158,7 +158,7 @@ copy_system() {
     rsync_cmd+="--include=/usr "
     rsync_cmd+="--include=/etc "
     rsync_cmd+="/ /mnt"
-    
+
     execute_command "$rsync_cmd"
     execute_command "mount $efi_part /mnt/boot/efi"
     execute_command "mkdir -p /mnt/{proc,sys,dev,run,tmp}"
@@ -172,6 +172,7 @@ install_grub_ext4() {
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
+    execute_command "chroot /mnt /bin/bash -c \"mount -t efivarfs efivarfs /sys/firmware/efi/efivars \""
     execute_command "chroot /mnt /bin/bash -c \"genfstab -U /\""
     execute_command "chroot /mnt /bin/bash -c \"grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck\""
     execute_command "chroot /mnt /bin/bash -c \"grub-mkconfig -o /boot/grub/grub.cfg\""
@@ -187,7 +188,7 @@ install_grub_btrfs() {
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
-
+    execute_command "chroot /mnt /bin/bash -c \"mount -t efivarfs efivarfs /sys/firmware/efi/efivars \""
     execute_command "chroot /mnt /bin/bash -c \"grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck\""
     execute_command "chroot /mnt /bin/bash -c \"grub-mkconfig -o /boot/grub/grub.cfg\""
     execute_command "chroot /mnt /bin/bash -c \"mkinitcpio -P\""
