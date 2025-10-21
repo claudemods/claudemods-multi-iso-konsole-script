@@ -55,13 +55,13 @@ display_available_drives() {
     echo "║                    Available Drives                         ║"
     echo "╠══════════════════════════════════════════════════════════════╣"
     echo -e "${COLOR_RESET}"
-    
+
     # Display block devices using lsblk with better formatting
     echo -e "${COLOR_CYAN}Block Devices:${COLOR_RESET}"
     lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,MODEL | grep -v "loop" | while read line; do
         echo -e "${COLOR_GREEN}  $line${COLOR_RESET}"
     done
-    
+
     echo -e "${COLOR_YELLOW}"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${COLOR_RESET}"
@@ -79,7 +79,7 @@ display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
-    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.03${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.03.1${COLOR_RESET}"
     echo -e "${COLOR_CYAN}Supports Ext4 filesystems${COLOR_RESET}"
     echo -e "${COLOR_MAGENTA}Now with Hyprland Wayland compositor support!${COLOR_RESET}"
     echo
@@ -167,9 +167,9 @@ install_grub_ext4() {
 chroot_into_system() {
     local fs_type="$1"
     local drive="$2"
-    
+
     echo -e "${COLOR_CYAN}Mounting the new system for chroot...${COLOR_RESET}"
-    
+
     execute_command "mount ${drive}2 /mnt"
     execute_command "mount ${drive}1 /mnt/boot/efi"
     execute_command "mount --bind /dev /mnt/dev"
@@ -177,11 +177,11 @@ chroot_into_system() {
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
-    
+
     echo -e "${COLOR_GREEN}Entering chroot environment...${COLOR_RESET}"
     echo -e "${COLOR_YELLOW}Type 'exit' when done to return to the menu.${COLOR_RESET}"
     execute_command "chroot /mnt /bin/bash"
-    
+
     echo -e "${COLOR_CYAN}Cleaning up chroot environment...${COLOR_RESET}"
     execute_command "umount -R /mnt"
 }
@@ -190,9 +190,9 @@ chroot_into_system() {
 install_desktop() {
     local fs_type="$1"
     local drive="$2"
-    
+
     echo -e "${COLOR_CYAN}Mounting system for desktop installation...${COLOR_RESET}"
-    
+
     execute_command "mount ${drive}2 /mnt"
     execute_command "mount ${drive}1 /mnt/boot/efi"
     execute_command "mount --bind /dev /mnt/dev"
@@ -200,9 +200,9 @@ install_desktop() {
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
-    
+
     # Display desktop options - Top 10 Arch package list
-    echo -e "${COLOR_MAGENTA}"
+    echo -e "${COLOR_CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                   Desktop Environments                       ║"
     echo "╠══════════════════════════════════════════════════════════════╣"
@@ -219,10 +219,10 @@ install_desktop() {
     echo "║ 11. Return to Main Menu                                     ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${COLOR_RESET}"
-    
+
     echo -e "${COLOR_CYAN}Select desktop environment (1-11): ${COLOR_RESET}"
     read -r desktop_choice
-    
+
     case $desktop_choice in
         1)
             echo -e "${COLOR_CYAN}Installing GNOME Desktop...${COLOR_RESET}"
@@ -282,7 +282,7 @@ install_desktop() {
             echo -e "${COLOR_RED}Invalid option. Returning to main menu.${COLOR_RESET}"
             ;;
     esac
-    
+
     # Cleanup
     echo -e "${COLOR_CYAN}Cleaning up...${COLOR_RESET}"
     execute_command "umount -R /mnt"
@@ -292,9 +292,9 @@ install_desktop() {
 post_install_menu() {
     local fs_type="$1"
     local drive="$2"
-    
+
     while true; do
-        echo -e "${COLOR_BLUE}"
+        echo -e "${COLOR_CYAN}"
         echo "╔══════════════════════════════════════╗"
         echo "║         Post-Install Menu           ║"
         echo "╠══════════════════════════════════════╣"
@@ -304,10 +304,10 @@ post_install_menu() {
         echo "║ 4. Exit                             ║"
         echo "╚══════════════════════════════════════╝"
         echo -e "${COLOR_RESET}"
-        
+
         echo -e "${COLOR_CYAN}Select an option (1-4): ${COLOR_RESET}"
         read -r choice
-        
+
         case $choice in
             1)
                 chroot_into_system "$fs_type" "$drive"
@@ -328,7 +328,7 @@ post_install_menu() {
                 echo -e "${COLOR_RED}Invalid option. Please try again.${COLOR_RESET}"
                 ;;
         esac
-        
+
         echo
         echo -e "${COLOR_YELLOW}Press Enter to continue...${COLOR_RESET}"
         read -r
@@ -389,7 +389,7 @@ main() {
     execute_command "umount -R /mnt"
 
     echo -e "${COLOR_GREEN}\nInstallation complete!${COLOR_RESET}"
-    
+
     # Show post-install menu
     post_install_menu "$fs_type" "$drive"
 }
