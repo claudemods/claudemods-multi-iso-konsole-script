@@ -15,7 +15,7 @@ cat << 'EOF'
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
-echo -e "${cyan_color}claudemods BtrfsGenFstab Arch/Cachyos v1.02 Zstd Level 22 Compression${reset_color}"
+echo -e "${cyan_color}claudemods BtrfsGenFstab Arch/Cachyos v1.02.1 Zstd Level 22 Compression${reset_color}"
 
 # Set ALL remaining text to cyan
 echo -e "${cyan_color}"
@@ -50,16 +50,6 @@ echo "Checking and adding subvolume entries..."
 } | run_privileged tee -a /etc/fstab >/dev/null
 
 echo -e "\nInstallation Complete"
-
-# Reboot prompt
-read -p "Do you want to reboot now? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo -e "${cyan_color}Rebooting system...${reset_color}"
-    run_privileged reboot
-else
-    echo -e "${cyan_color}You may need to reboot for changes to take effect.${reset_color}"
-fi
 
 # Reset terminal color before exiting
 echo -ne "${reset_color}"
