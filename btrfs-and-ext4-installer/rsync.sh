@@ -62,21 +62,6 @@ display_available_drives() {
         echo -e "${COLOR_GREEN}  $line${COLOR_RESET}"
     done
     
-    echo
-    echo -e "${COLOR_CYAN}Disk Usage (df -h):${COLOR_RESET}"
-    df -h | grep -E "^/dev/" | while read line; do
-        echo -e "${COLOR_BLUE}  $line${COLOR_RESET}"
-    done
-    
-    # Show Btrfs filesystems specifically
-    echo
-    echo -e "${COLOR_MAGENTA}Btrfs Filesystems:${COLOR_RESET}"
-    if command -v btrfs &> /dev/null; then
-        btrfs filesystem show 2>/dev/null || echo "  No Btrfs filesystems found or btrfs command not available"
-    else
-        echo "  btrfs command not available"
-    fi
-    
     echo -e "${COLOR_YELLOW}"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${COLOR_RESET}"
@@ -95,7 +80,7 @@ display_header() {
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
     echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.03${COLOR_RESET}"
-    echo -e "${COLOR_CYAN}Supports Btrfs (with Zstd compression) and Ext4 filesystems${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}Supports Ext4 filesystems${COLOR_RESET}"
     echo -e "${COLOR_MAGENTA}Now with Hyprland Wayland compositor support!${COLOR_RESET}"
     echo
 }
@@ -123,48 +108,7 @@ prepare_target_partitions() {
     fi
 
     execute_command "mkfs.vfat -F32 $efi_part"
-    if [ "$fs_type" = "btrfs" ]; then
-        execute_command "mkfs.btrfs -f -L ROOT $root_part"
-    else
-        execute_command "mkfs.ext4 -F -L ROOT $root_part"
-    fi
-}
-
-# Function to setup Btrfs subvolumes
-setup_btrfs_subvolumes() {
-    local root_part="$1"
-
-    # Mount root partition temporarily to create subvolumes
-    execute_command "mount $root_part /mnt"
-
-    # Create subvolumes with compression enabled
-    execute_command "btrfs subvolume create /mnt/@"
-    execute_command "btrfs subvolume create /mnt/@home"
-    execute_command "btrfs subvolume create /mnt/@root"
-    execute_command "btrfs subvolume create /mnt/@srv"
-    execute_command "btrfs subvolume create /mnt/@cache"
-    execute_command "btrfs subvolume create /mnt/@tmp"
-    execute_command "btrfs subvolume create /mnt/@log"
-    execute_command "mkdir -p /mnt/@/var/lib"
-    execute_command "btrfs subvolume create /mnt/@/var/lib/portables"
-    execute_command "btrfs subvolume create /mnt/@/var/lib/machines"
-
-    # Unmount temporary mount
-    execute_command "umount /mnt"
-
-    # Mount all subvolumes with Zstd compression (level 22)
-    execute_command "mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 $root_part /mnt"
-    execute_command "mkdir -p /mnt/{home,root,srv,tmp,var/{cache,log},var/lib/{portables,machines},boot/efi}"
-
-    # Mount other subvolumes with same compression settings
-    execute_command "mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/home"
-    execute_command "mount -o subvol=@root,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/root"
-    execute_command "mount -o subvol=@srv,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/srv"
-    execute_command "mount -o subvol=@cache,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/var/cache"
-    execute_command "mount -o subvol=@tmp,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/tmp"
-    execute_command "mount -o subvol=@log,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/var/log"
-    execute_command "mount -o subvol=@/var/lib/portables,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/var/lib/portables"
-    execute_command "mount -o subvol=@/var/lib/machines,compress=zstd:22,compress-force=zstd:22 $root_part /mnt/var/lib/machines"
+    execute_command "mkfs.ext4 -F -L ROOT $root_part"
 }
 
 # Function to setup Ext4 filesystem
@@ -219,53 +163,6 @@ install_grub_ext4() {
     execute_command "chroot /mnt /bin/bash -c \"mkinitcpio -P\""
 }
 
-# Function to install GRUB for Btrfs
-install_grub_btrfs() {
-    local drive="$1"
-    execute_command "touch /mnt/etc/fstab"
-    execute_command "mount --bind /dev /mnt/dev"
-    execute_command "mount --bind /dev/pts /mnt/dev/pts"
-    execute_command "mount --bind /proc /mnt/proc"
-    execute_command "mount --bind /sys /mnt/sys"
-    execute_command "mount --bind /run /mnt/run"
-    
-    # Generate Btrfs fstab entries directly instead of using external script
-    echo -e "${COLOR_CYAN}Generating Btrfs fstab entries...${COLOR_RESET}"
-    
-    # Get root UUID from current / mount
-    local ROOT_UUID=$(sudo findmnt -no UUID /mnt) || { echo -e "${COLOR_RED}Error: Could not get root UUID${COLOR_RESET}" >&2; exit 1; }
-    
-    # Create fstab file with Btrfs entries
-    sudo tee /mnt/etc/fstab > /dev/null << EOF
-# /etc/fstab: static file system information.
-#
-# Use 'blkid' to print the universally unique identifier for a device; this may
-# be used with UUID= as a more robust way to name devices that works even if
-# disks are added and removed. See fstab(5).
-#
-# <file system> <mount point>   <type>  <options>       <dump>  <pass>
-
-# Btrfs subvolumes with Zstd compression
-UUID=$ROOT_UUID /              btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@ 0 0
-UUID=$ROOT_UUID /root          btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@root 0 0
-UUID=$ROOT_UUID /home          btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@home 0 0
-UUID=$ROOT_UUID /srv           btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@srv 0 0
-UUID=$ROOT_UUID /var/cache     btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@cache 0 0
-UUID=$ROOT_UUID /tmp           btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@tmp 0 0
-UUID=$ROOT_UUID /var/log       btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@log 0 0
-UUID=$ROOT_UUID /var/lib/portables btrfs rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@/var/lib/portables 0 0
-UUID=$ROOT_UUID /var/lib/machines btrfs rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@/var/lib/machines 0 0
-
-# EFI System Partition
-$(sudo blkid -s UUID -o value ${drive}1) /boot/efi vfat defaults 0 0
-EOF
-
-    execute_command "chroot /mnt /bin/bash -c \"mount -t efivarfs efivarfs /sys/firmware/efi/efivars \""
-    execute_command "chroot /mnt /bin/bash -c \"grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck\""
-    execute_command "chroot /mnt /bin/bash -c \"grub-mkconfig -o /boot/grub/grub.cfg\""
-    execute_command "chroot /mnt /bin/bash -c \"mkinitcpio -P\""
-}
-
 # Function to chroot into the new system
 chroot_into_system() {
     local fs_type="$1"
@@ -273,19 +170,7 @@ chroot_into_system() {
     
     echo -e "${COLOR_CYAN}Mounting the new system for chroot...${COLOR_RESET}"
     
-    # Mount the root partition based on filesystem type
-    if [ "$fs_type" = "btrfs" ]; then
-        execute_command "mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt"
-        execute_command "mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/home"
-        execute_command "mount -o subvol=@root,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/root"
-        execute_command "mount -o subvol=@srv,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/srv"
-        execute_command "mount -o subvol=@cache,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/var/cache"
-        execute_command "mount -o subvol=@tmp,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/tmp"
-        execute_command "mount -o subvol=@log,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/var/log"
-    else
-        execute_command "mount ${drive}2 /mnt"
-    fi
-    
+    execute_command "mount ${drive}2 /mnt"
     execute_command "mount ${drive}1 /mnt/boot/efi"
     execute_command "mount --bind /dev /mnt/dev"
     execute_command "mount --bind /dev/pts /mnt/dev/pts"
@@ -308,13 +193,7 @@ install_desktop() {
     
     echo -e "${COLOR_CYAN}Mounting system for desktop installation...${COLOR_RESET}"
     
-    # Mount the system
-    if [ "$fs_type" = "btrfs" ]; then
-        execute_command "mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt"
-        execute_command "mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/home"
-    else
-        execute_command "mount ${drive}2 /mnt"
-    fi
+    execute_command "mount ${drive}2 /mnt"
     execute_command "mount ${drive}1 /mnt/boot/efi"
     execute_command "mount --bind /dev /mnt/dev"
     execute_command "mount --bind /dev/pts /mnt/dev/pts"
@@ -322,26 +201,26 @@ install_desktop() {
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
     
-    # Display desktop options
+    # Display desktop options - Top 10 Arch package list
     echo -e "${COLOR_MAGENTA}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                   Desktop Environments                       ║"
     echo "╠══════════════════════════════════════════════════════════════╣"
-    echo "║  1. GNOME                         12. Enlightenment         ║"
-    echo "║  2. KDE Plasma                    13. Deepin                ║"
-    echo "║  3. XFCE                          14. Pantheon (Elementary) ║"
-    echo "║  4. LXQt                          15. CDE                   ║"
-    echo "║  5. Cinnamon                      16. UKUI                  ║"
-    echo "║  6. MATE                          17. Trinity               ║"
-    echo "║  7. Budgie                        18. Sugar                 ║"
-    echo "║  8. i3 (tiling WM)                19. Phosh (Mobile)        ║"
-    echo "║  9. Sway (Wayland tiling)         20. Hyprland (Wayland)    ║"
-    echo "║ 10. Openbox                       21. Return to Main Menu   ║"
-    echo "║ 11. LXDE                                                     ║"
+    echo "║  1. GNOME                                                   ║"
+    echo "║  2. KDE Plasma                                              ║"
+    echo "║  3. XFCE                                                    ║"
+    echo "║  4. LXQt                                                    ║"
+    echo "║  5. Cinnamon                                                ║"
+    echo "║  6. MATE                                                    ║"
+    echo "║  7. Budgie                                                  ║"
+    echo "║  8. i3 (tiling WM)                                          ║"
+    echo "║  9. Sway (Wayland tiling)                                   ║"
+    echo "║ 10. Hyprland (Wayland)                                      ║"
+    echo "║ 11. Return to Main Menu                                     ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${COLOR_RESET}"
     
-    echo -e "${COLOR_CYAN}Select desktop environment (1-21): ${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}Select desktop environment (1-11): ${COLOR_RESET}"
     read -r desktop_choice
     
     case $desktop_choice in
@@ -391,62 +270,12 @@ install_desktop() {
             execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
             ;;
         10)
-            echo -e "${COLOR_CYAN}Installing Openbox...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm openbox obconf tint2 menumaker lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        11)
-            echo -e "${COLOR_CYAN}Installing LXDE...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm lxde lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        12)
-            echo -e "${COLOR_CYAN}Installing Enlightenment...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm enlightenment terminology lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        13)
-            echo -e "${COLOR_CYAN}Installing Deepin...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm deepin deepin-extra lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        14)
-            echo -e "${COLOR_CYAN}Installing Pantheon (Elementary OS)...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm pantheon lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        15)
-            echo -e "${COLOR_CYAN}Installing CDE (Common Desktop Environment)...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm cde lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        16)
-            echo -e "${COLOR_CYAN}Installing UKUI...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm ukui lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        17)
-            echo -e "${COLOR_CYAN}Installing Trinity Desktop...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm trinity-desktop lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        18)
-            echo -e "${COLOR_CYAN}Installing Sugar Desktop...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm sugar sugar-fructose lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        19)
-            echo -e "${COLOR_CYAN}Installing Phosh (Mobile)...${COLOR_RESET}"
-            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm phosh lightdm lightdm-gtk-greeter\""
-            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
-            ;;
-        20)
             echo -e "${COLOR_PURPLE}Installing Hyprland (Modern Wayland Compositor)...${COLOR_RESET}"
             execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm hyprland waybar rofi wl-clipboard sddm\""
             execute_command "chroot /mnt /bin/bash -c \"systemctl enable sddm\""
             echo -e "${COLOR_PURPLE}Hyprland installed! Note: You may need to configure ~/.config/hypr/hyprland.conf${COLOR_RESET}"
             ;;
-        21)
+        11)
             echo -e "${COLOR_CYAN}Returning to main menu...${COLOR_RESET}"
             ;;
         *)
@@ -518,11 +347,18 @@ main() {
         exit 1
     fi
 
-    echo -e "${COLOR_CYAN}Choose filesystem type (btrfs/ext4): ${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}Choose filesystem type (ext4/btrfs): ${COLOR_RESET}"
     read -r fs_type
 
-    if [ "$fs_type" != "btrfs" ] && [ "$fs_type" != "ext4" ]; then
-        echo -e "${COLOR_RED}Error: Invalid filesystem type. Choose either 'btrfs' or 'ext4'${COLOR_RESET}" >&2
+    if [ "$fs_type" = "btrfs" ]; then
+        echo -e "${COLOR_CYAN}Executing btrfsrsync.sh with drive: $drive${COLOR_RESET}"
+        execute_command "./btrfsrsync.sh $drive"
+        echo -e "${COLOR_GREEN}Btrfs installation complete!${COLOR_RESET}"
+        exit 0
+    fi
+
+    if [ "$fs_type" != "ext4" ]; then
+        echo -e "${COLOR_RED}Error: Invalid filesystem type. Choose 'ext4' or 'btrfs'${COLOR_RESET}" >&2
         exit 1
     fi
 
@@ -541,21 +377,13 @@ main() {
     local root_part="${drive}2"
 
     echo -e "${COLOR_CYAN}Setting up $fs_type filesystem...${COLOR_RESET}"
-    if [ "$fs_type" = "btrfs" ]; then
-        setup_btrfs_subvolumes "$root_part"
-    else
-        setup_ext4_filesystem "$root_part"
-    fi
+    setup_ext4_filesystem "$root_part"
 
     echo -e "${COLOR_CYAN}Copying system files (this may take a while)...${COLOR_RESET}"
     copy_system "${drive}1"
 
     echo -e "${COLOR_CYAN}Installing bootloader...${COLOR_RESET}"
-    if [ "$fs_type" = "btrfs" ]; then
-        install_grub_btrfs "$drive"
-    else
-        install_grub_ext4 "$drive"
-    fi
+    install_grub_ext4 "$drive"
 
     echo -e "${COLOR_CYAN}Cleaning up...${COLOR_RESET}"
     execute_command "umount -R /mnt"
