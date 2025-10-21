@@ -191,7 +191,7 @@ chroot_into_system() {
 install_desktop_environment() {
     while true; do
         clear
-        echo -e "${COLOR_BLUE}"
+        echo -e "${COLOR_CYAN}"
         echo "╔══════════════════════════════════════════════════════════════╗"
         echo "║                   Desktop Environments                       ║"
         echo "╠══════════════════════════════════════════════════════════════╣"
@@ -289,7 +289,7 @@ reboot_system() {
 post_install_menu() {
     while true; do
         clear
-        echo -e "${COLOR_MAGENTA}"
+        echo -e "${COLOR_CYAN}"
         echo "╔══════════════════════════════════════════════════════════════╗"
         echo "║                     Post-Install Menu                        ║"
         echo "╠══════════════════════════════════════════════════════════════╣"
