@@ -1,10 +1,14 @@
-analyze this script #!/bin/bash
+#!/bin/bash
 
 # Color definitions
 COLOR_CYAN='\033[38;2;0;255;255m'
 COLOR_RED='\033[31m'
 COLOR_GREEN='\033[32m'
 COLOR_YELLOW='\033[33m'
+COLOR_BLUE='\033[34m'
+COLOR_MAGENTA='\033[35m'
+COLOR_ORANGE='\033[38;5;208m'
+COLOR_PURPLE='\033[38;5;93m'
 COLOR_RESET='\033[0m'
 
 # Function to execute commands with error handling
@@ -44,6 +48,41 @@ get_uk_date_time() {
     date +"%d-%m-%Y_%I:%M%P"
 }
 
+# Function to display available drives
+display_available_drives() {
+    echo -e "${COLOR_YELLOW}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                    Available Drives                         ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo -e "${COLOR_RESET}"
+    
+    # Display block devices using lsblk with better formatting
+    echo -e "${COLOR_CYAN}Block Devices:${COLOR_RESET}"
+    lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,MODEL | grep -v "loop" | while read line; do
+        echo -e "${COLOR_GREEN}  $line${COLOR_RESET}"
+    done
+    
+    echo
+    echo -e "${COLOR_CYAN}Disk Usage (df -h):${COLOR_RESET}"
+    df -h | grep -E "^/dev/" | while read line; do
+        echo -e "${COLOR_BLUE}  $line${COLOR_RESET}"
+    done
+    
+    # Show Btrfs filesystems specifically
+    echo
+    echo -e "${COLOR_MAGENTA}Btrfs Filesystems:${COLOR_RESET}"
+    if command -v btrfs &> /dev/null; then
+        btrfs filesystem show 2>/dev/null || echo "  No Btrfs filesystems found or btrfs command not available"
+    else
+        echo "  btrfs command not available"
+    fi
+    
+    echo -e "${COLOR_YELLOW}"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${COLOR_RESET}"
+    echo
+}
+
 # Function to display header
 display_header() {
     echo -e "${COLOR_RED}"
@@ -55,8 +94,9 @@ display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
-    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.01${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.03${COLOR_RESET}"
     echo -e "${COLOR_CYAN}Supports Btrfs (with Zstd compression) and Ext4 filesystems${COLOR_RESET}"
+    echo -e "${COLOR_MAGENTA}Now with Hyprland Wayland compositor support!${COLOR_RESET}"
     echo
 }
 
@@ -226,9 +266,250 @@ EOF
     execute_command "chroot /mnt /bin/bash -c \"mkinitcpio -P\""
 }
 
+# Function to chroot into the new system
+chroot_into_system() {
+    local fs_type="$1"
+    local drive="$2"
+    
+    echo -e "${COLOR_CYAN}Mounting the new system for chroot...${COLOR_RESET}"
+    
+    # Mount the root partition based on filesystem type
+    if [ "$fs_type" = "btrfs" ]; then
+        execute_command "mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt"
+        execute_command "mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/home"
+        execute_command "mount -o subvol=@root,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/root"
+        execute_command "mount -o subvol=@srv,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/srv"
+        execute_command "mount -o subvol=@cache,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/var/cache"
+        execute_command "mount -o subvol=@tmp,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/tmp"
+        execute_command "mount -o subvol=@log,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/var/log"
+    else
+        execute_command "mount ${drive}2 /mnt"
+    fi
+    
+    execute_command "mount ${drive}1 /mnt/boot/efi"
+    execute_command "mount --bind /dev /mnt/dev"
+    execute_command "mount --bind /dev/pts /mnt/dev/pts"
+    execute_command "mount --bind /proc /mnt/proc"
+    execute_command "mount --bind /sys /mnt/sys"
+    execute_command "mount --bind /run /mnt/run"
+    
+    echo -e "${COLOR_GREEN}Entering chroot environment...${COLOR_RESET}"
+    echo -e "${COLOR_YELLOW}Type 'exit' when done to return to the menu.${COLOR_RESET}"
+    execute_command "chroot /mnt /bin/bash"
+    
+    echo -e "${COLOR_CYAN}Cleaning up chroot environment...${COLOR_RESET}"
+    execute_command "umount -R /mnt"
+}
+
+# Function to install desktop environments
+install_desktop() {
+    local fs_type="$1"
+    local drive="$2"
+    
+    echo -e "${COLOR_CYAN}Mounting system for desktop installation...${COLOR_RESET}"
+    
+    # Mount the system
+    if [ "$fs_type" = "btrfs" ]; then
+        execute_command "mount -o subvol=@,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt"
+        execute_command "mount -o subvol=@home,compress=zstd:22,compress-force=zstd:22 ${drive}2 /mnt/home"
+    else
+        execute_command "mount ${drive}2 /mnt"
+    fi
+    execute_command "mount ${drive}1 /mnt/boot/efi"
+    execute_command "mount --bind /dev /mnt/dev"
+    execute_command "mount --bind /dev/pts /mnt/dev/pts"
+    execute_command "mount --bind /proc /mnt/proc"
+    execute_command "mount --bind /sys /mnt/sys"
+    execute_command "mount --bind /run /mnt/run"
+    
+    # Display desktop options
+    echo -e "${COLOR_MAGENTA}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                   Desktop Environments                       ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  1. GNOME                         12. Enlightenment         ║"
+    echo "║  2. KDE Plasma                    13. Deepin                ║"
+    echo "║  3. XFCE                          14. Pantheon (Elementary) ║"
+    echo "║  4. LXQt                          15. CDE                   ║"
+    echo "║  5. Cinnamon                      16. UKUI                  ║"
+    echo "║  6. MATE                          17. Trinity               ║"
+    echo "║  7. Budgie                        18. Sugar                 ║"
+    echo "║  8. i3 (tiling WM)                19. Phosh (Mobile)        ║"
+    echo "║  9. Sway (Wayland tiling)         20. Hyprland (Wayland)    ║"
+    echo "║ 10. Openbox                       21. Return to Main Menu   ║"
+    echo "║ 11. LXDE                                                     ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${COLOR_RESET}"
+    
+    echo -e "${COLOR_CYAN}Select desktop environment (1-21): ${COLOR_RESET}"
+    read -r desktop_choice
+    
+    case $desktop_choice in
+        1)
+            echo -e "${COLOR_CYAN}Installing GNOME Desktop...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm gnome gnome-extra gdm\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable gdm\""
+            ;;
+        2)
+            echo -e "${COLOR_CYAN}Installing KDE Plasma...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm plasma-desktop sddm dolphin konsole\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable sddm\""
+            ;;
+        3)
+            echo -e "${COLOR_CYAN}Installing XFCE...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm xfce4 xfce4-goodies lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        4)
+            echo -e "${COLOR_CYAN}Installing LXQt...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm lxqt sddm\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable sddm\""
+            ;;
+        5)
+            echo -e "${COLOR_CYAN}Installing Cinnamon...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm cinnamon lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        6)
+            echo -e "${COLOR_CYAN}Installing MATE...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm mate mate-extra lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        7)
+            echo -e "${COLOR_CYAN}Installing Budgie...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm budgie-desktop lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        8)
+            echo -e "${COLOR_CYAN}Installing i3 (tiling WM)...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm i3-wm i3status i3lock dmenu lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        9)
+            echo -e "${COLOR_CYAN}Installing Sway (Wayland tiling)...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm sway swaybg waybar wofi lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        10)
+            echo -e "${COLOR_CYAN}Installing Openbox...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm openbox obconf tint2 menumaker lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        11)
+            echo -e "${COLOR_CYAN}Installing LXDE...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm lxde lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        12)
+            echo -e "${COLOR_CYAN}Installing Enlightenment...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm enlightenment terminology lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        13)
+            echo -e "${COLOR_CYAN}Installing Deepin...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm deepin deepin-extra lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        14)
+            echo -e "${COLOR_CYAN}Installing Pantheon (Elementary OS)...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm pantheon lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        15)
+            echo -e "${COLOR_CYAN}Installing CDE (Common Desktop Environment)...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm cde lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        16)
+            echo -e "${COLOR_CYAN}Installing UKUI...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm ukui lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        17)
+            echo -e "${COLOR_CYAN}Installing Trinity Desktop...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm trinity-desktop lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        18)
+            echo -e "${COLOR_CYAN}Installing Sugar Desktop...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm sugar sugar-fructose lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        19)
+            echo -e "${COLOR_CYAN}Installing Phosh (Mobile)...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm phosh lightdm lightdm-gtk-greeter\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable lightdm\""
+            ;;
+        20)
+            echo -e "${COLOR_PURPLE}Installing Hyprland (Modern Wayland Compositor)...${COLOR_RESET}"
+            execute_command "chroot /mnt /bin/bash -c \"pacman -S --noconfirm hyprland waybar rofi wl-clipboard sddm\""
+            execute_command "chroot /mnt /bin/bash -c \"systemctl enable sddm\""
+            echo -e "${COLOR_PURPLE}Hyprland installed! Note: You may need to configure ~/.config/hypr/hyprland.conf${COLOR_RESET}"
+            ;;
+        21)
+            echo -e "${COLOR_CYAN}Returning to main menu...${COLOR_RESET}"
+            ;;
+        *)
+            echo -e "${COLOR_RED}Invalid option. Returning to main menu.${COLOR_RESET}"
+            ;;
+    esac
+    
+    # Cleanup
+    echo -e "${COLOR_CYAN}Cleaning up...${COLOR_RESET}"
+    execute_command "umount -R /mnt"
+}
+
+# Function to display post-install menu
+post_install_menu() {
+    local fs_type="$1"
+    local drive="$2"
+    
+    while true; do
+        echo -e "${COLOR_BLUE}"
+        echo "╔══════════════════════════════════════╗"
+        echo "║         Post-Install Menu           ║"
+        echo "╠══════════════════════════════════════╣"
+        echo "║ 1. Chroot into New System           ║"
+        echo "║ 2. Install Desktop Environment      ║"
+        echo "║ 3. Reboot System                    ║"
+        echo "║ 4. Exit                             ║"
+        echo "╚══════════════════════════════════════╝"
+        echo -e "${COLOR_RESET}"
+        
+        echo -e "${COLOR_CYAN}Select an option (1-4): ${COLOR_RESET}"
+        read -r choice
+        
+        case $choice in
+            1)
+                chroot_into_system "$fs_type" "$drive"
+                ;;
+            2)
+                install_desktop "$fs_type" "$drive"
+                ;;
+            3)
+                echo -e "${COLOR_GREEN}Rebooting system...${COLOR_RESET}"
+                execute_command "umount -R /mnt 2>/dev/null || true"
+                sudo reboot
+                ;;
+            4)
+                echo -e "${COLOR_GREEN}Exiting. Goodbye!${COLOR_RESET}"
+                exit 0
+                ;;
+            *)
+                echo -e "${COLOR_RED}Invalid option. Please try again.${COLOR_RESET}"
+                ;;
+        esac
+        
+        echo
+        echo -e "${COLOR_YELLOW}Press Enter to continue...${COLOR_RESET}"
+        read -r
+    done
+}
+
 # Main script
 main() {
     display_header
+    display_available_drives
 
     echo -e "${COLOR_CYAN}Enter target drive (e.g., /dev/sda): ${COLOR_RESET}"
     read -r drive
@@ -279,7 +560,10 @@ main() {
     echo -e "${COLOR_CYAN}Cleaning up...${COLOR_RESET}"
     execute_command "umount -R /mnt"
 
-    echo -e "${COLOR_GREEN}\nInstallation complete! You can now reboot into your new system.${COLOR_RESET}"
+    echo -e "${COLOR_GREEN}\nInstallation complete!${COLOR_RESET}"
+    
+    # Show post-install menu
+    post_install_menu "$fs_type" "$drive"
 }
 
 # Run main function
