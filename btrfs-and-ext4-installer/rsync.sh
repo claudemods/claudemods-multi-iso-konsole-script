@@ -188,6 +188,7 @@ install_grub_btrfs() {
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
+    execute_command "chroot /mnt /bin/bash -c \"./home/arch/btrfsfstabcompressed.sh \""
     execute_command "chroot /mnt /bin/bash -c \"mount -t efivarfs efivarfs /sys/firmware/efi/efivars \""
     execute_command "chroot /mnt /bin/bash -c \"grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck\""
     execute_command "chroot /mnt /bin/bash -c \"grub-mkconfig -o /boot/grub/grub.cfg\""
