@@ -1,4 +1,4 @@
-#!/bin/bash
+analyze this script #!/bin/bash
 
 # Color definitions
 COLOR_CYAN='\033[38;2;0;255;255m'
@@ -48,7 +48,7 @@ get_uk_date_time() {
 display_header() {
     echo -e "${COLOR_RED}"
     cat << "EOF"
-░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
+░█████╗░██╗░░░░░░█████╗░██║░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
 ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
 ██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
 ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
@@ -188,7 +188,38 @@ install_grub_btrfs() {
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
-    execute_command "chroot /mnt /bin/bash -c \"./home/arch/btrfsfstabcompressed.sh \""
+    
+    # Generate Btrfs fstab entries directly instead of using external script
+    echo -e "${COLOR_CYAN}Generating Btrfs fstab entries...${COLOR_RESET}"
+    
+    # Get root UUID from current / mount
+    local ROOT_UUID=$(sudo findmnt -no UUID /mnt) || { echo -e "${COLOR_RED}Error: Could not get root UUID${COLOR_RESET}" >&2; exit 1; }
+    
+    # Create fstab file with Btrfs entries
+    sudo tee /mnt/etc/fstab > /dev/null << EOF
+# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a device; this may
+# be used with UUID= as a more robust way to name devices that works even if
+# disks are added and removed. See fstab(5).
+#
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>
+
+# Btrfs subvolumes with Zstd compression
+UUID=$ROOT_UUID /              btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@ 0 0
+UUID=$ROOT_UUID /root          btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@root 0 0
+UUID=$ROOT_UUID /home          btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@home 0 0
+UUID=$ROOT_UUID /srv           btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@srv 0 0
+UUID=$ROOT_UUID /var/cache     btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@cache 0 0
+UUID=$ROOT_UUID /tmp           btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@tmp 0 0
+UUID=$ROOT_UUID /var/log       btrfs   rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@log 0 0
+UUID=$ROOT_UUID /var/lib/portables btrfs rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@/var/lib/portables 0 0
+UUID=$ROOT_UUID /var/lib/machines btrfs rw,noatime,compress=zstd:22,discard=async,space_cache=v2,subvol=/@/var/lib/machines 0 0
+
+# EFI System Partition
+$(sudo blkid -s UUID -o value ${drive}1) /boot/efi vfat defaults 0 0
+EOF
+
     execute_command "chroot /mnt /bin/bash -c \"mount -t efivarfs efivarfs /sys/firmware/efi/efivars \""
     execute_command "chroot /mnt /bin/bash -c \"grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck\""
     execute_command "chroot /mnt /bin/bash -c \"grub-mkconfig -o /boot/grub/grub.cfg\""
