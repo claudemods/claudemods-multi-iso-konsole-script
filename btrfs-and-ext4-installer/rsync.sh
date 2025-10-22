@@ -81,7 +81,6 @@ display_header() {
 EOF
     echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.03.1${COLOR_RESET}"
     echo -e "${COLOR_CYAN}Supports Ext4 filesystems${COLOR_RESET}"
-    echo -e "${COLOR_MAGENTA}Now with Hyprland Wayland compositor support!${COLOR_RESET}"
     echo
 }
 
