@@ -4,20 +4,17 @@ COLOR_CYAN="\033[38;2;0;255;255m"
 COLOR_RED="\033[31m"
 COLOR_GREEN="\033[32m"
 COLOR_YELLOW="\033[33m"
-COLOR_BLUE="\033[34m"
-COLOR_MAGENTA="\033[35m"
 COLOR_RESET="\033[0m"
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${COLOR_RED}Please run as root${COLOR_RESET}"
-    exit 1
-fi
-
-exec_cmd() {
+exec() {
     local cmd="$1"
-    local result
-    result=$(eval "$cmd" 2>/dev/null)
+    local result=""
+    local pipe
+    pipe=$(mktemp)
+    
+    eval "$cmd" > "$pipe" 2>&1
+    result=$(<"$pipe")
+    rm -f "$pipe"
     echo "$result"
 }
 
@@ -30,9 +27,8 @@ execute_command() {
     echo -e "${COLOR_RESET}"
     if [ $status -ne 0 ]; then
         echo -e "${COLOR_RED}Error executing: $full_cmd${COLOR_RESET}" >&2
-        return 1
+        exit 1
     fi
-    return 0
 }
 
 is_block_device() {
@@ -45,27 +41,44 @@ is_block_device() {
 
 directory_exists() {
     local path="$1"
-    if [ ! -d "$path" ]; then
-        return 1
+    if [ -d "$path" ]; then
+        return 0
     fi
-    return 0
+    return 1
 }
 
 get_uk_date_time() {
-    date +"%d-%m-%Y_%I:%M%P"
+    local now=$(date +%s)
+    local time_str=$(date -d "@$now" "+%d-%m-%Y_%H:%M")
+    local hour=$(date -d "@$now" "+%H")
+    local ampm="am"
+    
+    if [ "$hour" -ge 12 ]; then
+        ampm="pm"
+        if [ "$hour" -gt 12 ]; then
+            hour=$((hour - 12))
+        fi
+    fi
+    if [ "$hour" -eq 0 ]; then
+        hour=12
+    fi
+    
+    local result=$(date -d "@$now" "+%d-%m-%Y_%I:%M")
+    result="${result}${ampm}"
+    echo "$result"
 }
 
 display_header() {
     echo -e "${COLOR_RED}"
-    cat << "EOF"
+    cat << 'EOF'
 ░█████╗░██╗░░░░░░█████╗░██╗░░░██╗██████╗░███████╗███╗░░░███╗░█████╗░██████╗░░██████╗
 ██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
 ██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
 ██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
-░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
+░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
-    echo -e "${COLOR_CYAN}claudemods cmi btrfs rsync installer v1.02.1${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.01${COLOR_RESET}"
     echo -e "${COLOR_CYAN}Supports Btrfs (with Zstd compression) filesystem${COLOR_RESET}"
     echo
 }
@@ -130,7 +143,7 @@ setup_btrfs_subvolumes() {
 
 copy_system() {
     local efi_part="$1"
-    local rsync_cmd="rsync -aHAXSr --numeric-ids --info=progress2 \
+    local rsync_cmd="sudo rsync -aHAXSr --numeric-ids --info=progress2 \
     --exclude=/etc/udev/rules.d/70-persistent-cd.rules \
     --exclude=/etc/udev/rules.d/70-persistent-net.rules \
     --exclude=/etc/mtab \
@@ -167,25 +180,28 @@ install_grub_btrfs() {
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
 
-    execute_command "chroot /mnt /bin/bash -c 'mount -t efivarfs efivarfs /sys/firmware/efi/efivars'"
-    execute_command "chroot /mnt /bin/bash -c 'grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck'"
-
-    # Generate GRUB config
-    execute_command "chroot /mnt /bin/bash -c 'grub-mkconfig -o /boot/grub/grub.cfg'"
-
-    # Run the btrfs script and initramfs
-    execute_command "chroot /mnt /bin/bash -c '/opt/btrfsfstabcompressed.sh'"
-    execute_command "chroot /mnt /bin/bash -c 'mkinitcpio -P'"
+    # Individual chroot commands
+    execute_command "chroot /mnt mount -t efivarfs efivarfs /sys/firmware/efi/efivars"
+    execute_command "chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck"
+    execute_command "chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg"
+    execute_command "chroot /mnt /opt/btrfsfstabcompressed.sh"
+    execute_command "chroot /mnt mkinitcpio -P"
 }
 
 chroot_into_system() {
-    echo -e "${COLOR_CYAN}Chrooting into new system...${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}Preparing chroot environment...${COLOR_RESET}"
     execute_command "mount --bind /dev /mnt/dev"
     execute_command "mount --bind /dev/pts /mnt/dev/pts"
     execute_command "mount --bind /proc /mnt/proc"
     execute_command "mount --bind /sys /mnt/sys"
     execute_command "mount --bind /run /mnt/run"
+    
+    echo -e "${COLOR_CYAN}Entering chroot environment...${COLOR_RESET}"
+    echo -e "${COLOR_YELLOW}You are now in the new system. Type 'exit' to return to the menu.${COLOR_RESET}"
     execute_command "chroot /mnt"
+    
+    echo -e "${COLOR_CYAN}Cleaning up chroot environment...${COLOR_RESET}"
+    execute_command "umount -R /mnt"
 }
 
 install_desktop_environment() {
@@ -195,70 +211,70 @@ install_desktop_environment() {
         echo "╔══════════════════════════════════════════════════════════════╗"
         echo "║                   Desktop Environments                       ║"
         echo "╠══════════════════════════════════════════════════════════════╣"
-        echo "║  1. GNOME                                                   ║"
-        echo "║  2. KDE Plasma                                              ║"
-        echo "║  3. XFCE                                                    ║"
-        echo "║  4. LXQt                                                    ║"
-        echo "║  5. Cinnamon                                                ║"
-        echo "║  6. MATE                                                    ║"
-        echo "║  7. Budgie                                                  ║"
-        echo "║  8. i3 (tiling WM)                                          ║"
-        echo "║  9. Sway (Wayland tiling)                                   ║"
-        echo "║ 10. Hyprland (Wayland)                                      ║"
-        echo "║ 11. Return to Main Menu                                     ║"
+        echo "║  1. GNOME                                                    ║"
+        echo "║  2. KDE Plasma                                               ║"
+        echo "║  3. XFCE                                                     ║"
+        echo "║  4. LXQt                                                     ║"
+        echo "║  5. Cinnamon                                                 ║"
+        echo "║  6. MATE                                                     ║"
+        echo "║  7. Budgie                                                   ║"
+        echo "║  8. i3 (tiling WM)                                           ║"
+        echo "║  9. Sway (Wayland tiling)                                    ║"
+        echo "║ 10. Hyprland (Wayland)                                       ║"
+        echo "║ 11. Return to Main Menu                                      ║"
         echo "╚══════════════════════════════════════════════════════════════╝"
         echo -e "${COLOR_RESET}"
-
-        read -p "$(echo -e "${COLOR_YELLOW}Select desktop environment (1-11): ${COLOR_RESET}")" de_choice
-
+        
+        read -p "Select desktop environment (1-11): " de_choice
+        
         case $de_choice in
             1)
                 echo -e "${COLOR_CYAN}Installing GNOME...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm gnome gnome-extra gdm'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable gdm'"
+                execute_command "chroot /mnt pacman -S --noconfirm gnome gnome-extra gdm"
+                execute_command "chroot /mnt systemctl enable gdm"
                 ;;
             2)
                 echo -e "${COLOR_CYAN}Installing KDE Plasma...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm plasma-desktop sddm dolphin konsole'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable sddm'"
+                execute_command "chroot /mnt pacman -S --noconfirm plasma-meta plasma-wayland-session kde-applications sddm"
+                execute_command "chroot /mnt systemctl enable sddm"
                 ;;
             3)
                 echo -e "${COLOR_CYAN}Installing XFCE...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm xfce4 xfce4-goodies lightdm lightdm-gtk-greeter'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable lightdm'"
+                execute_command "chroot /mnt pacman -S --noconfirm xfce4 xfce4-goodies lightdm lightdm-gtk-greeter"
+                execute_command "chroot /mnt systemctl enable lightdm"
                 ;;
             4)
                 echo -e "${COLOR_CYAN}Installing LXQt...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm lxqt sddm'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable sddm'"
+                execute_command "chroot /mnt pacman -S --noconfirm lxqt breeze-icons sddm"
+                execute_command "chroot /mnt systemctl enable sddm"
                 ;;
             5)
                 echo -e "${COLOR_CYAN}Installing Cinnamon...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm cinnamon lightdm lightdm-gtk-greeter'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable lightdm'"
+                execute_command "chroot /mnt pacman -S --noconfirm cinnamon lightdm lightdm-gtk-greeter"
+                execute_command "chroot /mnt systemctl enable lightdm"
                 ;;
             6)
                 echo -e "${COLOR_CYAN}Installing MATE...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm mate mate-extra lightdm lightdm-gtk-greeter'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable lightdm'"
+                execute_command "chroot /mnt pacman -S --noconfirm mate mate-extra lightdm lightdm-gtk-greeter"
+                execute_command "chroot /mnt systemctl enable lightdm"
                 ;;
             7)
                 echo -e "${COLOR_CYAN}Installing Budgie...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm budgie-desktop lightdm lightdm-gtk-greeter'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable lightdm'"
+                execute_command "chroot /mnt pacman -S --noconfirm budgie-desktop budgie-extras lightdm lightdm-gtk-greeter"
+                execute_command "chroot /mnt systemctl enable lightdm"
                 ;;
             8)
-                echo -e "${COLOR_CYAN}Installing i3 (tiling WM)...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm i3-wm i3status i3blocks dmenu lightdm lightdm-gtk-greeter'"
-                execute_command "chroot /mnt /bin/bash -c 'systemctl enable lightdm'"
+                echo -e "${COLOR_CYAN}Installing i3...${COLOR_RESET}"
+                execute_command "chroot /mnt pacman -S --noconfirm i3-wm i3status i3lock dmenu lightdm lightdm-gtk-greeter"
+                execute_command "chroot /mnt systemctl enable lightdm"
                 ;;
             9)
-                echo -e "${COLOR_CYAN}Installing Sway (Wayland tiling)...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm sway waybar wofi foot'"
+                echo -e "${COLOR_CYAN}Installing Sway...${COLOR_RESET}"
+                execute_command "chroot /mnt pacman -S --noconfirm sway swaybg waybar wofi foot"
                 ;;
             10)
-                echo -e "${COLOR_CYAN}Installing Hyprland (Wayland)...${COLOR_RESET}"
-                execute_command "chroot /mnt /bin/bash -c 'pacman -S --noconfirm hyprland waybar rofi foot'"
+                echo -e "${COLOR_CYAN}Installing Hyprland...${COLOR_RESET}"
+                execute_command "chroot /mnt pacman -S --noconfirm hyprland waybar rofi foot"
                 ;;
             11)
                 return 0
@@ -269,14 +285,10 @@ install_desktop_environment() {
                 continue
                 ;;
         esac
-
-        if [ $? -eq 0 ]; then
-            echo -e "${COLOR_GREEN}Desktop environment installed successfully!${COLOR_RESET}"
-        else
-            echo -e "${COLOR_RED}Failed to install desktop environment.${COLOR_RESET}"
-        fi
-
-        read -p "$(echo -e "${COLOR_YELLOW}Press Enter to continue...${COLOR_RESET}")"
+        
+        echo -e "${COLOR_GREEN}Desktop environment installed successfully!${COLOR_RESET}"
+        read -p "Press Enter to continue..."
+        break
     done
 }
 
@@ -299,9 +311,9 @@ post_install_menu() {
         echo "║  4. Exit                                                     ║"
         echo "╚══════════════════════════════════════════════════════════════╝"
         echo -e "${COLOR_RESET}"
-
-        read -p "$(echo -e "${COLOR_YELLOW}Select option (1-4): ${COLOR_RESET}")" choice
-
+        
+        read -p "Select option (1-4): " choice
+        
         case $choice in
             1)
                 chroot_into_system
@@ -314,7 +326,7 @@ post_install_menu() {
                 ;;
             4)
                 echo -e "${COLOR_CYAN}Exiting post-install menu.${COLOR_RESET}"
-                break
+                exit 0
                 ;;
             *)
                 echo -e "${COLOR_RED}Invalid selection. Please try again.${COLOR_RESET}"
@@ -324,52 +336,54 @@ post_install_menu() {
     done
 }
 
-# Main script
-display_header
+main() {
+    local drive="$1"
+    
+    if [ -z "$drive" ]; then
+        echo -e "${COLOR_RED}Error: No drive specified. Usage: $0 /dev/sdX${COLOR_RESET}" >&2
+        exit 1
+    fi
 
-# Check if drive argument is provided
-if [ $# -eq 0 ]; then
-    echo -e "${COLOR_RED}Error: No drive specified${COLOR_RESET}"
-    echo -e "${COLOR_CYAN}Usage: $0 /dev/sdX${COLOR_RESET}"
-    echo -e "${COLOR_CYAN}Example: $0 /dev/vda${COLOR_RESET}"
-    exit 1
+    display_header
+
+    if ! is_block_device "$drive"; then
+        echo -e "${COLOR_RED}Error: $drive is not a valid block device${COLOR_RESET}" >&2
+        exit 1
+    fi
+
+    echo -e "${COLOR_YELLOW}\nWARNING: This will erase ALL data on $drive and install a new system.\n"
+    echo -e "Are you sure you want to continue? (yes/no): ${COLOR_RESET}"
+    read confirmation
+
+    if [ "$confirmation" != "yes" ]; then
+        echo -e "${COLOR_CYAN}Operation cancelled.${COLOR_RESET}"
+        exit 0
+    fi
+
+    echo -e "${COLOR_CYAN}\nPreparing target partitions...${COLOR_RESET}"
+    prepare_target_partitions "$drive"
+
+    local root_part="${drive}2"
+
+    echo -e "${COLOR_CYAN}Setting up btrfs filesystem...${COLOR_RESET}"
+    setup_btrfs_subvolumes "$root_part"
+
+    echo -e "${COLOR_CYAN}Copying system files (this may take a while)...${COLOR_RESET}"
+    copy_system "${drive}1"
+
+    echo -e "${COLOR_CYAN}Installing bootloader...${COLOR_RESET}"
+    install_grub_btrfs "$drive"
+
+    echo -e "${COLOR_CYAN}Cleaning up...${COLOR_RESET}"
+    execute_command "umount -R /mnt"
+
+    echo -e "${COLOR_GREEN}\nInstallation complete! You can now reboot into your new system.${COLOR_RESET}"
+    
+    # Launch post-install menu
+    post_install_menu
+}
+
+# Check if script is being sourced or executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$1"
 fi
-
-drive="$1"
-
-if ! is_block_device "$drive"; then
-    echo -e "${COLOR_RED}Error: $drive is not a valid block device${COLOR_RESET}" >&2
-    exit 1
-fi
-
-echo -e "${COLOR_YELLOW}\nWARNING: This will erase ALL data on $drive and install a new system.\n"
-read -p "$(echo -e "${COLOR_YELLOW}Are you sure you want to continue? (yes/no): ${COLOR_RESET}")" confirmation
-
-if [ "$confirmation" != "yes" ]; then
-    echo -e "${COLOR_CYAN}Operation cancelled.${COLOR_RESET}"
-    exit 0
-fi
-
-echo -e "${COLOR_CYAN}\nPreparing target partitions...${COLOR_RESET}"
-prepare_target_partitions "$drive"
-
-root_part="${drive}2"
-
-echo -e "${COLOR_CYAN}Setting up Btrfs filesystem...${COLOR_RESET}"
-setup_btrfs_subvolumes "$root_part"
-
-echo -e "${COLOR_CYAN}Copying system files (this may take a while)...${COLOR_RESET}"
-copy_system "${drive}1"
-
-echo -e "${COLOR_CYAN}Installing bootloader...${COLOR_RESET}"
-install_grub_btrfs "$drive"
-
-echo -e "${COLOR_CYAN}Cleaning up...${COLOR_RESET}"
-execute_command "umount -R /mnt"
-
-echo -e "${COLOR_GREEN}\nInstallation complete!${COLOR_RESET}"
-
-# Show post-install menu immediately after installation
-post_install_menu
-
-echo -e "${COLOR_GREEN}Script execution finished. You can now reboot into your new system.${COLOR_RESET}"
