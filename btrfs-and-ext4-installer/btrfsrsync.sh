@@ -78,7 +78,7 @@ display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 EOF
-    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.01${COLOR_RESET}"
+    echo -e "${COLOR_CYAN}claudemods cmi rsync installer v1.02${COLOR_RESET}"
     echo -e "${COLOR_CYAN}Supports Btrfs (with Zstd compression) filesystem${COLOR_RESET}"
     echo
 }
