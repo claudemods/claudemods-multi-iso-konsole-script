@@ -1,0 +1,1 @@
+sudo apt install cryptsetup cryptsetup-initramfs curl dbus-bin uuid-runtime dosfstools dpkg-dev git gpg grub-efi-amd64-bin ipxe isolinux jq rsync shim-signed squashfs-tools sshfs syslinux-common xorriso live-boot live-boot-doc live-boot-initramfs-tools live-config-systemd sysvinit-utils live-tools lvm2 parted pxelinux
