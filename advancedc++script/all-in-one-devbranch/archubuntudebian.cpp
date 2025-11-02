@@ -364,7 +364,7 @@ void print_banner(Distro distro) {
     "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
     "░╚════╝░╚══════╝╚═╝░░╚═╝░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░\n";
         cout << RESET;
-        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 23-07-2025" << RESET << endl;
+        cout << RED << "Claudemods Multi Iso Creator Advanced C++ Script v2.0 DevBranch 02-11-2025" << RESET << endl;
 
         // Display current distribution and kernel version above time
         cout << GREEN << "Current Distribution: " << get_distro_name(distro) << RESET << endl;
@@ -1038,7 +1038,7 @@ void create_iso(Distro distro) {
         oss << " -isohybrid-mbr /home/$USER/.config/cmi/build-image-debian/isohdpfx.bin"
         << " -c isolinux/boot.cat"
         << " -b isolinux/isolinux.bin -no-emul-boot -boot-load-size 4 -boot-info-table"
-        << " -eltorito-alt-boot -e boot/grub/efiboot.img -no-emul-boot -isohybrid-gpt-basdat";
+        << " -eltorito-alt-boot -e boot/grub/efi.img -no-emul-boot -isohybrid-gpt-basdat";
     } else {
         oss << " -isohybrid-mbr /usr/lib/syslinux/bios/isohdpfx.bin"
         << " -c isolinux/boot.cat"
