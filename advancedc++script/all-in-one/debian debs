@@ -1,0 +1,34 @@
+sudo apt update && sudo apt install -y coreutils cryptsetup cryptsetup-bin cryptsetup-initramfs curl dbus-bin uuid-runtime dosfstools dpkg-dev git gnupg grub-efi-amd64-bin ipxe isolinux jq live-boot dracut live-boot-doc live-config-systemd live-tools dracut-live lvm2 parted policykit-1 pxelinux rsync shim-signed squashfs-tools sshfs syslinux-common xorriso
+
+sudo apt update && sudo apt install -y \
+  coreutils \
+  cryptsetup \
+  cryptsetup-bin \
+  cryptsetup-initramfs \
+  curl \
+  dbus-bin \
+  uuid-runtime \
+  dosfstools \
+  dpkg-dev \
+  git \
+  gnupg \
+  grub-efi-amd64-bin \
+  ipxe \
+  isolinux \
+  jq \
+  live-boot \
+  dracut \
+  live-boot-doc \
+  live-config-systemd \
+  live-tools \
+  dracut-live \
+  lvm2 \
+  parted \
+  policykit-1 \
+  pxelinux \
+  rsync \
+  shim-signed \
+  squashfs-tools \
+  sshfs \
+  syslinux-common \
+  xorriso
