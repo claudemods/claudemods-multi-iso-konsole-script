@@ -48,19 +48,19 @@ std::string run_command(const char* cmd) {
 
 void* execute_update_thread(void* /*arg*/) {
     while (!loading_complete) usleep(10000);
-
+    
     // 1. GIT CLONE
     silent_command("cd /home/$USER/ && git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git");
-
+    
     // 2. CURRENT VERSION
     try {
         std::string version_output = run_command("cat /home/$USER/.config/cmi/version.txt");
         strncpy(current_version, version_output.empty() ? "not installed" : version_output.c_str(), 
-               sizeof(current_version) - 1);
+                sizeof(current_version) - 1);
     } catch (...) {
         strcpy(current_version, "not installed");
     }
-
+    
     // 3. DETECT DISTRO (ONLY ARCH AND CACHYOS SUPPORTED)
     try {
         std::string distro_output = run_command("cat /etc/os-release | grep '^ID=' | cut -d'=' -f2 | tr -d '\"'");
@@ -75,33 +75,33 @@ void* execute_update_thread(void* /*arg*/) {
         std::cout << COLOR_RED << "\nError: Could not detect distribution.\n" << COLOR_RESET;
         exit(EXIT_FAILURE);
     }
-
+    
     // 4. DOWNLOADED VERSION
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/version/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/version/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
         }
     }
-
+    
     // INSTALLATION PROCESS
     silent_command("rm -rf /home/$USER/.config/cmi");
     silent_command("sudo rm -rf /usr/bin/cmiimg");
     silent_command("mkdir -p /home/$USER/.config/cmi");
-
+    
     // ARCH AND CACHYOS INSTALLATION
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscrip+/version/version.txt /home/$USER/.config/cmi/");
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+ && qmake6 && make >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/cmiimg /usr/bin/cmiimg");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/version/version.txt /home/$USER/.config/cmi/");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++ && qmake6 && make >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/cmiimg /usr/bin/cmiimg");
     }
-
+    
     // Cleanup
     silent_command("rm -rf /home/$USER/claudemods-multi-iso-konsole-script");
-
+    
     // GET INSTALLED VERSION
     try {
         std::string installed_version_output = run_command("cat /home/$USER/.config/cmi/version.txt");
@@ -109,7 +109,7 @@ void* execute_update_thread(void* /*arg*/) {
     } catch (...) {
         strcpy(installed_version, "unknown");
     }
-
+    
     commands_completed = true;
     return nullptr;
 }
@@ -128,12 +128,12 @@ void show_loading_bar() {
 int main() {
     pthread_t thread;
     pthread_create(&thread, nullptr, execute_update_thread, nullptr);
-
+    
     show_loading_bar();
-
+    
     while (!commands_completed) usleep(10000);
     pthread_join(thread, nullptr);
-
+    
     // >>> ORIGINAL SUMMARY <<<
     std::cout << COLOR_GREEN << "\nInstallation complete!\n" << COLOR_RESET;
     std::cout << COLOR_GREEN << "Executable installed to: /usr/bin/cmiimg\n" << COLOR_RESET;
@@ -142,14 +142,14 @@ int main() {
     std::cout << COLOR_GREEN << "Current version: " << current_version << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Downloaded version: " << downloaded_version << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Installed version: " << installed_version << COLOR_RESET << std::endl;
-
+    
     std::cout << COLOR_CYAN << "\nLaunch now? (y/n): " << COLOR_RESET;
     char response;
     std::cin >> response;
-
+    
     if (response == 'y' || response == 'Y') {
         system("cd /home/$USER && cmiimg");
     }
-
+    
     return EXIT_SUCCESS;
 }
