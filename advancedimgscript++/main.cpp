@@ -20,11 +20,14 @@
 #include <sstream>
 #include <iomanip>
 
-// Qt includes for resource system
-#include <QFile>
-#include <QResource>
-#include <QDir>
-#include <QCoreApplication>
+// REMOVED Qt includes
+// #include <QFile>
+// #include <QResource>
+// #include <QDir>
+// #include <QCoreApplication>
+
+// ADD THIS: Include our resource manager
+#include "resources.h"
 
 // Forward declarations
 void saveConfig();
@@ -65,6 +68,7 @@ struct ConfigState {
     bool calamaresBrandingEdited = false;
     bool calamares1Edited = false;
     bool calamares2Edited = false;
+    bool filesExtracted = false; // NEW: Track if files have been extracted
 
     bool isReadyForISO() const {
         return !isoTag.empty() && !isoName.empty() && !outputDir.empty() &&
@@ -75,7 +79,8 @@ struct ConfigState {
         return !isoTag.empty() && !isoName.empty() &&
         !outputDir.empty() && !vmlinuzPath.empty() && !cloneDir.empty() &&
         mkinitcpioGenerated && grubEdited && bootTextEdited &&
-        calamaresBrandingEdited && calamares1Edited && calamares2Edited;
+        calamaresBrandingEdited && calamares1Edited && calamares2Edited &&
+        filesExtracted; // NEW: Include filesExtracted in check
     }
 } config;
 
@@ -90,99 +95,43 @@ const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
 const std::string COLOR_NORMAL = "\033[34m";
 const std::string COLOR_DISABLED = "\033[90m";
 
-// Function to extract embedded zip using Qt resource system
+// CHANGED: Remove Qt resource extraction function and replace with our new one
 bool extractEmbeddedZip() {
-    std::cout << COLOR_CYAN << "Extracting build resources..." << COLOR_RESET << std::endl;
-
-    std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-    std::string zipPath = configDir + "/build-image-arch-img.zip";
-    std::string extractPath = configDir;
-
-    execute_command("mkdir -p " + configDir, true);
-
-    QFile embeddedZip(":/zip/build-image-arch-img.zip");
-    if (!embeddedZip.exists()) {
-        return false;
-    }
-
-    if (!embeddedZip.copy(QString::fromStdString(zipPath))) {
-        return false;
-    }
-
-    QFile::setPermissions(QString::fromStdString(zipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-
-    std::string extractCmd = "unzip -o " + zipPath + " -d " + extractPath + " >/dev/null 2>&1";
-    if (system(extractCmd.c_str()) != 0) {
-        return false;
-    }
-
-    execute_command("rm -f " + zipPath, true);
-
-    std::cout << COLOR_GREEN << "Build resources extracted successfully to: " << extractPath << COLOR_RESET << std::endl;
-    return true;
+    return ResourceManager::extractEmbeddedZip(USERNAME);
 }
 
-// Function to extract Calamares resources
+// CHANGED: Remove Qt Calamares extraction function and replace with our new one
 bool extractCalamaresResources() {
-    std::cout << COLOR_CYAN << "Extracting Calamares resources..." << COLOR_RESET << std::endl;
+    return ResourceManager::extractCalamaresResources(USERNAME);
+}
 
-    std::string configDir = "/home/" + USERNAME + "/.config/cmi";
-    std::string calamaresDir = configDir + "/calamares-files";
+// NEW: Function to extract needed files
+void extractNeededFiles() {
+    std::cout << COLOR_CYAN << "Extracting needed files..." << COLOR_RESET << std::endl;
 
-    execute_command("mkdir -p " + calamaresDir, true);
+    bool success = true;
 
-    std::string calamaresZipPath = configDir + "/calamares.zip";
-    QFile embeddedCalamaresZip(":/zip/calamares.zip");
-    if (!embeddedCalamaresZip.exists()) {
-        return false;
+    // Extract embedded zip files
+    std::cout << COLOR_CYAN << "Extracting embedded zip resources..." << COLOR_RESET << std::endl;
+    if (extractEmbeddedZip()) {
+        std::cout << COLOR_GREEN << "Embedded zip resources extracted successfully!" << COLOR_RESET << std::endl;
+
+        if (success) {
+            config.filesExtracted = true;
+            saveConfig();
+            std::cout << COLOR_GREEN << "All needed files extracted successfully!" << COLOR_RESET << std::endl;
+        }
+
+        // Execute extrainstalls.sh after successful extraction
+        std::cout << COLOR_CYAN << "Running post-extraction setup script..." << COLOR_RESET << std::endl;
+        std::string extrainstallsPath = "/home/" + USERNAME + "/.config/cmi/extrainstalls.sh";
+
+        // Run the script directly
+        execute_command("bash " + extrainstallsPath, true);
+        std::cout << COLOR_GREEN << "Post-extraction setup completed!" << COLOR_RESET << std::endl;
+    } else {
+        success = false;
     }
-
-    if (!embeddedCalamaresZip.copy(QString::fromStdString(calamaresZipPath))) {
-        return false;
-    }
-
-    QFile::setPermissions(QString::fromStdString(calamaresZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-
-    std::string extractCalamaresCmd = "unzip -o " + calamaresZipPath + " -d " + configDir + " >/dev/null 2>&1";
-    if (system(extractCalamaresCmd.c_str()) != 0) {
-        return false;
-    }
-
-    execute_command("rm -f " + calamaresZipPath, true);
-
-    std::string brandingZipPath = configDir + "/branding.zip";
-    QFile embeddedBrandingZip(":/zip/branding.zip");
-    if (!embeddedBrandingZip.exists()) {
-        return false;
-    }
-
-    if (!embeddedBrandingZip.copy(QString::fromStdString(brandingZipPath))) {
-        return false;
-    }
-
-    QFile::setPermissions(QString::fromStdString(brandingZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-
-    std::string extractBrandingCmd = "unzip -o " + brandingZipPath + " -d " + calamaresDir + " >/dev/null 2>&1";
-    if (system(extractBrandingCmd.c_str()) != 0) {
-        return false;
-    }
-
-    execute_command("rm -f " + brandingZipPath, true);
-
-    std::string extrasZipPath = calamaresDir + "/extras.zip";
-    QFile embeddedExtrasZip(":/zip/extras.zip");
-    if (!embeddedExtrasZip.exists()) {
-        return false;
-    }
-
-    if (!embeddedExtrasZip.copy(QString::fromStdString(extrasZipPath))) {
-        return false;
-    }
-
-    QFile::setPermissions(QString::fromStdString(extrasZipPath), QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-
-    std::cout << COLOR_GREEN << "Calamares resources extracted successfully!" << COLOR_RESET << std::endl;
-    return true;
 }
 
 // Function to check for updates
@@ -351,7 +300,7 @@ void printBanner() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚══════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script+ Beta v2.03.1 06-10-2025" << COLOR_RESET << std::endl;
+std::cout << COLOR_CYAN << " Advanced C++ Arch Img Iso Script++ Beta v2.03.2 05-11-2025" << COLOR_RESET << std::endl;
 
 {
     std::lock_guard<std::mutex> lock(time_mutex);
@@ -365,6 +314,11 @@ std::cout << std::endl;
 
 void printConfigStatus() {
     std::cout << COLOR_CYAN << "Current Configuration:" << COLOR_RESET << std::endl;
+
+    // NEW: Files extracted checkbox
+    std::cout << " ";
+    printCheckbox(config.filesExtracted);
+    std::cout << " Needed Files Extracted" << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.isoTag.empty());
@@ -689,6 +643,7 @@ void saveConfig() {
         configFile << "calamaresBrandingEdited=" << (config.calamaresBrandingEdited ? "1" : "0") << "\n";
         configFile << "calamares1Edited=" << (config.calamares1Edited ? "1" : "0") << "\n";
         configFile << "calamares2Edited=" << (config.calamares2Edited ? "1" : "0") << "\n";
+        configFile << "filesExtracted=" << (config.filesExtracted ? "1" : "0") << "\n"; // NEW: Save files extracted state
         configFile.close();
     } else {
         std::cerr << COLOR_RED << "Failed to save configuration to " << configPath << COLOR_RESET << std::endl;
@@ -717,6 +672,7 @@ void loadConfig() {
                 else if (key == "calamaresBrandingEdited") config.calamaresBrandingEdited = (value == "1");
                 else if (key == "calamares1Edited") config.calamares1Edited = (value == "1");
                 else if (key == "calamares2Edited") config.calamares2Edited = (value == "1");
+                else if (key == "filesExtracted") config.filesExtracted = (value == "1"); // NEW: Load files extracted state
             }
         }
         configFile.close();
@@ -744,6 +700,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
 
 void showSetupMenu() {
     std::vector<std::string> items = {
+        "Extract Needed Files", // NEW: Added as first option
         "Set Clone Directory",
         "Set ISO Tag",
         "Set ISO Name",
@@ -773,21 +730,22 @@ void showSetupMenu() {
                 break;
             case '\n':
                 switch (selected) {
-                    case 0: setCloneDir(); break;
-                    case 1: setIsoTag(); break;
-                    case 2: setIsoName(); break;
-                    case 3: setOutputDir(); break;
-                    case 4: selectVmlinuz(); break;
-                    case 5: generateMkinitcpio(); break;
-                    case 6: editGrubCfg(); break;
-                    case 7: editBootText(); break;
-                    case 8: editCalamaresBranding(); break;
-                    case 9: editCalamares1(); break;
-                    case 10: editCalamares2(); break;
-                    case 11: return;
+                    case 0: extractNeededFiles(); break; // NEW: Call extract function
+                    case 1: setCloneDir(); break;
+                    case 2: setIsoTag(); break;
+                    case 3: setIsoName(); break;
+                    case 4: setOutputDir(); break;
+                    case 5: selectVmlinuz(); break;
+                    case 6: generateMkinitcpio(); break;
+                    case 7: editGrubCfg(); break;
+                    case 8: editBootText(); break;
+                    case 9: editCalamaresBranding(); break;
+                    case 10: editCalamares1(); break;
+                    case 11: editCalamares2(); break;
+                    case 12: return;
                 }
 
-                if (selected != 11) {
+                if (selected != 12) {
                     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                     getch();
                 }
@@ -1368,7 +1326,7 @@ void showMainMenu() {
 }
 
 int main(int argc, char *argv[]) {
-    QCoreApplication app(argc, argv);
+    // REMOVED: QCoreApplication app(argc, argv);
 
     struct passwd *pw = getpwuid(getuid());
     if (pw) {
@@ -1383,9 +1341,15 @@ int main(int argc, char *argv[]) {
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
     execute_command("mkdir -p " + configDir, true);
 
-    if (checkForUpdates()) {
-        updateScript();
-        return 0;
+    // CHANGED: Add prompt for update check
+    std::string updateChoice = getUserInput("Do you want to check for updates? (yes/no): ");
+    if (updateChoice == "yes" || updateChoice == "y" || updateChoice == "Y") {
+        if (checkForUpdates()) {
+            updateScript();
+            return 0;
+        }
+    } else {
+        std::cout << COLOR_CYAN << "Skipping update check." << COLOR_RESET << std::endl;
     }
 
     loadConfig();
