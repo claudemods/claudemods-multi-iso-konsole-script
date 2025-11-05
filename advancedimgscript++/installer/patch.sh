@@ -32,7 +32,7 @@ run_command() {
         echo -e "${NC}"
         exit $exit_code
     ) | while IFS= read -r line; do
-        echo -e "${CYAN}${line}${NC}" >&3
+    echo -e "${CYAN}${line}${NC}" >&3
     done
     return ${PIPESTATUS[0]}
 }
@@ -51,10 +51,10 @@ detect_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         DISTRO=$ID
-    else
-        print_error "Cannot detect the distribution. Exiting."
-        exit 1
-    fi
+        else
+            print_error "Cannot detect the distribution. Exiting."
+            exit 1
+            fi
 }
 
 # Main script starts here
@@ -80,13 +80,14 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     print_status "Git cloning repository"
     run_command_cyan "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git"
     print_status "Building installer"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/updatermain && qmake6"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/updatermain && make"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && qmake6"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && make"
     print_status "Installing"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript+/updatermain && ./advancedcscriptupdater.bin"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && ./advancedcscriptupdater.bin"
     print_status "Cleaning up"
     run_command_cyan "rm -rf /home/$USER/claudemods-multi-iso-konsole-script"
-else
-    print_error "Unsupported distribution: $DISTRO"
-    exit 1
-fi
+    else
+        print_error "Unsupported distribution: $DISTRO"
+        exit 1
+        fi
+        
