@@ -76,12 +76,11 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     print_status "installation of calamares"
     run_command_cyan "sudo pacman -Sy"
     print_status "Installing dependencies"
-    run_command_cyan "sudo pacman -S --needed --noconfirm git rsync squashfs-tools xorriso grub dosfstools unzip nano arch-install-scripts bash-completion erofs-utils findutils jq libarchive libisoburn lsb-release lvm2 mkinitcpio-archiso mkinitcpio-nfs-utils mtools nbd pacman-contrib parted procps-ng pv python sshfs syslinux xdg-utils zsh-completions kernel-modules-hook virt-manager qt6-tools btrfs-progs e2fsprogs f2fs-tools xfsprogs xfsdump cmake"
+    run_command_cyan "sudo pacman -S --needed --noconfirm git rsync squashfs-tools xorriso grub dosfstools unzip nano arch-install-scripts bash-completion erofs-utils findutils jq libarchive libisoburn lsb-release lvm2 mkinitcpio-archiso mkinitcpio-nfs-utils mtools nbd pacman-contrib parted procps-ng pv python sshfs syslinux xdg-utils zsh-completions kernel-modules-hook virt-manager gcc btrfs-progs e2fsprogs f2fs-tools xfsprogs xfsdump cmake"
     print_status "Git cloning repository"
     run_command_cyan "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git"
     print_status "Building installer"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && qmake6"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && make"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && g++ -std=c++23 main.cpp -o advancedcscriptupdater.bin"
     print_status "Installing"
     run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && ./advancedcscriptupdater.bin"
     print_status "Cleaning up"
@@ -90,4 +89,3 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
         print_error "Unsupported distribution: $DISTRO"
         exit 1
         fi
-        
