@@ -148,7 +148,7 @@ int main() {
     std::cin >> response;
     
     if (response == 'y' || response == 'Y') {
-        system("cd /home/$USER && sudo cmiimg");
+        system("cd /home/$USER && cmiimg");
     }
     
     return EXIT_SUCCESS;
