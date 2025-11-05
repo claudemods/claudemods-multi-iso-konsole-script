@@ -796,21 +796,20 @@ void showSetupMenu() {
     }
 }
 
-// NEW: Mount OverlayFS directly to clone directory
 bool mountSystemToCloneDir(const std::string& cloneDir) {
-    std::cout << COLOR_CYAN << "Mounting live system view to: " << cloneDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Mounting directory to: " << cloneDir << COLOR_RESET << std::endl;
 
     execute_command("sudo mkdir -p " + cloneDir, true);
 
-    // Mount OverlayFS read-only to the clone directory
-    std::string mountCmd = "sudo mount -t overlay overlay -o lowerdir=/ " + cloneDir;
+    // Simple bind mount - no filesystem type needed
+    std::string mountCmd = "sudo mount --bind / " + cloneDir;
 
     if (system(mountCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Failed to mount OverlayFS!" << COLOR_RESET << std::endl;
+        std::cerr << COLOR_RED << "Failed to bind mount!" << COLOR_RESET << std::endl;
         return false;
     }
 
-    std::cout << COLOR_GREEN << "System mounted successfully to: " << cloneDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Directory mounted successfully to: " << cloneDir << COLOR_RESET << std::endl;
     return true;
 }
 
