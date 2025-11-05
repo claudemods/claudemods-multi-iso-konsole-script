@@ -796,12 +796,13 @@ void showSetupMenu() {
     }
 }
 
+// CHANGED: Mount using bind mount instead of OverlayFS
 bool mountSystemToCloneDir(const std::string& cloneDir) {
-    std::cout << COLOR_CYAN << "Mounting directory to: " << cloneDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Mounting live system view to: " << cloneDir << COLOR_RESET << std::endl;
 
     execute_command("sudo mkdir -p " + cloneDir, true);
 
-    // Simple bind mount - no filesystem type needed
+    // Use bind mount instead of OverlayFS
     std::string mountCmd = "sudo mount --bind / " + cloneDir;
 
     if (system(mountCmd.c_str()) != 0) {
@@ -809,7 +810,7 @@ bool mountSystemToCloneDir(const std::string& cloneDir) {
         return false;
     }
 
-    std::cout << COLOR_GREEN << "Directory mounted successfully to: " << cloneDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "System mounted successfully to: " << cloneDir << COLOR_RESET << std::endl;
     return true;
 }
 
@@ -1040,7 +1041,7 @@ bool mountDevice(const std::string& device, const std::string& mountPoint) {
     return system(mountCmd.c_str()) == 0;
 }
 
-// NEW: Clone current system using OverlayFS
+// UPDATED: Clone current system using bind mount with unmount after completion
 void cloneCurrentSystem(const std::string& cloneDir) {
     if (!config.allCheckboxesChecked()) {
         std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
@@ -1056,20 +1057,21 @@ void cloneCurrentSystem(const std::string& cloneDir) {
         return;
     }
 
-    // Create SquashFS directly from the mounted overlay
+    // Create SquashFS directly from the mounted bind
     std::string outputDir = getOutputDirectory();
     std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
 
     std::cout << COLOR_CYAN << "Creating SquashFS directly from mounted system view..." << COLOR_RESET << std::endl;
     createSquashFS(cloneDir, finalImgPath);
 
-    // Unmount the overlay
+    // Unmount the bind mount after SquashFS creation
+    std::cout << COLOR_CYAN << "Unmounting bind mount..." << COLOR_RESET << std::endl;
     execute_command("sudo umount " + cloneDir, true);
 
     createChecksum(finalImgPath);
     printFinalMessage(finalImgPath);
 
-    std::cout << COLOR_GREEN << "Current system cloned successfully using OverlayFS!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Current system cloned successfully using bind mount!" << COLOR_RESET << std::endl;
 }
 
 // Clone another drive
