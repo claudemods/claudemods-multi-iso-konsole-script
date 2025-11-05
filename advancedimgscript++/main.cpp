@@ -214,7 +214,7 @@ bool checkForUpdates() {
         currentFile.close();
     }
 
-    std::string newVersionPath = cloneDir + "/advancedimgscript+/version/version.txt";
+    std::string newVersionPath = cloneDir + "/advancedimgscript++/version/version.txt";
     std::string newVersion = "";
 
     std::ifstream newFile(newVersionPath);
