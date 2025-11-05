@@ -796,8 +796,9 @@ void showSetupMenu() {
     }
 }
 
+// CHANGED: Mount using bind mount instead of OverlayFS
 bool mountSystemToCloneDir(const std::string& cloneDir) {
-    std::cout << COLOR_CYAN << "Mounting System To: " << cloneDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Mounting system to: " << cloneDir << COLOR_RESET << std::endl;
 
     execute_command("sudo mkdir -p " + cloneDir, true);
 
@@ -815,7 +816,6 @@ bool mountSystemToCloneDir(const std::string& cloneDir) {
 
 // UPDATED: Create SquashFS with exact rsync exclusions
 bool createSquashFS(const std::string& inputDir, const std::string& outputFile) {
-
     // EXACT SAME EXCLUDES as original rsync command
     std::string command = "sudo mksquashfs " + inputDir + " " + outputFile +
     " -noappend -comp xz -b 256K -Xbcj x86 " +
@@ -1048,16 +1048,20 @@ void cloneCurrentSystem(const std::string& cloneDir) {
         return;
     }
 
+    if (!mountSystemToCloneDir(cloneDir)) {
+        std::cerr << COLOR_RED << "Failed to mount system!" << COLOR_RESET << std::endl;
+        return;
+    }
+
     // Create SquashFS directly from the mounted bind
     std::string outputDir = getOutputDirectory();
     std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
 
-    std::cout << COLOR_CYAN << "Creating SquashFS directly from mounted system view..." << COLOR_RESET << std::endl;
     createSquashFS(cloneDir, finalImgPath);
 
     // Unmount the bind mount after SquashFS creation
     std::cout << COLOR_CYAN << "Unmounting bind mount..." << COLOR_RESET << std::endl;
-    execute_command("sudo umount -l " + cloneDir, true);
+    execute_command("sudo umount " + cloneDir, true);
 
     createChecksum(finalImgPath);
     printFinalMessage(finalImgPath);
@@ -1109,6 +1113,7 @@ void cloneAnotherDrive(const std::string& cloneDir) {
         }
     }
 
+    std::cout << COLOR_CYAN << "Creating SquashFS from " << drive << "..." << COLOR_RESET << std::endl;
 
     std::string outputDir = getOutputDirectory();
     std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
