@@ -796,9 +796,8 @@ void showSetupMenu() {
     }
 }
 
-// CHANGED: Mount using bind mount instead of OverlayFS
 bool mountSystemToCloneDir(const std::string& cloneDir) {
-    std::cout << COLOR_CYAN << "Mounting live system view to: " << cloneDir << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Mounting System To: " << cloneDir << COLOR_RESET << std::endl;
 
     execute_command("sudo mkdir -p " + cloneDir, true);
 
@@ -816,7 +815,6 @@ bool mountSystemToCloneDir(const std::string& cloneDir) {
 
 // UPDATED: Create SquashFS with exact rsync exclusions
 bool createSquashFS(const std::string& inputDir, const std::string& outputFile) {
-    std::cout << COLOR_CYAN << "Creating SquashFS with exclusions..." << COLOR_RESET << std::endl;
 
     // EXACT SAME EXCLUDES as original rsync command
     std::string command = "sudo mksquashfs " + inputDir + " " + outputFile +
@@ -840,7 +838,7 @@ bool createSquashFS(const std::string& inputDir, const std::string& outputFile) 
 }
 
 bool createChecksum(const std::string& filename) {
-    std::string command = "sha512sum " + filename + " > " + filename + ".sha512";
+    std::string command = "sudo sha512sum " + filename + " > " + filename + ".sha512";
     execute_command(command, true);
     return true;
 }
@@ -1050,13 +1048,6 @@ void cloneCurrentSystem(const std::string& cloneDir) {
         return;
     }
 
-    std::cout << COLOR_CYAN << "Mounting live system view to " << cloneDir << "..." << COLOR_RESET << std::endl;
-
-    if (!mountSystemToCloneDir(cloneDir)) {
-        std::cerr << COLOR_RED << "Failed to mount system view!" << COLOR_RESET << std::endl;
-        return;
-    }
-
     // Create SquashFS directly from the mounted bind
     std::string outputDir = getOutputDirectory();
     std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
@@ -1066,7 +1057,7 @@ void cloneCurrentSystem(const std::string& cloneDir) {
 
     // Unmount the bind mount after SquashFS creation
     std::cout << COLOR_CYAN << "Unmounting bind mount..." << COLOR_RESET << std::endl;
-    execute_command("sudo umount " + cloneDir, true);
+    execute_command("sudo umount -l " + cloneDir, true);
 
     createChecksum(finalImgPath);
     printFinalMessage(finalImgPath);
@@ -1118,7 +1109,6 @@ void cloneAnotherDrive(const std::string& cloneDir) {
         }
     }
 
-    std::cout << COLOR_CYAN << "Creating SquashFS from " << drive << "..." << COLOR_RESET << std::endl;
 
     std::string outputDir = getOutputDirectory();
     std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
