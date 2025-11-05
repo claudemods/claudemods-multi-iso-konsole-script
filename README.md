@@ -156,4 +156,4 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-mu
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B/installer/patch.sh)"
 
 # Advanced C++ Arch Img Iso Script++ Beta v2.03.2 MainBranch (Active But Being Worked On To Be Made Stable Its Alpha):
-bash -c "$(curl -fsSL https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/advancedimgscript%2B%2B/installer/patch.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B%2B/installer/patch.sh)"
