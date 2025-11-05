@@ -95,7 +95,7 @@ void* execute_update_thread(void* /*arg*/) {
     // ARCH AND CACHYOS INSTALLATION
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/version/version.txt /home/$USER/.config/cmi/");
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++ && qmake6 && make >/dev/null 2>&1");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++ && g++ -std=c++23 main.cpp -o cmiimg >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/cmiimg /usr/bin/cmiimg");
     }
     
