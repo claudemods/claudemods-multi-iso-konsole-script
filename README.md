@@ -23,6 +23,8 @@
       
   </div>
 
+   ## [ Website Guide ](https://claudemodsreloaded.co.uk/imgisoguide.php)
+
   ## [ Guide ](https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/guide/readme.md)
 
   ## [ Support Me ](https://www.paypal.com/paypalme/claudemods?country.x=GB&locale)
@@ -149,10 +151,10 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-mu
 # Advanced C script beta v2.0 MainBranch:
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
 
-# Advanced C++ Arch Img Iso Script Beta v2.01 MainBranch (Active But Being Worked On To Be Made Stable):
+# Advanced C++ Arch Img Iso Script Beta v2.01 MainBranch 
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"
 
-# Advanced C++ Arch Img Iso Script+ Beta v2.03.1 MainBranch (Active But Being Worked On To Be Made Stable):
+# Advanced C++ Arch Img Iso Script+ Beta v2.03.1 MainBranch
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B/installer/patch.sh)"
 
 # Advanced C++ Arch Img Iso Script++ Beta v2.03.2 MainBranch (Active But Being Worked On To Be Made Stable Its Alpha):
