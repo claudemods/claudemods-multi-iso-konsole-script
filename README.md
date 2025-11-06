@@ -55,8 +55,6 @@
 
 ## 🖥️ Claudemods Arch Advanced Ext4 Img Iso Creator v2.01 🚀
 
-## [ Website And Guide ](https://claudemodsreloaded.com/isocreatorinfo.php)
-
 <p align="center">This Is For UEFI Ext4 Arch Systems </p>
 
 <p align="center">Without Separate Swap Or Home </p>
