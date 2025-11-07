@@ -1,4 +1,6 @@
-## urgent news squashfs-tools package is broken currently 07-11-2025 try for yourself and see!
+## urgent news squashfs-tools package on arch is broken currently!
+
+## The Package Version is 06-11-2025 try it for yourself and see!
 
 # [ Download The Old Working Package](https://claudemodsreloaded.co.uk/claudemods-backup-of-working-packages/)
 
