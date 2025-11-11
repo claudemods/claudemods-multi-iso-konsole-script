@@ -1,8 +1,12 @@
-## urgent news squashfs-tools package on arch is broken currently!
+## urgent news latest squashfs-tools package on arch is broken currently!
 
-## The Package Version is 06-11-2025 try it for yourself and see!
+## urgent news latest device-mapper package on arch is broken currently they removed 11-dm-initramfs.rules!
 
-# [ Download The Old Working Package](https://claudemodsreloaded.co.uk/claudemods-v1)
+## The Broken Package Version for squashfs-tools is 06-11-2025 try it for yourself and see!
+
+## The Broken Package Version for device-mapper is 04-11-2025 try it for yourself and see!
+
+# [ Download The Old Working Packages](https://claudemodsreloaded.co.uk/claudemods-v1)
 
 
 
