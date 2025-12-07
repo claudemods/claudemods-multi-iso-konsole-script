@@ -1,8 +1,7 @@
-## urgent news latest squashfs-tools package on arch is broken currently!
+
 
 ## urgent news latest device-mapper package on arch is broken currently they removed 11-dm-initramfs.rules this is needed for initramfs generation!
 
-## The Broken Package Date for squashfs-tools is 06-11-2025 try it for yourself and see!
 
 ## The Broken Package Date for device-mapper is 04-11-2025 try it for yourself and see!
 
