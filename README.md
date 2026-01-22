@@ -1,14 +1,5 @@
 
 
-## urgent news latest device-mapper package on arch is broken currently they removed 11-dm-initramfs.rules this is needed for initramfs generation!
-
-
-## The Broken Package Date for device-mapper is 04-11-2025 try it for yourself and see!
-
-# [ Download The Old Working Packages](https://claudemodsreloaded.co.uk/claudemods-v1)
-
-
-
 <p align="center">
 <img src="https://i.postimg.cc/JhMRf2RZ/claudemods-03-17-2025.gif">	
 
