@@ -776,7 +776,7 @@ bool mountSystemToCloneDir(const std::string& cloneDir) {
 bool createSquashFS(const std::string& inputDir, const std::string& outputFile) {
     // EXACT SAME EXCLUDES as original rsync command
     std::string command = "sudo mksquashfs " + inputDir + " " + outputFile +
-    " -noappend -comp xz -b 256K -Xbcj x86 " +
+    " -noappend -comp zstd -Xcompression-level 22 -b 256K " +
     "-e etc/udev/rules.d/70-persistent-cd.rules " +
     "-e etc/udev/rules.d/70-persistent-net.rules " +
     "-e etc/mtab " +
