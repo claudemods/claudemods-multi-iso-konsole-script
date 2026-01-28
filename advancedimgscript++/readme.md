@@ -1,4 +1,4 @@
-cmi arch img iso creator+ v2.03.1 05-10-2025
+cmiimgisocreator++ v2.03.1 28-01-2026
 
 new automatic mode works fine from tests not much changed in the whole script hope you enjoy
 
