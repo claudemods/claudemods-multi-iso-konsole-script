@@ -572,7 +572,7 @@ void editCalamares2() {
 }
 
 void setIsoTag() {
-    config.isoTag = getUserInput("Enter ISO tag (e.g., 2025): ");
+    config.isoTag = getUserInput("Enter ISO tag (e.g., default is 2026): ");
     saveConfig();
 }
 
