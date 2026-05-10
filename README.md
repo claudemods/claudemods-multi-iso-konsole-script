@@ -1,15 +1,12 @@
-
-
 <p align="center">
-<img src="https://i.postimg.cc/JhMRf2RZ/claudemods-03-17-2025.gif">	
+<img width="660" height="443" alt="image" src="https://github.com/user-attachments/assets/19736b52-f509-4287-b936-1373f5d9b08f" />
+</p>
 
 <div align="center">
 
-  <a href="https://www.linux.org" target="_blank"><img src="https://img.shields.io/badge/OS-Linux-e06c75?style=for-the-badge&logo=linux" /></a>
+  <a href="https://www.microsoft.com/windows" target="_blank"><img src="https://img.shields.io/badge/OS-Windows-0078D6?style=for-the-badge&logo=windows" /></a>
   
-  <a href="https://archlinux.org" target="_blank"><img src="https://img.shields.io/badge/DISTRO-Arch-56b6c2?style=for-the-badge&logo=arch-linux" /></a>
-  <a href="https://ubuntu.com/" target="_blank"><img src="https://img.shields.io/badge/DISTRO-Ubuntu-E95420?style=for-the-badge&logo=Ubuntu" /></a>
-  <a href="https://www.debian.org" target="_blank"><img src="https://img.shields.io/badge/DISTRO-Debian-CE0058?style=for-the-badge&logo=Debian" /></a>
+  <a href="https://www.microsoft.com/windows/windows-10" target="_blank"><img src="https://img.shields.io/badge/VERSION-10/11-00a4ef?style=for-the-badge&logo=windows10" /></a>
   
   <a href="https://chat.deepseek.com/" target="_blank">
     <img src="https://img.shields.io/badge/Built_Using-DeepSeek-4D6BFE?style=for-the-badge&logo=deepseek&logoColor=4D6BFE" alt="Built Using DeepSeek">
@@ -20,11 +17,9 @@
       
   </div>
    
-   ## [ Website MainPage ](https://www.claudemodsreloaded.co.uk/isocreatorinfo.php)
-  
-   ## [ Website Guide ](https://claudemodsreloaded.co.uk/imgisoguide.php)
+   ## [ Website Info Page ](https://claudemodsreloaded.co.uk/claudebackup/info.php)
 
-  ## [ Guide ](https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/guide/readme.md)
+  ## [ Download ](https://claudemodsreloaded.co.uk/claudebackup/info.php)
 
   ## [ Support Me ](https://www.paypal.com/paypalme/claudemods?country.x=GB&locale)
 
@@ -38,28 +33,33 @@
 </div>
 
 <div align="center">
-  <h5 align="center">Hello, welcome to claudemods Multi ISO Creator Written in C, C++ And Rust And More!</h5>
+  <h5 align="center">Hello, welcome to claudebackup Windows 10/11 System Cloning Tool!</h5>
 </div>
 
-<p align="center"> Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix! </p>
+<p align="center"> Sailing the 7 seas like Clonezilla, Macrium Reflect, Acronis and father Norton Ghost! </p>
 
 </div>
 
+---
 
-## 🖥️ Claudemods Multi Iso Creator v2.0 🚀
+![PowerShell](https://img.shields.io/badge/PowerShell-5.1-blue) ![Batch](https://img.shields.io/badge/Batch-Script-4B8BBE) ![License](https://img.shields.io/badge/license-MIT-green)
 
-<p align="center">This Is For UEFI EXT4 Arch Ubuntu, Debian Systems </p>
+## 📝 Table of Contents
+- [Features](#-features)
+- [Prerequisites](#-prerequisites)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Core Workflow](#-core-workflow)
+- [License](#-license)
 
-<p align="center">Without Separate Swap Or Home </p>
+## 🖥️ Claudebackup Windows 10/11 System Cloning Tool 🚀
 
-## 🖥️ Claudemods Arch Advanced Ext4 Img Iso Creator v2.01 🚀
+<p align="center">This Is For Windows 10/11 Systems </p>
 
-<p align="center">This Is For UEFI Ext4 Arch Systems </p>
-
-<p align="center">Without Separate Swap Or Home </p>
+<p align="center">Creating Bootable ISO Backups From Live Systems </p>
 
 <div align="center">
-  <h3 align="center">these projects are an experimental playground</h3>
+  <h3 align="center">this project is an experimental playground</h3>
 </div>
 
 <div align="center">
@@ -70,104 +70,32 @@
   <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
 </div>
 
----
-
-![C++](https://img.shields.io/badge/C++-23-blue) ![License](https://img.shields.io/badge/license-MIT-green)
-
-## 📝 Table of Contents
-- [Features](#-features)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Supported Distributions](#-supported-distributions)
-- [Code Overview](#-code-overview)
-- [License](#-license)
-
 ## ✨ Features
 
-### Img Iso Method Supports Arch Only
-- 🚀 Generate bootable ISOs with custom configurations
-- 🛠️ Customizable branding and kernel options
-- 🖼️ Create compressed system images (Ext4)
-- 📊 Disk usage reporting
-- 🔄 Rsync-based file copying with intelligent exclusions
-- 🗜️ SquashFS compression with zstd support
-- 🤖 initramfs generation
-- 🔍 MD5 checksum generation
-- ⏱️ Real-time updates and status indicators
-- 🎨 Colorful terminal output
+- 🚀 **Automated Backup Capture** - Creates full VHDX backup of your C: drive using Windows Backup
+- 💾 **VHDX Mounting** - Automatically mounts backup files to access contents
+- 🗜️ **High Compression WIM Creation** - LZMS solid compression for smaller file sizes
+- 💿 **ISO Building** - Packages WIM alongside bootable media files into a complete bootable ISO
+- 🖤 **Sleek Dark Theme GUI** - Eye-friendly black interface with cyan/red accents
+- 📊 **Visual Progress Bar** - Real-time tracking of multi-step operations
+- 📝 **Live Log Console** - Detailed operation output in neon green text
+- 🖱️ **Point-and-Click Interface** - Simple browse button to select backup destinations
+- 🔄 **UEFI/BIOS Compatible** - Dual boot support for modern and legacy systems
+- 📦 **Single File Output** - Everything packaged into one clean ISO
+- ⏱️ **Time-saving Automation** - No manual command-line steps required
+- 🛡️ **Reliable Process** - Consistent, repeatable backup creation every time
 
-### My Other ISO Methods Supports
-- 🚀 Generate bootable ISOs with custom configurations
-- 🐧 Multi-Distro Support (Arch and cachyos works, Ubuntu Debian KDE Neon kernels dont boot from tests)
-- 🛠️ Customizable branding and kernel options
-- 🔄 Rsync-based file copying with intelligent exclusions
-- 🗜️ SquashFS compression with zstd support
-- 📊 Disk usage reporting
-- 🤖 initramfs generation
-- ⏱️ Real-time updates and status indicators
-- 📝 Command Line Tools integration
-- 🎨 Colorful terminal output
+## 📋 Prerequisites
 
-## 📋 Requirements for c multi iso creator
-- being updated soon 
-  
-## 📋 Requirements for c++ multi iso creator and img iso creator
-- Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
-- GCC compiler (C++23 compatible)
-- Root privileges (sudo access)
-- Most Required packages can be installed through scripts:
-- You Basically need unzip gcc qt6-tools and qt5-tools to install and the rest is to create iso or test:
- - Base Arch Packages: `rsync` `squashfs-tools` `xorriso` `grub` `dosfstools` `unzip` `arch-install-scripts` `bash-completion` `erofs-utils` `findutils` `jq` `libarchive` `libisoburn` `lsb-release` `lvm2` `mkinitcpio-archiso` `mkinitcpio-nfs-utils` `mtools` `nbd` `pacman-contrib` `nano` `unzip` `wget` `parted` `procps-ng` `pv` `python` `sshfs` `syslinux` `xdg-utils` `zsh-completions` `kernel-modules-hook` `virt-manager` `qt6-tools` `qt5-tools`
+### Required Components:
+- **Hyper-V** - Setup via Windows Features
+- **Windows ADK** - Assessment and Deployment Kit
+- **wimlib (supplied with tool)** - For optimized WIM capture
+- **Iso_Build folder structure (supplied with tool)** - Bootable media structure (boot, efi directories, etc.)
 
-
-## 💾 Installation
-
-### Main Iso Installation Methods:
-
-```bash
-# google drive link https://drive.google.com/drive/folders/1tJjOWo-qTJukAz8zadRgTrwM9ORRDAOI
-
-
+### Windows ADK Installation:
+```powershell
+# Run in Administrator PowerShell
+winget install --id Microsoft.WindowsADK --source winget
 ```
-
-## 💾 Installation
-
-### Main Script Installation Methods:
-
-# Installation Commands
-
-**All-in-one cmi commander and tui advanced c++ DevBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedc%2B%2Bscript/all-in-one-devbranch/cmi-commander-tui/installermain/patch.sh)"
-```
-
-**All-in-one advanced C++ script beta v2.0 MainBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one/installermain/patch.sh)"
-```
-
-**All-in-one advanced C++ script v2.0 DevBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedc++script/all-in-one-devbranch/installermain/patch.sh)"
-```
-
-**Advanced C script beta v2.0 MainBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedcscript/installer/patch.sh)"
-```
-
-**Advanced C++ Arch Img Iso Script Beta v2.01 MainBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript/installer/patch.sh)"
-```
-
-**Advanced C++ Arch Img Iso Script+ Beta v2.03.1 MainBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B/installer/patch.sh)"
-```
-
-**Advanced C++ Arch Img Iso Script++ Beta v2.03.2 MainBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B%2B/installer/patch.sh)"
-```
+<strong> Copyright <2026> <claudemods> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. <strong>
