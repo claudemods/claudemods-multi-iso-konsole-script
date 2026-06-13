@@ -1,6 +1,3 @@
-analyze this script do not change or remove anything
-
-
 #!/bin/bash
 
 # Colors for output
@@ -51,19 +48,19 @@ setup_bind_mount() {
 
     # Create bind mount
     sudo mount --bind "$SOURCE_DIR" "$CLONE_DIR"
-    sudo rm -rf /home/aaron/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules
-    sudo rm -rf /home/aaron/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules
-    sudo rm -rf /home/aaron/clone_system_temp/etc/mtab
-    sudo rm -rf /home/aaron/clone_system_temp/etc/fstab
-    sudo rm -rf /home/aaron/clone_system_temp/dev/*
-    sudo rm -rf /home/aaron/clone_system_temp/proc/*
-    sudo rm -rf /home/aaron/clone_system_temp/sys/*
-    sudo rm -rf /home/aaron/clone_system_temp/tmp/*
-    sudo rm -rf /home/aaron/clone_system_temp/run/*
-    sudo rm -rf /home/aaron/clone_system_temp/mnt/*
-    sudo rm -rf /home/aaron/clone_system_temp/media/*
-    sudo rm -rf /home/aaron/clone_system_temp/lost+found
-    sudo rm -rf /home/aaron/clone_system_temp/clone/
+    sudo rm -rf /home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules
+    sudo rm -rf /home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules
+    sudo rm -rf /home/$USER/clone_system_temp/etc/mtab
+    sudo rm -rf /home/$USER/clone_system_temp/etc/fstab
+    sudo rm -rf /home/$USER/clone_system_temp/dev/*
+    sudo rm -rf /home/$USER/clone_system_temp/proc/*
+    sudo rm -rf /home/$USER/clone_system_temp/sys/*
+    sudo rm -rf /home/$USER/clone_system_temp/tmp/*
+    sudo rm -rf /home/$USER/clone_system_temp/run/*
+    sudo rm -rf /home/$USER/clone_system_temp/mnt/*
+    sudo rm -rf /home/$USER/clone_system_temp/media/*
+    sudo rm -rf /home/$USER/clone_system_temp/lost+found
+    sudo rm -rf /home/$USER/clone_system_temp/clone/
 
     if [[ $? -eq 0 ]]; then
         print_success "Bind mount created successfully: $SOURCE_DIR -> $CLONE_DIR"
@@ -87,9 +84,9 @@ create_erofs() {
         -d9 \
         -zlzma,level=109,dictsize=1048576 \
         -C1048576 \
-        --exclude-path=home/aaron/clone_system_temp \
-        --exclude-path=home/aaron/Downloads/clone \
-        --exclude-path=home/aaron/Downloads/clone/rootfs.erofs \
+        --exclude-path=home/$USER/clone_system_temp \
+        --exclude-path=home/$USER/Downloads/clone \
+        --exclude-path=home/$USER/Downloads/clone/rootfs.erofs \
         "$output_file" \
         "$input_dir"
 
