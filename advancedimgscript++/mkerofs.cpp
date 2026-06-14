@@ -13,6 +13,9 @@
 #include <atomic>
 #include <mutex>
 #include <sys/utsname.h>
+#include <array>
+#include <memory>
+#include <algorithm>
 
 // Colors for output
 const std::string RED = "\033[31m";
@@ -198,159 +201,127 @@ void create_erofs() {
     display_running = true;
     std::thread display_thread(update_display);
 
+    // Build command based on compression option
+    std::string cmd;
+    long estimatedSize = 500L * 1024 * 1024;  // 500MB estimate
+
     if (compression_option == 1) {
         // Fast compression with LZ4HC
-        system("sudo mkfs.erofs \\\n"
-        "        -d9 \\\n"
-        "        -zlz4hc,level=12,dictsize=8388608 \\\n"
-        "        -C1048576 \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone/rootfs.erofs \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
-        "        clone/rootfs.img \\\n"
-        "        \"$HOME/clone_system_temp\" > /dev/null 2>&1 &");
-
-        // Monitor file size from the start
-        std::string prev_size = get_file_size("clone/rootfs.img");
-        int seconds_without_change = 0;
-        float internal_progress = 10.0;
-
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-
-            std::string current_size = get_file_size("clone/rootfs.img");
-
-            if (current_size == prev_size) {
-                seconds_without_change++;
-                if (seconds_without_change >= 120) {
-                    current_percentage = 100;
-                    break;
-                }
-            } else {
-                seconds_without_change = 0;
-                prev_size = current_size;
-                internal_progress += 0.1;
-                current_percentage = (int)internal_progress;
-                if (current_percentage > 90) {
-                    current_percentage = 90;
-                }
-            }
-        }
-
+        cmd = "sudo mkfs.erofs "
+              "-d9 "
+              "-zlz4hc,level=12,dictsize=8388608 "
+              "-C1048576 "
+              "--exclude-path=home/$USER/clone_system_temp "
+              "--exclude-path=home/$USER/Downloads/clone "
+              "--exclude-path=home/$USER/Downloads/clone/rootfs.erofs "
+              "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules "
+              "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules "
+              "--exclude-path=home/$USER/clone_system_temp/etc/mtab "
+              "--exclude-path=home/$USER/clone_system_temp/etc/fstab "
+              "--exclude-path=home/$USER/clone_system_temp/dev/* "
+              "--exclude-path=home/$USER/clone_system_temp/proc/* "
+              "--exclude-path=home/$USER/clone_system_temp/sys/* "
+              "--exclude-path=home/$USER/clone_system_temp/tmp/* "
+              "--exclude-path=home/$USER/clone_system_temp/run/* "
+              "--exclude-path=home/$USER/clone_system_temp/mnt/* "
+              "--exclude-path=home/$USER/clone_system_temp/lost+found "
+              "--exclude-path=home/$USER/clone_system_temp/clone "
+              "- clone/rootfs.img "
+              "\"$HOME/clone_system_temp\"";
     } else if (compression_option == 2) {
         // Medium max compression with ZSTD
-        system("sudo mkfs.erofs \\\n"
-        "        -d9 \\\n"
-        "        -zstd,level=22,dictsize=1048576 \\\n"
-        "        -C1048576 \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone/rootfs.erofs \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
-        "        clone/rootfs.img \\\n"
-        "        \"$HOME/clone_system_temp\" > /dev/null 2>&1 &");
-
-        // Monitor file size from the start
-        std::string prev_size = get_file_size("clone/rootfs.img");
-        int seconds_without_change = 0;
-        float internal_progress = 10.0;
-
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-
-            std::string current_size = get_file_size("clone/rootfs.img");
-
-            if (current_size == prev_size) {
-                seconds_without_change++;
-                if (seconds_without_change >= 120) {
-                    current_percentage = 100;
-                    break;
-                }
-            } else {
-                seconds_without_change = 0;
-                prev_size = current_size;
-                internal_progress += 0.1;
-                current_percentage = (int)internal_progress;
-                if (current_percentage > 90) {
-                    current_percentage = 90;
-                }
-            }
-        }
-
+        cmd = "sudo mkfs.erofs "
+              "-d9 "
+              "-zstd,level=22,dictsize=1048576 "
+              "-C1048576 "
+              "--exclude-path=home/$USER/clone_system_temp "
+              "--exclude-path=home/$USER/Downloads/clone "
+              "--exclude-path=home/$USER/Downloads/clone/rootfs.erofs "
+              "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules "
+              "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules "
+              "--exclude-path=home/$USER/clone_system_temp/etc/mtab "
+              "--exclude-path=home/$USER/clone_system_temp/etc/fstab "
+              "--exclude-path=home/$USER/clone_system_temp/dev/* "
+              "--exclude-path=home/$USER/clone_system_temp/proc/* "
+              "--exclude-path=home/$USER/clone_system_temp/sys/* "
+              "--exclude-path=home/$USER/clone_system_temp/tmp/* "
+              "--exclude-path=home/$USER/clone_system_temp/run/* "
+              "--exclude-path=home/$USER/clone_system_temp/mnt/* "
+              "--exclude-path=home/$USER/clone_system_temp/lost+found "
+              "--exclude-path=home/$USER/clone_system_temp/clone "
+              "- clone/rootfs.img "
+              "\"$HOME/clone_system_temp\"";
     } else {
-        // Slow maximum compression with LZMA - original command
-        system("sudo mkfs.erofs \\\n"
-        "        -d9 \\\n"
-        "        -zlzma,level=109,dictsize=8388608 \\\n"
-        "        -C1048576 \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone/rootfs.erofs \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
-        "        clone/rootfs.img \\\n"
-        "        \"$HOME/clone_system_temp\" > /dev/null 2>&1 &");
-
-        // Monitor file size from the start
-        std::string prev_size = get_file_size("clone/rootfs.img");
-        int seconds_without_change = 0;
-        float internal_progress = 10.0;
-
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-
-            std::string current_size = get_file_size("clone/rootfs.img");
-
-            if (current_size == prev_size) {
-                seconds_without_change++;
-                if (seconds_without_change >= 120) {
-                    current_percentage = 100;
-                    break;
-                }
-            } else {
-                seconds_without_change = 0;
-                prev_size = current_size;
-                internal_progress += 0.1;
-                current_percentage = (int)internal_progress;
-                if (current_percentage > 90) {
-                    current_percentage = 90;
-                }
-            }
-        }
+        // Slow maximum compression with LZMA
+        cmd = "sudo mkfs.erofs "
+              "-d9 "
+              "-zlzma,level=109,dictsize=8388608 "
+              "-C1048576 "
+              "--exclude-path=home/$USER/clone_system_temp "
+              "--exclude-path=home/$USER/Downloads/clone "
+              "--exclude-path=home/$USER/Downloads/clone/rootfs.erofs "
+              "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules "
+              "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules "
+              "--exclude-path=home/$USER/clone_system_temp/etc/mtab "
+              "--exclude-path=home/$USER/clone_system_temp/etc/fstab "
+              "--exclude-path=home/$USER/clone_system_temp/dev/* "
+              "--exclude-path=home/$USER/clone_system_temp/proc/* "
+              "--exclude-path=home/$USER/clone_system_temp/sys/* "
+              "--exclude-path=home/$USER/clone_system_temp/tmp/* "
+              "--exclude-path=home/$USER/clone_system_temp/run/* "
+              "--exclude-path=home/$USER/clone_system_temp/mnt/* "
+              "--exclude-path=home/$USER/clone_system_temp/lost+found "
+              "--exclude-path=home/$USER/clone_system_temp/clone "
+              "- clone/rootfs.img "
+              "\"$HOME/clone_system_temp\"";
     }
+
+    // Open pipe to read stdout
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(
+        popen(cmd.c_str(), "r"), pclose
+    );
+
+    if (!pipe) {
+        display_running = false;
+        display_thread.join();
+        std::cout << "\033[?25h";
+        print_error("Failed to run mkfs.erofs");
+        return;
+    }
+
+    std::array<char, 8192> buffer;
+    long totalRead = 0;
+    size_t bytesRead = 0;
+
+    while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe.get())) > 0) {
+        totalRead += bytesRead;
+
+        // Update progress based on bytes read vs estimated size
+        float progress = std::min(1.0f, (float)totalRead / estimatedSize);
+        current_percentage = static_cast<int>(progress * 100);
+    }
+
+    // Check for read error
+    if (ferror(pipe.get())) {
+        display_running = false;
+        display_thread.join();
+        std::cout << "\033[?25h";
+        print_error("Error reading from mkfs.erofs");
+        return;
+    }
+
+    // Close pipe and check exit status
+    int exitStatus = pclose(pipe.release());
+    if (exitStatus != 0) {
+        display_running = false;
+        display_thread.join();
+        std::cout << "\033[?25h";
+        std::cout << RED << "mkfs.erofs exited with error code: " << exitStatus << RESET << std::endl;
+        return;
+    }
+
+    // Set to 100% on success
+    current_percentage = 100;
 
     // Let display update one final time
     std::this_thread::sleep_for(std::chrono::seconds(1));
