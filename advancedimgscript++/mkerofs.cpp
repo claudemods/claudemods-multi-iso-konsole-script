@@ -149,9 +149,10 @@ void choose_compression() {
     std::cout << std::endl;
     std::cout << CYAN << "Choose compression type:" << RESET << std::endl;
     std::cout << CYAN << "  [1] Fast - Medium compression (LZ4HC, level 12)" << RESET << std::endl;
-    std::cout << CYAN << "  [2] Slow - Maximum compression (LZMA, level 109, dict 2MB)" << RESET << std::endl;
+    std::cout << CYAN << "  [2] Medium - Max compression (ZSTD, level 22)" << RESET << std::endl;
+    std::cout << CYAN << "  [3] Slow - Maximum compression (LZMA, level 109, dict 2MB)" << RESET << std::endl;
     std::cout << std::endl;
-    std::cout << CYAN << "Enter your choice (1 or 2): " << RESET;
+    std::cout << CYAN << "Enter your choice (1, 2, or 3): " << RESET;
 
     while (true) {
         std::string input;
@@ -163,10 +164,14 @@ void choose_compression() {
             break;
         } else if (input == "2") {
             compression_option = 2;
+            print_success("Selected: Medium max compression (ZSTD, level 22)");
+            break;
+        } else if (input == "3") {
+            compression_option = 3;
             print_success("Selected: Slow maximum compression (LZMA, level 109, dict 2MB)");
             break;
         } else {
-            std::cout << RED << "Invalid choice. Please enter 1 or 2: " << RESET;
+            std::cout << RED << "Invalid choice. Please enter 1, 2, or 3: " << RESET;
         }
     }
     std::cout << std::endl;
@@ -196,7 +201,60 @@ void create_erofs() {
     if (compression_option == 1) {
         // Fast compression with LZ4HC
         system("sudo mkfs.erofs \\\n"
-        "        -zlz4hc,level=12 \\\n"
+        "        -d9 \\\n"
+        "        -zlz4hc,level=12,dictsize=8388608 \\\n"
+        "        -C1048576 \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp \\\n"
+        "        --exclude-path=home/$USER/Downloads/clone \\\n"
+        "        --exclude-path=home/$USER/Downloads/clone/rootfs.erofs \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
+        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
+        "        clone/rootfs.img \\\n"
+        "        \"$HOME/clone_system_temp\" > /dev/null 2>&1 &");
+
+        // Monitor file size from the start
+        std::string prev_size = get_file_size("clone/rootfs.img");
+        int seconds_without_change = 0;
+        float internal_progress = 10.0;
+
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+
+            std::string current_size = get_file_size("clone/rootfs.img");
+
+            if (current_size == prev_size) {
+                seconds_without_change++;
+                if (seconds_without_change >= 120) {
+                    current_percentage = 100;
+                    break;
+                }
+            } else {
+                seconds_without_change = 0;
+                prev_size = current_size;
+                internal_progress += 0.1;
+                current_percentage = (int)internal_progress;
+                if (current_percentage > 90) {
+                    current_percentage = 90;
+                }
+            }
+        }
+
+    } else if (compression_option == 2) {
+        // Medium max compression with ZSTD
+        system("sudo mkfs.erofs \\\n"
+        "        -d9 \\\n"
+        "        -zzstd,level=22,dictsize=8388608 \\\n"
+        "        -C1048576 \\\n"
         "        --exclude-path=home/$USER/clone_system_temp \\\n"
         "        --exclude-path=home/$USER/Downloads/clone \\\n"
         "        --exclude-path=home/$USER/Downloads/clone/rootfs.erofs \\\n"
