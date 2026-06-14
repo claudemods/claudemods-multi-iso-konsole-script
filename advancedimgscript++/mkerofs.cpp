@@ -253,7 +253,7 @@ void create_erofs() {
         // Medium max compression with ZSTD
         system("sudo mkfs.erofs \\\n"
         "        -d9 \\\n"
-        "        -zzstd,level=22,dictsize=8388608 \\\n"
+        "        -zstd,level=22,dictsize=1048576 \\\n"
         "        -C1048576 \\\n"
         "        --exclude-path=home/$USER/clone_system_temp \\\n"
         "        --exclude-path=home/$USER/Downloads/clone \\\n"
