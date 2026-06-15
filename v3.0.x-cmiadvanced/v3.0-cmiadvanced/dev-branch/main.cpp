@@ -90,10 +90,10 @@ struct ConfigState {
 const std::string COLOR_RED = "\033[31m";
 const std::string COLOR_GREEN = "\033[32m";
 const std::string COLOR_BLUE = "\033[34m";
-const std::string COLOR_CYAN = "\033[38;2;0;255;255m";
+const std::string COLOR_CYAN = "\033[32m";
 const std::string COLOR_YELLOW = "\033[33m";
 const std::string COLOR_RESET = "\033[0m";
-const std::string COLOR_HIGHLIGHT = "\033[38;2;0;255;255m";
+const std::string COLOR_HIGHLIGHT = "\033[32m";
 const std::string COLOR_NORMAL = "\033[34m";
 const std::string COLOR_DISABLED = "\033[90m";
 
@@ -318,8 +318,8 @@ void printBanner() {
     // Use the new method to display ASCII art
     displayAsciiArt();
 
-    std::cout << COLOR_CYAN << " cmiadvanced Beta v3.0 15-06-2026" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_RED << " cmiadvanced Beta v3.0 15-06-2026" << COLOR_RESET << std::endl;
+    std::cout << COLOR_RED << "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" << COLOR_RESET << std::endl;
 
     {
         std::lock_guard<std::mutex> lock(time_mutex);
@@ -332,56 +332,56 @@ void printBanner() {
 }
 
 void printConfigStatus() {
-    std::cout << COLOR_CYAN << "Current Configuration:" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Current Configuration:" << COLOR_RESET << std::endl;
 
     // NEW: Files extracted checkbox
     std::cout << " ";
     printCheckbox(config.filesExtracted);
-    std::cout << " Needed Files" << std::endl;
+    std::cout << (config.filesExtracted ? COLOR_GREEN : COLOR_RED) << " Needed Files" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.isoTag.empty());
-    std::cout << " ISO Tag: " << (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoTag) << COLOR_RESET << std::endl;
+    std::cout << (config.isoTag.empty() ? COLOR_RED : COLOR_GREEN) << " ISO Tag: " << (config.isoTag.empty() ? "Not set" : config.isoTag) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.isoName.empty());
-    std::cout << " ISO Name: " << (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.isoName) << COLOR_RESET << std::endl;
+    std::cout << (config.isoName.empty() ? COLOR_RED : COLOR_GREEN) << " ISO Name: " << (config.isoName.empty() ? "Not set" : config.isoName) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.outputDir.empty());
-    std::cout << " Output Directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << std::endl;
+    std::cout << (config.outputDir.empty() ? COLOR_RED : COLOR_GREEN) << " Output Directory: " << (config.outputDir.empty() ? "Not set" : config.outputDir) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.vmlinuzPath.empty());
-    std::cout << " vmlinuz: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
+    std::cout << (config.vmlinuzPath.empty() ? COLOR_RED : COLOR_GREEN) << " vmlinuz: " << (config.vmlinuzPath.empty() ? "Not selected" : config.vmlinuzPath) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.cloneDir.empty());
-    std::cout << " Clone Directory: " << (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.cloneDir) << COLOR_RESET << std::endl;
+    std::cout << (config.cloneDir.empty() ? COLOR_RED : COLOR_GREEN) << " Clone Directory: " << (config.cloneDir.empty() ? "Not set" : config.cloneDir) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.mkinitcpioGenerated);
-    std::cout << " mkinitcpio" << std::endl;
+    std::cout << (config.mkinitcpioGenerated ? COLOR_GREEN : COLOR_RED) << " mkinitcpio" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.grubEdited);
-    std::cout << " GRUB Config" << std::endl;
+    std::cout << (config.grubEdited ? COLOR_GREEN : COLOR_RED) << " GRUB Config" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.bootTextEdited);
-    std::cout << " Boot Text" << std::endl;
+    std::cout << (config.bootTextEdited ? COLOR_GREEN : COLOR_RED) << " Boot Text" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.calamaresBrandingEdited);
-    std::cout << " Calamares Branding" << std::endl;
+    std::cout << (config.calamaresBrandingEdited ? COLOR_GREEN : COLOR_RED) << " Calamares Branding" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.calamares1Edited);
-    std::cout << " Calamares 1st initcpio.conf" << std::endl;
+    std::cout << (config.calamares1Edited ? COLOR_GREEN : COLOR_RED) << " Calamares 1st initcpio.conf" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.calamares2Edited);
-    std::cout << " Calamares 2nd initcpio.conf" << std::endl;
+    std::cout << (config.calamares2Edited ? COLOR_GREEN : COLOR_RED) << " Calamares 2nd initcpio.conf" << COLOR_RESET << std::endl;
 }
 
 std::string getUserInput(const std::string& prompt) {
@@ -738,8 +738,8 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
         menuBuffer += COLOR_RED + line + COLOR_RESET + "\n";
     }
 
-    menuBuffer += COLOR_CYAN + "                    cmiadvanced Beta v3.0 15-06-2026" + COLOR_RESET + "\n";
-    menuBuffer += COLOR_CYAN + "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" + COLOR_RESET + "\n";
+    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 15-06-2026" + COLOR_RESET + "\n";
+    menuBuffer += COLOR_RED + "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" + COLOR_RESET + "\n";
 
     {
         std::lock_guard<std::mutex> lock(time_mutex);
@@ -764,51 +764,51 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
 
     menuBuffer += " ";
     menuBuffer += (config.filesExtracted ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Needed Files" + COLOR_RESET + "\n";
+    menuBuffer += (config.filesExtracted ? COLOR_GREEN : COLOR_RED) + " Needed Files" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (!config.isoTag.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " ISO Tag: " + (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.isoTag) + COLOR_RESET + "\n";
+    menuBuffer += (config.isoTag.empty() ? COLOR_RED : COLOR_GREEN) + " ISO Tag: " + (config.isoTag.empty() ? "Not set" : config.isoTag) + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (!config.isoName.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " ISO Name: " + (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.isoName) + COLOR_RESET + "\n";
+    menuBuffer += (config.isoName.empty() ? COLOR_RED : COLOR_GREEN) + " ISO Name: " + (config.isoName.empty() ? "Not set" : config.isoName) + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (!config.outputDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Output Directory: " + (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.outputDir) + COLOR_RESET + "\n";
+    menuBuffer += (config.outputDir.empty() ? COLOR_RED : COLOR_GREEN) + " Output Directory: " + (config.outputDir.empty() ? "Not set" : config.outputDir) + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (!config.vmlinuzPath.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " vmlinuz: " + (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_GREEN + config.vmlinuzPath) + COLOR_RESET + "\n";
+    menuBuffer += (config.vmlinuzPath.empty() ? COLOR_RED : COLOR_GREEN) + " vmlinuz: " + (config.vmlinuzPath.empty() ? "Not selected" : config.vmlinuzPath) + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (!config.cloneDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Clone Directory: " + (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.cloneDir) + COLOR_RESET + "\n";
+    menuBuffer += (config.cloneDir.empty() ? COLOR_RED : COLOR_GREEN) + " Clone Directory: " + (config.cloneDir.empty() ? "Not set" : config.cloneDir) + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.mkinitcpioGenerated ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " mkinitcpio" + COLOR_RESET + "\n";
+    menuBuffer += (config.mkinitcpioGenerated ? COLOR_GREEN : COLOR_RED) + " mkinitcpio" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.grubEdited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " GRUB Config" + COLOR_RESET + "\n";
+    menuBuffer += (config.grubEdited ? COLOR_GREEN : COLOR_RED) + " GRUB Config" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.bootTextEdited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Boot Text" + COLOR_RESET + "\n";
+    menuBuffer += (config.bootTextEdited ? COLOR_GREEN : COLOR_RED) + " Boot Text" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.calamaresBrandingEdited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Calamares Branding" + COLOR_RESET + "\n";
+    menuBuffer += (config.calamaresBrandingEdited ? COLOR_GREEN : COLOR_RED) + " Calamares Branding" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.calamares1Edited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Calamares 1st initcpio.conf" + COLOR_RESET + "\n";
+    menuBuffer += (config.calamares1Edited ? COLOR_GREEN : COLOR_RED) + " Calamares 1st initcpio.conf" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.calamares2Edited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += COLOR_GREEN + " Calamares 2nd initcpio.conf" + COLOR_RESET + "\n";
+    menuBuffer += (config.calamares2Edited ? COLOR_GREEN : COLOR_RED) + " Calamares 2nd initcpio.conf" + COLOR_RESET + "\n";
 
     // Menu title and items
     menuBuffer += COLOR_CYAN + "\n  " + title + COLOR_RESET + "\n";
@@ -818,7 +818,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
         if (i == static_cast<size_t>(selected)) {
             menuBuffer += COLOR_HIGHLIGHT + "➤ " + items[i] + COLOR_RESET + "\n";
         } else {
-            menuBuffer += COLOR_BLUE + "  " + items[i] + COLOR_RESET + "\n";
+            menuBuffer += COLOR_RED + "  " + items[i] + COLOR_RESET + "\n";
         }
     }
 
@@ -896,7 +896,7 @@ void showSetupMenu() {
     int key;
 
     while (true) {
-        key = showMenu("ISO Creation Setup Menu:", items, selected);
+        key = showMenu("Setup Menu:", items, selected);
 
         if (key == -1) {
             // Time updated, re-render
@@ -1218,7 +1218,7 @@ void cloneAnotherDrive(const std::string& cloneDir) {
         return;
     }
 
-    std::cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "\nAvailable drives:" << COLOR_RESET << std::endl;
     execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep -v 'loop'", true);
 
     std::string drive = getUserInput("Enter drive to clone (e.g., /dev/sda2): ");
@@ -1253,7 +1253,7 @@ void cloneAnotherDrive(const std::string& cloneDir) {
         }
     }
 
-    std::cout << COLOR_CYAN << "Creating SquashFS from " << drive << "..." << COLOR_RESET << std::endl;
+    std::cout << COLOR_GREEN << "Creating SquashFS from " << drive << "..." << COLOR_RESET << std::endl;
 
     std::string outputDir = getOutputDirectory();
     std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
@@ -1412,7 +1412,7 @@ void showMainMenu() {
     while (true) {
         bool allChecked = config.allCheckboxesChecked();
 
-        key = showMenu("Main Menu:", items, selected);
+        key = showMenu("cmiadvanced main menu:", items, selected);
 
         if (key == -1) {
             continue;
