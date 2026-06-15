@@ -1,8 +1,6 @@
 
-new 2.0 21/06/2025
-will be open source and support Arch Ubuntu And Debian
-Currently It All Needs To Be Tested 
+v3.0.x is currently being built and will primarily support arch but that could change
 
+v2.0.x early 2026 supports arch 
 
-Arch and Debina in Beta v1.06.1 26-01-2025 currently
-Arch, Ubuntu And Debian in v1.06 old release
+v1.06.1 26-01-2025 used to support Arch, Ubuntu And Debian but its broken for ubuntu and debian due to changes in their systems
