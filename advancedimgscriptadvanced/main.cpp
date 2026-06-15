@@ -19,6 +19,7 @@
 #include <thread>
 #include <sstream>
 #include <iomanip>
+#include <chrono>
 
 // REMOVED Qt includes
 // #include <QFile>
@@ -43,6 +44,7 @@ std::atomic<bool> time_thread_running(true);
 std::mutex time_mutex;
 std::string current_time_str;
 bool should_reset = false;
+std::atomic<bool> menu_needs_refresh(false);
 
 // Constants
 const std::string ORIG_IMG_NAME = "rootfs1.img";
@@ -223,6 +225,7 @@ void update_time_thread() {
             std::lock_guard<std::mutex> lock(time_mutex);
             current_time_str = datetime;
         }
+        menu_needs_refresh = true;
         sleep(1);
     }
 }
@@ -289,29 +292,43 @@ void printCheckbox(bool checked) {
     }
 }
 
+// CHANGED: New method to display ASCII art without proportion issues
+void displayAsciiArt() {
+    const char* ascii_art =
+    "███████████████████████████████████████████████████████████████████████████████████╗\n"
+    "░█████╗░██║░░░░░░█████╗░██║░░░██║██████╗░███████╗███╗░░░███╗░█████╗░██████╗░██████╗\n"
+    "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
+    "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+    "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+    "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
+    "░╚════╝░╚══════╝╚═╝░░╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝╚═╝░░░╚═╝░╚════╝░╚═════╝░╝░\n"
+    "███████████████████████████████████████████████████████████████████████████████████\n";
+
+        // Print line by line to maintain proportions
+        std::istringstream stream(ascii_art);
+        std::string line;
+        while (std::getline(stream, line)) {
+            std::cout << COLOR_RED << line << COLOR_RESET << std::endl;
+        }
+}
+
 void printBanner() {
     std::cout << "\033[2J\033[1;1H";
 
-    std::cout << COLOR_RED << R"(
-████████████████████████████████████████████████████████████████████████████████
-░█████╗░██║░░░░░░█████╗░██║░░░██║██████╗░███████╗███╗░░░███╗░█████╗░██████╗░██████╗
-██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝
-██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░
-██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗
-╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
-░╚════╝░╚══════╝╚═╝░░░░░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
-████████████████████████████████████████████████████████████████████████████████
-)" << COLOR_RESET << std::endl;
-std::cout << COLOR_CYAN << " cmiimgisocreatoradvanced Beta v3.0 15-06-2026" << COLOR_RESET << std::endl;
+    // Use the new method to display ASCII art
+    displayAsciiArt();
 
-{
-    std::lock_guard<std::mutex> lock(time_mutex);
-    std::cout << COLOR_BLUE << "Current UK Time: " << COLOR_CYAN << current_time_str << COLOR_RESET << std::endl;
-}
+    std::cout << COLOR_CYAN << " cmiimgisocreatoradvanced Beta v3.0 15-06-2026" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" << COLOR_RESET << std::endl;
 
-std::cout << COLOR_GREEN << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
-execute_command("df -h / | tail -1");
-std::cout << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(time_mutex);
+        std::cout << COLOR_BLUE << "Current UK Time: " << COLOR_CYAN << current_time_str << COLOR_RESET << std::endl;
+    }
+
+    std::cout << COLOR_BLUE << "Filesystem      Size  Used Avail Use% Mounted on" << COLOR_RESET << std::endl;
+    execute_command("df -h / | tail -1");
+    std::cout << std::endl;
 }
 
 void printConfigStatus() {
@@ -320,7 +337,7 @@ void printConfigStatus() {
     // NEW: Files extracted checkbox
     std::cout << " ";
     printCheckbox(config.filesExtracted);
-    std::cout << " Needed Files Extracted" << std::endl;
+    std::cout << " Needed Files" << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.isoTag.empty());
@@ -336,7 +353,7 @@ void printConfigStatus() {
 
     std::cout << " ";
     printCheckbox(!config.vmlinuzPath.empty());
-    std::cout << " vmlinuz Selected: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
+    std::cout << " vmlinuz: " << (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_CYAN + config.vmlinuzPath) << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(!config.cloneDir.empty());
@@ -344,27 +361,27 @@ void printConfigStatus() {
 
     std::cout << " ";
     printCheckbox(config.mkinitcpioGenerated);
-    std::cout << " mkinitcpio Generated" << std::endl;
+    std::cout << " mkinitcpio" << std::endl;
 
     std::cout << " ";
     printCheckbox(config.grubEdited);
-    std::cout << " GRUB Config Edited" << std::endl;
+    std::cout << " GRUB Config" << std::endl;
 
     std::cout << " ";
     printCheckbox(config.bootTextEdited);
-    std::cout << " Boot Text Edited" << std::endl;
+    std::cout << " Boot Text" << std::endl;
 
     std::cout << " ";
     printCheckbox(config.calamaresBrandingEdited);
-    std::cout << " Calamares Branding Edited" << std::endl;
+    std::cout << " Calamares Branding" << std::endl;
 
     std::cout << " ";
     printCheckbox(config.calamares1Edited);
-    std::cout << " Calamares 1st initcpio.conf Edited" << std::endl;
+    std::cout << " Calamares 1st initcpio.conf" << std::endl;
 
     std::cout << " ";
     printCheckbox(config.calamares2Edited);
-    std::cout << " Calamares 2nd initcpio.conf Edited" << std::endl;
+    std::cout << " Calamares 2nd initcpio.conf" << std::endl;
 }
 
 std::string getUserInput(const std::string& prompt) {
@@ -681,23 +698,178 @@ void loadConfig() {
     }
 }
 
+// THIS IS THE ORIGINAL WORKING showMenu - KEPT EXACTLY AS IS except for adding refresh logic
 int showMenu(const std::string &title, const std::vector<std::string> &items, int selected) {
-    std::cout << "\033[2J\033[1;1H";
-    printBanner();
-    printConfigStatus();
+    // Build the entire menu in a string first, then output all at once to prevent flickering
+    std::string menuBuffer;
 
-    std::cout << COLOR_CYAN << "\n  " << title << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "  " << std::string(title.length(), '-') << COLOR_RESET << std::endl;
+    menuBuffer += "\033[2J\033[1;1H";
+    menuBuffer += "\033[?25l"; // Hide cursor
+
+    // Banner using the new ASCII art method
+    std::istringstream ascii_stream(
+        "███████████████████████████████████████████████████████████████████████████████████╗\n"
+        "░█████╗░██║░░░░░░█████╗░██║░░░██║██████╗░███████╗███╗░░░███╗░█████╗░██████╗░██████╗\n"
+        "██╔══██╗██║░░░░░██╔══██╗██║░░░██║██╔══██╗██╔════╝████╗░████║██╔══██╗██╔══██╗██╔════╝\n"
+        "██║░░╚═╝██║░░░░░███████║██║░░░██║██║░░██║█████╗░░██╔████╔██║██║░░██║██║░░██║╚█████╗░\n"
+        "██║░░██╗██║░░░░░██╔══██║██║░░░██║██║░░██║██╔══╝░░██║╚██╔╝██║██║░░██║██║░░██║░╚═══██╗\n"
+        "╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝\n"
+        "░╚════╝░╚══════╝╚═╝░░╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝╚═╝░░░╚═╝░╚════╝░╚═════╝░╝░\n"
+        "███████████████████████████████████████████████████████████████████████████████████╝\n"
+    );
+
+    std::string line;
+    while (std::getline(ascii_stream, line)) {
+        menuBuffer += COLOR_RED + line + COLOR_RESET + "\n";
+    }
+
+    menuBuffer += COLOR_CYAN + "                    cmiimgisocreatoradvanced Beta v3.0 15-06-2026" + COLOR_RESET + "\n";
+    menuBuffer += COLOR_CYAN + "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" + COLOR_RESET + "\n";
+
+    {
+        std::lock_guard<std::mutex> lock(time_mutex);
+        menuBuffer += COLOR_GREEN + "Current UK Time: " + COLOR_GREEN + current_time_str + COLOR_RESET + "\n";
+    }
+
+    menuBuffer += COLOR_GREEN + "Filesystem      Size  Used Avail Use% Mounted on" + COLOR_RESET + "\n";
+
+    // Execute df command and capture output
+    FILE* dfPipe = popen("df -h / | tail -1", "r");
+    if (dfPipe) {
+        char buffer[256];
+        while (fgets(buffer, sizeof(buffer), dfPipe) != nullptr) {
+            menuBuffer += COLOR_GREEN + std::string(buffer) + COLOR_RESET;
+        }
+        pclose(dfPipe);
+    }
+    menuBuffer += "\n";
+
+    // Config Status
+    menuBuffer += COLOR_CYAN + "Current Configuration:" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.filesExtracted ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Needed Files" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (!config.isoTag.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " ISO Tag: " + (config.isoTag.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.isoTag) + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (!config.isoName.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " ISO Name: " + (config.isoName.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.isoName) + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (!config.outputDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Output Directory: " + (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.outputDir) + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (!config.vmlinuzPath.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " vmlinuz: " + (config.vmlinuzPath.empty() ? COLOR_YELLOW + "Not selected" : COLOR_GREEN + config.vmlinuzPath) + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (!config.cloneDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Clone Directory: " + (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_GREEN + config.cloneDir) + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.mkinitcpioGenerated ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " mkinitcpio" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.grubEdited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " GRUB Config" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.bootTextEdited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Boot Text" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.calamaresBrandingEdited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Calamares Branding" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.calamares1Edited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Calamares 1st initcpio.conf" + COLOR_RESET + "\n";
+
+    menuBuffer += " ";
+    menuBuffer += (config.calamares2Edited ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += COLOR_GREEN + " Calamares 2nd initcpio.conf" + COLOR_RESET + "\n";
+
+    // Menu title and items
+    menuBuffer += COLOR_CYAN + "\n  " + title + COLOR_RESET + "\n";
+    menuBuffer += COLOR_CYAN + "  " + std::string(title.length(), '-') + COLOR_RESET + "\n";
 
     for (size_t i = 0; i < items.size(); i++) {
         if (i == static_cast<size_t>(selected)) {
-            std::cout << COLOR_HIGHLIGHT << "➤ " << items[i] << COLOR_RESET << "\n";
+            menuBuffer += COLOR_HIGHLIGHT + "➤ " + items[i] + COLOR_RESET + "\n";
         } else {
-            std::cout << COLOR_NORMAL << "  " << items[i] << COLOR_RESET << "\n";
+            menuBuffer += COLOR_BLUE + "  " + items[i] + COLOR_RESET + "\n";
         }
     }
 
-    return getch();
+    // Output entire menu at once to prevent flickering
+    std::cout << menuBuffer;
+    std::cout.flush();
+
+    // Show cursor again
+    std::cout << "\033[?25h";
+    std::cout.flush();
+
+    menu_needs_refresh = false;
+
+    // Use kbhit-style polling with timeout to allow time updates
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+
+    int oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+
+    int key = -1;
+    auto start = std::chrono::steady_clock::now();
+
+    while (key == -1) {
+        // Check if time updated and we need to refresh
+        if (menu_needs_refresh) {
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+            fcntl(STDIN_FILENO, F_SETFL, oldf);
+            return -1; // Signal to caller to re-render
+        }
+
+        // Set non-blocking
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+        key = getchar();
+
+        if (key == EOF) {
+            key = -1;
+            // Restore blocking for a moment to let CPU rest
+            tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+            fcntl(STDIN_FILENO, F_SETFL, oldf);
+            usleep(50000); // 50ms
+        } else if (key == 27) {
+            // Check for arrow keys
+            int key2 = getchar();
+            if (key2 == '[') {
+                int key3 = getchar();
+                if (key3 == 'A') {
+                    key = 'A';
+                } else if (key3 == 'B') {
+                    key = 'B';
+                } else {
+                    key = -1;
+                }
+            } else {
+                key = -1;
+            }
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    return key;
 }
 
 void showSetupMenu() {
@@ -722,6 +894,11 @@ void showSetupMenu() {
 
     while (true) {
         key = showMenu("ISO Creation Setup Menu:", items, selected);
+
+        if (key == -1) {
+            // Time updated, re-render
+            continue;
+        }
 
         switch (key) {
             case 'A':
@@ -1049,7 +1226,7 @@ void cloneAnotherDrive(const std::string& cloneDir) {
 
     std::string checkCmd = "ls " + drive + " > /dev/null 2>&1";
     if (system(checkCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Drive " << drive + " does not exist!" << COLOR_RESET << std::endl;
+        std::cerr << COLOR_RED << "Drive " + drive + " does not exist!" << COLOR_RESET << std::endl;
         return;
     }
 
@@ -1165,6 +1342,10 @@ void showCloneOptionsMenu() {
     while (true) {
         key = showMenu("Clone Options - Select Source:", items, selected);
 
+        if (key == -1) {
+            continue;
+        }
+
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
@@ -1271,6 +1452,10 @@ void showMainMenu() {
 
         key = showMenu("Main Menu:", items, selected);
 
+        if (key == -1) {
+            continue;
+        }
+
         switch (key) {
             case 'A':
                 if (selected > 0) selected--;
@@ -1292,7 +1477,7 @@ void showMainMenu() {
                     case 3:
                         if (!allChecked) {
                             std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
-                            std::cout << COLOR_RED << "Please complete all checkboxes in the Setup Scripts menu." << COLOR_RESET << std::endl;
+                            std::cerr << COLOR_RED << "Please complete all checkboxes in the Setup Scripts menu." << COLOR_RESET << std::endl;
                             std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                             getch();
                         } else {
@@ -1343,16 +1528,8 @@ int main(int argc, char *argv[]) {
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
     execute_command("mkdir -p " + configDir, true);
 
-    // CHANGED: Add prompt for update check
-    std::string updateChoice = getUserInput("Do you want to check for updates? (yes/no): ");
-    if (updateChoice == "yes" || updateChoice == "y" || updateChoice == "Y") {
-        if (checkForUpdates()) {
-            updateScript();
-            return 0;
-        }
-    } else {
-        std::cout << COLOR_CYAN << "Skipping update check." << COLOR_RESET << std::endl;
-    }
+    // REMOVED: Update check at startup
+    // Now directly load config and start the application
 
     loadConfig();
 
