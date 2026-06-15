@@ -105,7 +105,7 @@
 ## 📋 Requirements for c multi iso creator
 - being updated soon 
   
-## 📋 Requirements for c++ multi iso creator and img iso creator
+## 📋 Requirements for my c++ multi iso creator
 - Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
 - GCC compiler (C++23 compatible)
 - Root privileges (sudo access)
