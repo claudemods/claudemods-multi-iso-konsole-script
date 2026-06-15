@@ -29,11 +29,13 @@
 
 // ADD THIS: Include our resource manager
 #include "resources.h"
+// ADD THIS: Include our cloner
+#include "cloner.h"
+// ADD THIS: Include our setup scripts
+#include "setupscript.h"
 
-// Forward declarations
+// Forward declarations (default argument only here, not in cloner.h)
 void saveConfig();
-void execute_command(const std::string& cmd, bool continueOnError = false);
-void printCheckbox(bool checked);
 std::string getUserInput(const std::string& prompt);
 void clearScreen();
 int getch();
@@ -47,44 +49,14 @@ bool should_reset = false;
 std::atomic<bool> menu_needs_refresh(false);
 
 // Constants
-const std::string ORIG_IMG_NAME = "rootfs1.img";
-const std::string FINAL_IMG_NAME = "rootfs.img";
 std::string MOUNT_POINT = "/mnt/ext4_temp";
 const std::string SOURCE_DIR = "/";
-const std::string COMPRESSION_LEVEL = "22";
-const std::string SQUASHFS_COMPRESSION = "zstd";
-const std::vector<std::string> SQUASHFS_COMPRESSION_ARGS = {"-Xcompression-level", "22"};
 std::string BUILD_DIR = "/home/$USER/.config/cmi/build-image-arch-img";
 std::string USERNAME = "";
 
-// Configuration state
-struct ConfigState {
-    std::string isoTag;
-    std::string isoName;
-    std::string outputDir;
-    std::string vmlinuzPath;
-    std::string cloneDir;
-    bool mkinitcpioGenerated = false;
-    bool grubEdited = false;
-    bool bootTextEdited = false;
-    bool calamaresBrandingEdited = false;
-    bool calamares1Edited = false;
-    bool calamares2Edited = false;
-    bool filesExtracted = false; // NEW: Track if files have been extracted
-
-    bool isReadyForISO() const {
-        return !isoTag.empty() && !isoName.empty() && !outputDir.empty() &&
-        !vmlinuzPath.empty() && mkinitcpioGenerated && grubEdited;
-    }
-
-    bool allCheckboxesChecked() const {
-        return !isoTag.empty() && !isoName.empty() &&
-        !outputDir.empty() && !vmlinuzPath.empty() && !cloneDir.empty() &&
-        mkinitcpioGenerated && grubEdited && bootTextEdited &&
-        calamaresBrandingEdited && calamares1Edited && calamares2Edited &&
-        filesExtracted; // NEW: Include filesExtracted in check
-    }
-} config;
+// Configuration state - definition is now in setupscript.h
+// Only declare the instance here
+ConfigState config;
 
 // ANSI color codes
 const std::string COLOR_RED = "\033[31m";
@@ -318,7 +290,7 @@ void printBanner() {
     // Use the new method to display ASCII art
     displayAsciiArt();
 
-    std::cout << COLOR_RED << " cmiadvanced Beta v3.0 15-06-2026" << COLOR_RESET << std::endl;
+    std::cout << COLOR_RED << " cmiadvanced Beta v3.0 16-06-2026" << COLOR_RESET << std::endl;
     std::cout << COLOR_RED << "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" << COLOR_RESET << std::endl;
 
     {
@@ -352,12 +324,18 @@ void printConfigStatus() {
     std::cout << (config.outputDir.empty() ? COLOR_RED : COLOR_GREEN) << " Output Directory: " << (config.outputDir.empty() ? "Not set" : config.outputDir) << COLOR_RESET << std::endl;
 
     std::cout << " ";
+    printCheckbox(!config.cloneDir.empty());
+    std::cout << (config.cloneDir.empty() ? COLOR_RED : COLOR_GREEN) << " Clone Directory: " << (config.cloneDir.empty() ? "Not set" : config.cloneDir) << COLOR_RESET << std::endl;
+
+    // MOVED: vmlinuz below clone directory
+    std::cout << " ";
     printCheckbox(!config.vmlinuzPath.empty());
     std::cout << (config.vmlinuzPath.empty() ? COLOR_RED : COLOR_GREEN) << " vmlinuz: " << (config.vmlinuzPath.empty() ? "Not selected" : config.vmlinuzPath) << COLOR_RESET << std::endl;
 
+    // NEW: mkinitcpio config checkbox
     std::cout << " ";
-    printCheckbox(!config.cloneDir.empty());
-    std::cout << (config.cloneDir.empty() ? COLOR_RED : COLOR_GREEN) << " Clone Directory: " << (config.cloneDir.empty() ? "Not set" : config.cloneDir) << COLOR_RESET << std::endl;
+    printCheckbox(config.mkinitcpioConfigCopied);
+    std::cout << (config.mkinitcpioConfigCopied ? COLOR_GREEN : COLOR_RED) << " mkinitcpio Config" << COLOR_RESET << std::endl;
 
     std::cout << " ";
     printCheckbox(config.mkinitcpioGenerated);
@@ -458,197 +436,6 @@ std::string getUserInput(const std::string& prompt) {
     return input;
 }
 
-void selectVmlinuz() {
-    DIR *dir;
-    struct dirent *ent;
-    std::vector<std::string> vmlinuzFiles;
-
-    if ((dir = opendir("/boot")) != nullptr) {
-        while ((ent = readdir(dir)) != nullptr) {
-            std::string filename = ent->d_name;
-            if (filename.find("vmlinuz") == 0) {
-                vmlinuzFiles.push_back("/boot/" + filename);
-            }
-        }
-        closedir(dir);
-    } else {
-        std::cerr << COLOR_RED << "Could not open /boot directory" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    if (vmlinuzFiles.empty()) {
-        std::cerr << COLOR_RED << "No vmlinuz files found in /boot!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::cout << COLOR_GREEN << "Available vmlinuz files:" << COLOR_RESET << std::endl;
-    for (size_t i = 0; i < vmlinuzFiles.size(); i++) {
-        std::cout << COLOR_GREEN << (i+1) << ") " << vmlinuzFiles[i] << COLOR_RESET << std::endl;
-    }
-
-    std::string selection = getUserInput("Select vmlinuz file (1-" + std::to_string(vmlinuzFiles.size()) + "): ");
-    try {
-        int choice = std::stoi(selection);
-        if (choice > 0 && choice <= static_cast<int>(vmlinuzFiles.size())) {
-            config.vmlinuzPath = vmlinuzFiles[choice-1];
-
-            std::string destPath = BUILD_DIR + "/boot/vmlinuz-x86_64";
-            std::string copyCmd = "sudo cp " + config.vmlinuzPath + " " + destPath;
-            execute_command(copyCmd);
-
-            std::cout << COLOR_CYAN << "Selected: " << config.vmlinuzPath << COLOR_RESET << std::endl;
-            std::cout << COLOR_CYAN << "Copied to: " << destPath << COLOR_RESET << std::endl;
-            saveConfig();
-        } else {
-            std::cerr << COLOR_RED << "Invalid selection!" << COLOR_RESET << std::endl;
-        }
-    } catch (...) {
-        std::cerr << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
-    }
-}
-
-void generateMkinitcpio() {
-    if (config.vmlinuzPath.empty()) {
-        std::cerr << COLOR_RED << "Please select vmlinuz first!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    if (BUILD_DIR.empty()) {
-        std::cerr << COLOR_RED << "Build directory not set!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::cout << COLOR_CYAN << "Generating initramfs..." << COLOR_RESET << std::endl;
-    execute_command("cd " + BUILD_DIR + " && sudo mkinitcpio -c mkinitcpio.conf -g " + BUILD_DIR + "/boot/initramfs-x86_64.img");
-
-    config.mkinitcpioGenerated = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "mkinitcpio generated successfully!" << COLOR_RESET << std::endl;
-}
-
-void editGrubCfg() {
-    if (BUILD_DIR.empty()) {
-        std::cerr << COLOR_RED << "Build directory not set!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::string grubCfgPath = BUILD_DIR + "/boot/grub/grub.cfg";
-    std::cout << COLOR_CYAN << "Editing GRUB config: " << grubCfgPath << COLOR_RESET << std::endl;
-
-    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + grubCfgPath;
-    execute_command(nanoCommand);
-
-    config.grubEdited = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "GRUB config edited!" << COLOR_RESET << std::endl;
-}
-
-void editBootText() {
-    if (BUILD_DIR.empty()) {
-        std::cerr << COLOR_RED << "Build directory not set!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::string bootTextPath = BUILD_DIR + "/boot/grub/kernels.cfg";
-    std::cout << COLOR_CYAN << "Editing Boot Text: " << bootTextPath << COLOR_RESET << std::endl;
-
-    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + bootTextPath;
-    execute_command(nanoCommand);
-
-    config.bootTextEdited = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "Boot Text edited!" << COLOR_RESET << std::endl;
-}
-
-void editCalamaresBranding() {
-    std::string calamaresBrandingPath = "/usr/share/calamares/branding/claudemods/branding.desc";
-    std::cout << COLOR_CYAN << "Editing Calamares Branding: " << calamaresBrandingPath << COLOR_RESET << std::endl;
-
-    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + calamaresBrandingPath;
-    execute_command(nanoCommand);
-
-    config.calamaresBrandingEdited = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "Calamares Branding edited!" << COLOR_RESET << std::endl;
-}
-
-void editCalamares1() {
-    std::string calamares1Path = "/etc/calamares/modules/initcpio.conf";
-    std::cout << COLOR_CYAN << "Editing Calamares 1st initcpio.conf: " << calamares1Path << COLOR_RESET << std::endl;
-
-    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + calamares1Path;
-    execute_command(nanoCommand);
-
-    config.calamares1Edited = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "Calamares 1st initcpio.conf edited!" << COLOR_RESET << std::endl;
-}
-
-void editCalamares2() {
-    std::string calamares2Path = "/usr/share/calamares/modules/initcpio.conf";
-    std::cout << COLOR_CYAN << "Editing Calamares 2nd initcpio.conf: " << calamares2Path << COLOR_RESET << std::endl;
-
-    std::string nanoCommand = "sudo env TERM=xterm-256color nano -Y cyanish " + calamares2Path;
-    execute_command(nanoCommand);
-
-    config.calamares2Edited = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "Calamares 2nd initcpio.conf edited!" << COLOR_RESET << std::endl;
-}
-
-void setIsoTag() {
-    config.isoTag = getUserInput("Enter ISO tag (e.g., default is 2026): ");
-    saveConfig();
-}
-
-void setIsoName() {
-    config.isoName = getUserInput("Enter ISO name (e.g., claudemods.iso): ");
-    saveConfig();
-}
-
-void setOutputDir() {
-    std::string defaultDir = "/home/" + USERNAME + "/Downloads";
-    std::cout << COLOR_GREEN << "Current output directory: " << (config.outputDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.outputDir) << COLOR_RESET << std::endl;
-    std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
-    config.outputDir = getUserInput("Enter output directory (e.g., " + defaultDir + " or $USER/Downloads): ");
-
-    size_t user_pos;
-    if ((user_pos = config.outputDir.find("$USER")) != std::string::npos) {
-        config.outputDir.replace(user_pos, 5, USERNAME);
-    }
-
-    if (config.outputDir.empty()) {
-        config.outputDir = defaultDir;
-    }
-
-    execute_command("mkdir -p " + config.outputDir, true);
-
-    saveConfig();
-}
-
-void setCloneDir() {
-    std::string defaultDir = "/home/" + USERNAME;
-    std::cout << COLOR_GREEN << "Current clone directory: " << (config.cloneDir.empty() ? COLOR_YELLOW + "Not set" : COLOR_CYAN + config.cloneDir) << COLOR_RESET << std::endl;
-    std::cout << COLOR_GREEN << "Default directory: " << COLOR_CYAN << defaultDir << COLOR_RESET << std::endl;
-
-    std::string parentDir = getUserInput("Enter parent directory for clone_system_temp folder (e.g., " + defaultDir + " or $USER): ");
-
-    size_t user_pos;
-    if ((user_pos = parentDir.find("$USER")) != std::string::npos) {
-        parentDir.replace(user_pos, 5, USERNAME);
-    }
-
-    if (parentDir.empty()) {
-        parentDir = defaultDir;
-    }
-
-    config.cloneDir = parentDir + "/clone_system_temp";
-
-    execute_command(" sudo mkdir -p " + config.cloneDir, true);
-
-    saveConfig();
-}
-
 std::string getConfigFilePath() {
     return "/home/" + USERNAME + "/.config/cmi/configuration.txt";
 }
@@ -663,6 +450,7 @@ void saveConfig() {
         configFile << "vmlinuzPath=" << config.vmlinuzPath << "\n";
         configFile << "cloneDir=" << config.cloneDir << "\n";
         configFile << "mkinitcpioGenerated=" << (config.mkinitcpioGenerated ? "1" : "0") << "\n";
+        configFile << "mkinitcpioConfigCopied=" << (config.mkinitcpioConfigCopied ? "1" : "0") << "\n";
         configFile << "grubEdited=" << (config.grubEdited ? "1" : "0") << "\n";
         configFile << "bootTextEdited=" << (config.bootTextEdited ? "1" : "0") << "\n";
         configFile << "calamaresBrandingEdited=" << (config.calamaresBrandingEdited ? "1" : "0") << "\n";
@@ -692,6 +480,7 @@ void loadConfig() {
                 else if (key == "vmlinuzPath") config.vmlinuzPath = value;
                 else if (key == "cloneDir") config.cloneDir = value;
                 else if (key == "mkinitcpioGenerated") config.mkinitcpioGenerated = (value == "1");
+                else if (key == "mkinitcpioConfigCopied") config.mkinitcpioConfigCopied = (value == "1");
                 else if (key == "grubEdited") config.grubEdited = (value == "1");
                 else if (key == "bootTextEdited") config.bootTextEdited = (value == "1");
                 else if (key == "calamaresBrandingEdited") config.calamaresBrandingEdited = (value == "1");
@@ -738,7 +527,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
         menuBuffer += COLOR_RED + line + COLOR_RESET + "\n";
     }
 
-    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 15-06-2026" + COLOR_RESET + "\n";
+    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 16-06-2026" + COLOR_RESET + "\n";
     menuBuffer += COLOR_RED + "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" + COLOR_RESET + "\n";
 
     {
@@ -778,13 +567,20 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
     menuBuffer += (!config.outputDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
     menuBuffer += (config.outputDir.empty() ? COLOR_RED : COLOR_GREEN) + " Output Directory: " + (config.outputDir.empty() ? "Not set" : config.outputDir) + COLOR_RESET + "\n";
 
+    // MOVED: Clone Directory before vmlinuz
+    menuBuffer += " ";
+    menuBuffer += (!config.cloneDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += (config.cloneDir.empty() ? COLOR_RED : COLOR_GREEN) + " Clone Directory: " + (config.cloneDir.empty() ? "Not set" : config.cloneDir) + COLOR_RESET + "\n";
+
+    // MOVED: vmlinuz below clone directory
     menuBuffer += " ";
     menuBuffer += (!config.vmlinuzPath.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
     menuBuffer += (config.vmlinuzPath.empty() ? COLOR_RED : COLOR_GREEN) + " vmlinuz: " + (config.vmlinuzPath.empty() ? "Not selected" : config.vmlinuzPath) + COLOR_RESET + "\n";
 
+    // NEW: mkinitcpio Config status
     menuBuffer += " ";
-    menuBuffer += (!config.cloneDir.empty() ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
-    menuBuffer += (config.cloneDir.empty() ? COLOR_RED : COLOR_GREEN) + " Clone Directory: " + (config.cloneDir.empty() ? "Not set" : config.cloneDir) + COLOR_RESET + "\n";
+    menuBuffer += (config.mkinitcpioConfigCopied ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
+    menuBuffer += (config.mkinitcpioConfigCopied ? COLOR_GREEN : COLOR_RED) + " mkinitcpio Config" + COLOR_RESET + "\n";
 
     menuBuffer += " ";
     menuBuffer += (config.mkinitcpioGenerated ? COLOR_GREEN + "[✓]" + COLOR_RESET : COLOR_RED + "[ ]" + COLOR_RESET);
@@ -875,128 +671,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
     return key;
 }
 
-void showSetupMenu() {
-    std::vector<std::string> items = {
-        "Extract Needed Files", // NEW: Added as first option
-        "Set Clone Directory",
-        "Set ISO Tag",
-        "Set ISO Name",
-        "Set Output Directory",
-        "Select vmlinuz",
-        "Generate mkinitcpio",
-        "Edit GRUB Config",
-        "Edit Boot Text",
-        "Edit Calamares Branding",
-        "Edit Calamares 1st initcpio.conf",
-        "Edit Calamares 2nd initcpio.conf",
-        "Back to Main Menu"
-    };
-
-    int selected = 0;
-    int key;
-
-    while (true) {
-        key = showMenu("Setup Menu:", items, selected);
-
-        if (key == -1) {
-            // Time updated, re-render
-            continue;
-        }
-
-        switch (key) {
-            case 'A':
-                if (selected > 0) selected--;
-                break;
-            case 'B':
-                if (selected < static_cast<int>(items.size()) - 1) selected++;
-                break;
-            case '\n':
-                switch (selected) {
-                    case 0: extractNeededFiles(); break; // NEW: Call extract function
-                    case 1: setCloneDir(); break;
-                    case 2: setIsoTag(); break;
-                    case 3: setIsoName(); break;
-                    case 4: setOutputDir(); break;
-                    case 5: selectVmlinuz(); break;
-                    case 6: generateMkinitcpio(); break;
-                    case 7: editGrubCfg(); break;
-                    case 8: editBootText(); break;
-                    case 9: editCalamaresBranding(); break;
-                    case 10: editCalamares1(); break;
-                    case 11: editCalamares2(); break;
-                    case 12: return;
-                }
-
-                if (selected != 12) {
-                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                    getch();
-                }
-                break;
-        }
-    }
-}
-
-// CHANGED: Mount using bind mount instead of OverlayFS
-bool mountSystemToCloneDir(const std::string& cloneDir) {
-    std::cout << COLOR_CYAN << "Mounting system to: " << cloneDir << COLOR_RESET << std::endl;
-
-    execute_command("sudo mkdir -p " + cloneDir, true);
-
-    // Use bind mount instead of OverlayFS
-    std::string mountCmd = "sudo mount --bind / " + cloneDir;
-
-    if (system(mountCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Failed to bind mount!" << COLOR_RESET << std::endl;
-        return false;
-    }
-
-    std::cout << COLOR_GREEN << "System mounted successfully to: " << cloneDir << COLOR_RESET << std::endl;
-    return true;
-}
-
-// UPDATED: Create SquashFS with exact rsync exclusions
-bool createSquashFS(const std::string& inputDir, const std::string& outputFile) {
-    // EXACT SAME EXCLUDES as original rsync command
-    std::string command = "sudo mksquashfs " + inputDir + " " + outputFile +
-    " -noappend -comp zstd -Xcompression-level 22 -b 256K " +
-    "-e etc/udev/rules.d/70-persistent-cd.rules " +
-    "-e etc/udev/rules.d/70-persistent-net.rules " +
-    "-e etc/mtab " +
-    "-e etc/fstab " +
-    "-e dev/* " +
-    "-e proc/* " +
-    "-e sys/* " +
-    "-e tmp/* " +
-    "-e run/* " +
-    "-e mnt/* " +
-    "-e media/* " +
-    "-e lost+found " +
-    "-e clone_system_temp";
-
-    execute_command(command, true);
-    return true;
-}
-
-bool createChecksum(const std::string& filename) {
-    std::string command = "sudo sha512sum " + filename + " > " + filename + ".sha512";
-    execute_command(command, true);
-    return true;
-}
-
-void printFinalMessage(const std::string& outputFile) {
-    std::cout << std::endl;
-    std::cout << COLOR_CYAN << "SquashFS image created successfully: " << outputFile << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Checksum file: " << outputFile + ".sha512" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Size: ";
-    execute_command("sudo du -h " + outputFile + " | cut -f1", true);
-    std::cout << COLOR_RESET;
-}
-
-std::string getOutputDirectory() {
-    std::string dir = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS";
-    return dir;
-}
-
+// Helper functions needed by Cloner
 std::string expandPath(const std::string& path) {
     std::string result = path;
     size_t pos;
@@ -1008,6 +683,18 @@ std::string expandPath(const std::string& path) {
         result.replace(pos, 5, USERNAME);
     }
     return result;
+}
+
+bool isDeviceMounted(const std::string& device) {
+    std::string command = "mount | grep " + device + " > /dev/null 2>&1";
+    return system(command.c_str()) == 0;
+}
+
+bool mountDevice(const std::string& device, const std::string& mountPoint) {
+    std::cout << COLOR_CYAN << "Mounting " << device << " to " << mountPoint << "..." << COLOR_RESET << std::endl;
+    execute_command("sudo mkdir -p " + mountPoint, true);
+    std::string mountCmd = "sudo mount " + device + " " + mountPoint;
+    return system(mountCmd.c_str()) == 0;
 }
 
 bool createISO() {
@@ -1167,231 +854,6 @@ void updateScript() {
     getch();
 }
 
-bool isDeviceMounted(const std::string& device) {
-    std::string command = "mount | grep " + device + " > /dev/null 2>&1";
-    return system(command.c_str()) == 0;
-}
-
-bool mountDevice(const std::string& device, const std::string& mountPoint) {
-    std::cout << COLOR_CYAN << "Mounting " << device << " to " << mountPoint << "..." << COLOR_RESET << std::endl;
-    execute_command("sudo mkdir -p " + mountPoint, true);
-    std::string mountCmd = "sudo mount " + device + " " + mountPoint;
-    return system(mountCmd.c_str()) == 0;
-}
-
-// UPDATED: Clone current system using bind mount with unmount after completion
-void cloneCurrentSystem(const std::string& cloneDir) {
-    if (!config.allCheckboxesChecked()) {
-        std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
-        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-        getch();
-        return;
-    }
-
-    if (!mountSystemToCloneDir(cloneDir)) {
-        std::cerr << COLOR_RED << "Failed to mount system!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    // Create SquashFS directly from the mounted bind
-    std::string outputDir = getOutputDirectory();
-    std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
-
-    createSquashFS(cloneDir, finalImgPath);
-
-    // Unmount the bind mount after SquashFS creation
-    std::cout << COLOR_CYAN << "Unmounting bind mount..." << COLOR_RESET << std::endl;
-    execute_command("sudo umount " + cloneDir, true);
-
-    createChecksum(finalImgPath);
-    printFinalMessage(finalImgPath);
-
-    std::cout << COLOR_GREEN << "Current system cloned successfully using bind mount!" << COLOR_RESET << std::endl;
-}
-
-// Clone another drive
-void cloneAnotherDrive(const std::string& cloneDir) {
-    if (!config.allCheckboxesChecked()) {
-        std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
-        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-        getch();
-        return;
-    }
-
-    std::cout << COLOR_GREEN << "\nAvailable drives:" << COLOR_RESET << std::endl;
-    execute_command("lsblk -f -o NAME,FSTYPE,SIZE,MOUNTPOINT | grep -v 'loop'", true);
-
-    std::string drive = getUserInput("Enter drive to clone (e.g., /dev/sda2): ");
-    if (drive.empty()) {
-        std::cerr << COLOR_RED << "No drive specified!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::string checkCmd = "ls " + drive + " > /dev/null 2>&1";
-    if (system(checkCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Drive " + drive + " does not exist!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::string tempMountPoint = "/mnt/temp_clone_mount";
-
-    if (!isDeviceMounted(drive)) {
-        if (!mountDevice(drive, tempMountPoint)) {
-            std::cerr << COLOR_RED << "Failed to mount " + drive + "!" << COLOR_RESET << std::endl;
-            return;
-        }
-    } else {
-        std::string mountCmd = "mount | grep " + drive + " | awk '{print $3}'";
-        FILE* fp = popen(mountCmd.c_str(), "r");
-        if (fp) {
-            char mountPath[256];
-            if (fgets(mountPath, sizeof(mountPath), fp)) {
-                tempMountPoint = mountPath;
-                tempMountPoint.erase(tempMountPoint.find_last_not_of("\n") + 1);
-            }
-            pclose(fp);
-        }
-    }
-
-    std::cout << COLOR_GREEN << "Creating SquashFS from " << drive << "..." << COLOR_RESET << std::endl;
-
-    std::string outputDir = getOutputDirectory();
-    std::string finalImgPath = outputDir + "/" + FINAL_IMG_NAME;
-
-    // Create SquashFS directly from the mounted drive with exclusions
-    std::string command = "sudo mksquashfs " + tempMountPoint + " " + finalImgPath +
-    " -noappend -comp xz -b 256K -Xbcj x86 " +
-    "-e etc/udev/rules.d/70-persistent-cd.rules " +
-    "-e etc/udev/rules.d/70-persistent-net.rules " +
-    "-e etc/mtab " +
-    "-e etc/fstab " +
-    "-e dev/* " +
-    "-e proc/* " +
-    "-e sys/* " +
-    "-e tmp/* " +
-    "-e run/* " +
-    "-e mnt/* " +
-    "-e media/* " +
-    "-e lost+found " +
-    "-e temp_clone_mount";
-
-    execute_command(command, true);
-
-    if (!isDeviceMounted(drive) || system(("mount | grep " + drive + " | grep " + tempMountPoint).c_str()) == 0) {
-        execute_command("sudo umount " + tempMountPoint, true);
-        execute_command("sudo rmdir " + tempMountPoint, true);
-    }
-
-    createChecksum(finalImgPath);
-    printFinalMessage(finalImgPath);
-
-    std::cout << COLOR_GREEN << "Drive " << drive << " cloned successfully!" << COLOR_RESET << std::endl;
-}
-
-void cloneFolderOrFile(const std::string& cloneDir) {
-    if (!config.allCheckboxesChecked()) {
-        std::cerr << COLOR_RED << "Cannot create image - all setup steps must be completed first!" << COLOR_RESET << std::endl;
-        std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-        getch();
-        return;
-    }
-
-    std::cout << COLOR_CYAN << "\nClone Folder or File" << COLOR_RESET << std::endl;
-    std::cout << COLOR_YELLOW << "Enter the path to a folder or file you want to clone." << COLOR_RESET << std::endl;
-    std::cout << COLOR_YELLOW << "Examples:" << COLOR_RESET << std::endl;
-    std::cout << COLOR_YELLOW << "  - Folder: /home/" << USERNAME << "/Documents" << COLOR_RESET << std::endl;
-    std::cout << COLOR_YELLOW << "  - File: /home/" << USERNAME << "/file.txt" << COLOR_RESET << std::endl;
-
-    std::string sourcePath = getUserInput("Enter folder or file path to clone: ");
-    if (sourcePath.empty()) {
-        std::cerr << COLOR_RED << "No path specified!" << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::string checkCmd = "sudo test -e " + sourcePath + " > /dev/null 2>&1";
-    if (system(checkCmd.c_str()) != 0) {
-        std::cerr << COLOR_RED << "Source path does not exist: " << sourcePath << COLOR_RESET << std::endl;
-        return;
-    }
-
-    std::string userfilesDir = cloneDir + "/home/userfiles";
-    execute_command("sudo mkdir -p " + userfilesDir, true);
-
-    std::cout << COLOR_CYAN << "Cloning " << sourcePath << " to " << userfilesDir << "..." << COLOR_RESET << std::endl;
-
-    std::string rsyncCmd = "sudo rsync -aHAXSr --numeric-ids --info=progress2 " +
-    sourcePath + " " + userfilesDir + "/";
-
-    execute_command(rsyncCmd, true);
-
-    std::cout << COLOR_GREEN << "Successfully cloned " << sourcePath << " to " << userfilesDir << "!" << COLOR_RESET << std::endl;
-
-    std::string listCmd = "sudo ls -la " + userfilesDir + " | head -20";
-    std::cout << COLOR_CYAN << "Contents of userfiles directory:" << COLOR_RESET << std::endl;
-    execute_command(listCmd, true);
-}
-
-void showCloneOptionsMenu() {
-    std::vector<std::string> items = {
-        "Clone Current System (as it is now)",
-        "Clone Another Drive (e.g., /dev/sda2)",
-        "Clone Folder or File",
-        "Back to Main Menu"
-    };
-
-    int selected = 0;
-    int key;
-
-    while (true) {
-        key = showMenu("Clone Options - Select Source:", items, selected);
-
-        if (key == -1) {
-            continue;
-        }
-
-        switch (key) {
-            case 'A':
-                if (selected > 0) selected--;
-                break;
-            case 'B':
-                if (selected < static_cast<int>(items.size()) - 1) selected++;
-                break;
-            case '\n':
-                if (config.cloneDir.empty()) {
-                    std::cerr << COLOR_RED << "Clone directory not set! Please set it in Setup Scripts menu." << COLOR_RESET << std::endl;
-                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                    getch();
-                    break;
-                }
-
-                std::string cloneDir = expandPath(config.cloneDir);
-                execute_command("sudo mkdir -p " + cloneDir, true);
-
-                switch (selected) {
-                    case 0:
-                        cloneCurrentSystem(cloneDir);
-                        break;
-                    case 1:
-                        cloneAnotherDrive(cloneDir);
-                        break;
-                    case 2:
-                        cloneFolderOrFile(cloneDir);
-                        std::cout << COLOR_YELLOW << "Folder/File cloned to " << cloneDir << "/home/userfiles" << COLOR_RESET << std::endl;
-                        std::cout << COLOR_YELLOW << "You can now create an ISO that includes these files." << COLOR_RESET << std::endl;
-                        break;
-                    case 3:
-                        return;
-                }
-
-                if (selected != 3) {
-                    std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
-                    getch();
-                }
-                break;
-        }
-    }
-}
-
 void showMainMenu() {
     std::vector<std::string> items = {
         "Guide",
@@ -1440,7 +902,7 @@ void showMainMenu() {
                             std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
                             getch();
                         } else {
-                            showCloneOptionsMenu();
+                            Cloner::showCloneOptionsMenu(allChecked, config.cloneDir);
                         }
                         break;
                     case 3:
