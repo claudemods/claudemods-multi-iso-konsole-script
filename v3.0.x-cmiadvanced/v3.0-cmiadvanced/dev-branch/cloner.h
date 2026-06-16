@@ -388,32 +388,37 @@ public:
                 int progress = seconds_elapsed / 10;
                 if (progress < 1) progress = 1;
                 if (progress >= 60) {
-                    ErofsState::current_percentage = 60;
                     reached_60 = true;
                 } else {
                     ErofsState::current_percentage = progress;
                 }
             }
 
-            if (reached_60 && !uuid_detected) {
-                std::ifstream log_file(logFile);
-                if (log_file.is_open()) {
-                    std::string line;
-                    while (std::getline(log_file, line)) {
-                        if (line.find("uuid") != std::string::npos || line.find("UUID") != std::string::npos) {
-                            uuid_detected = true;
-                            break;
-                        }
-                    }
-                    log_file.close();
-                }
-            }
+            if (reached_60) {
+                // ALWAYS keep at 60% while waiting for UUID
+                ErofsState::current_percentage = 60;
 
-            if (uuid_detected) {
-                uuid_wait_counter++;
-                if (uuid_wait_counter >= 10) {
-                    ErofsState::current_percentage = 100;
-                    break;
+                if (!uuid_detected) {
+                    std::ifstream log_file(logFile);
+                    if (log_file.is_open()) {
+                        std::string line;
+                        while (std::getline(log_file, line)) {
+                            if (line.find("Filesystem UUID") != std::string::npos || line.find("Filesystem UUID") != std::string::npos) {
+                                uuid_detected = true;
+                                break;
+                            }
+                        }
+                        log_file.close();
+                    }
+                }
+
+                if (uuid_detected) {
+                    uuid_wait_counter++;
+                    if (uuid_wait_counter >= 10) {
+                        ErofsState::current_percentage = 100;
+                        break;
+                    }
+                    // Keep at 60% during the 10 second wait
                 }
             }
         }
