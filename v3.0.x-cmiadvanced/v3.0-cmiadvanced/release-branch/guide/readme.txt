@@ -1,6 +1,6 @@
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │                                                                              │
-│                  cmiadvanced Beta v3.0 16-06-2026 Guide                      │
+│                  cmiadvanced Beta v3.0 17-06-2026 Guide                      │
 │                                                                              │
 │            "Create Bootable ISO Images from Your System"                     │
 │                                                                              │
