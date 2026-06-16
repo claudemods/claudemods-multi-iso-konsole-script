@@ -8,8 +8,7 @@
 │                                                                              │
 │                          🔧 Quick Start Guide                                │
 │                                                                              │
-│  1️⃣ Compile and Run if you havent installed from the bash command            │
-│     Compile the C++ script and run the executable in your terminal           │
+│ 1️⃣ install the C++ script and run it in your terminal (type cmiadvanced)     │
 │                                                                              │
 │  2️⃣ Main Menu Options                                                        │
 │     The script provides these main functions:                                │
