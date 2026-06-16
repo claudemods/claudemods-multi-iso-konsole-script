@@ -69,7 +69,7 @@ detect_distro
 # Conditional logic based on the detected distribution
 if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     # Commands for Arch/CachyOS
-    print_status "Advanced C++ Arch Img Iso Script++ Beta v2.03.2 28-01-2026 Installer"
+    print_status "cmiadvanced Beta v3.0 17-06-2026 Installer"
     print_status "Updating pacman database"
     print_status "Installing dependencies"
     print_status "git clone and install main script"
@@ -80,9 +80,9 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     print_status "Git cloning repository"
     run_command_cyan "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git"
     print_status "Building installer"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && g++ -std=c++23 main.cpp -o advancedcscriptupdater.bin"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/updatermain && g++ -std=c++23 main.cpp -o cmiadvancedupdater.bin"
     print_status "Installing"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/advancedimgscript++/updatermain && ./advancedcscriptupdater.bin"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/updatermain && ./cmiadvancedupdater.bin"
     print_status "Cleaning up"
     run_command_cyan "rm -rf /home/$USER/claudemods-multi-iso-konsole-script"
     else
