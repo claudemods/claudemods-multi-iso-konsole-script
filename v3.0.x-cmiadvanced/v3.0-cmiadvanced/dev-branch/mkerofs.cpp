@@ -22,7 +22,7 @@ const std::string YELLOW = "\033[33m";
 const std::string RESET = "\033[0m";
 
 // Global variables for display thread
-std::atomic<int> current_percentage(10);
+std::atomic<int> current_percentage(1);
 std::atomic<bool> display_running(true);
 std::mutex display_mutex;
 std::chrono::steady_clock::time_point start_time;
@@ -30,9 +30,14 @@ std::chrono::steady_clock::time_point start_time;
 // Global variable for compression type
 int compression_option = 1;
 
+// Spinner state
+int spinner_pos = 0;
+int spinner_char_index = 0;
+int spinner_frame_counter = 0;
+
 // Function to print colored output
 void print_info(const std::string& msg) {
-    std::cout << CYAN << msg << RESET << std::endl;
+    std::cout << GREEN << msg << RESET << std::endl;
 }
 
 void print_success(const std::string& msg) {
@@ -92,7 +97,7 @@ std::string get_file_size(const std::string& path) {
     return "0 B";
 }
 
-// Function to show progress bar with timer and size
+// Function to show progress bar with spinner
 void show_progress_bar(int percentage, const std::string& timer, const std::string& size) {
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
@@ -107,15 +112,36 @@ void show_progress_bar(int percentage, const std::string& timer, const std::stri
     int bar_width = width - 9 - extra_width;
     if (bar_width < 10) bar_width = 10;
 
-    int filled = (percentage * bar_width) / 100;
+    // Ensure percentage is at least 1 for display
+    int display_percentage = percentage;
+    if (display_percentage < 1) display_percentage = 1;
+
+    int filled = (display_percentage * bar_width) / 100;
+    if (filled < 1) filled = 1;
     int empty = bar_width - filled;
 
+    // mksquashfs spinner characters
+    const char spinner_chars[] = {'|', '/', '-', '\\'};
+
     std::lock_guard<std::mutex> lock(display_mutex);
-    std::cout << "\r" << CYAN << "[";
-    for (int i = 0; i < filled; i++) std::cout << "=";
-    for (int i = 0; i < empty; i++) std::cout << " ";
-    std::cout << "] " << std::setw(3) << percentage << "%" << RESET;
-    std::cout << CYAN << timer_display << size_display << RESET;
+    std::cout << "\r" << GREEN << "[";
+
+    // Print filled portion with spinner
+    for (int i = 0; i < filled; i++) {
+        if (i == spinner_pos) {
+            std::cout << spinner_chars[spinner_char_index % 4];
+        } else {
+            std::cout << "=";
+        }
+    }
+
+    // Print empty portion
+    for (int i = 0; i < empty; i++) {
+        std::cout << " ";
+    }
+
+    std::cout << "] " << std::setw(3) << display_percentage << "%" << RESET;
+    std::cout << GREEN << timer_display << size_display << RESET;
     std::cout.flush();
 }
 
@@ -136,23 +162,50 @@ void update_display() {
         // Get current file size
         std::string size = get_file_size("clone/rootfs.img");
 
-        // Update display
-        show_progress_bar(current_percentage, timer, size);
+        // Update spinner
+        int percentage = current_percentage.load();
+        // Ensure percentage is at least 1 for display
+        int display_percentage = percentage;
+        if (display_percentage < 1) display_percentage = 1;
 
-        // Update every second
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        struct winsize w;
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+        int width = w.ws_col;
+        std::string timer_display = " [" + timer + "]";
+        std::string size_display = " [" + size + "]";
+        int extra_width = timer_display.length() + size_display.length();
+        int bar_width = width - 9 - extra_width;
+        if (bar_width < 10) bar_width = 10;
+        int filled = (display_percentage * bar_width) / 100;
+        if (filled < 1) filled = 1;
+
+        // Move spinner right every 3 frames
+        spinner_frame_counter++;
+        if (spinner_frame_counter >= 3) {
+            spinner_frame_counter = 0;
+            // Only move right, stop at the end
+            if (spinner_pos < filled - 1) {
+                spinner_pos++;
+            }
+            spinner_char_index++;
+        }
+
+        // Update display
+        show_progress_bar(percentage, timer, size);
+
+        // Update every 100ms
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 // Function to choose compression type
 void choose_compression() {
     std::cout << std::endl;
-    std::cout << CYAN << "Choose compression type:" << RESET << std::endl;
-    std::cout << CYAN << "  [1] Fast - Medium compression (LZ4HC, level 12)" << RESET << std::endl;
-    std::cout << CYAN << "  [2] Medium - Max compression (ZSTD, level 22)" << RESET << std::endl;
-    std::cout << CYAN << "  [3] Slow - Maximum compression (LZMA, level 109, dict 2MB)" << RESET << std::endl;
+    std::cout << GREEN << "Choose compression type:" << RESET << std::endl;
+    std::cout << GREEN << "  [1] Fast - Medium compression (LZ4HC, level 12)" << RESET << std::endl;
+    std::cout << GREEN << "  [2] Slow - Maximum compression (LZMA, level 109, dict 2MB)" << RESET << std::endl;
     std::cout << std::endl;
-    std::cout << CYAN << "Enter your choice (1, 2, or 3): " << RESET;
+    std::cout << GREEN << "Enter your choice (1 or 2): " << RESET;
 
     while (true) {
         std::string input;
@@ -164,14 +217,10 @@ void choose_compression() {
             break;
         } else if (input == "2") {
             compression_option = 2;
-            print_success("Selected: Medium max compression (ZSTD, level 22)");
-            break;
-        } else if (input == "3") {
-            compression_option = 3;
             print_success("Selected: Slow maximum compression (LZMA, level 109, dict 2MB)");
             break;
         } else {
-            std::cout << RED << "Invalid choice. Please enter 1, 2, or 3: " << RESET;
+            std::cout << RED << "Invalid choice. Please enter 1 or 2: " << RESET;
         }
     }
     std::cout << std::endl;
@@ -191,8 +240,11 @@ void create_erofs() {
     // Hide cursor
     std::cout << "\033[?25l";
 
-    // Set initial percentage
-    current_percentage = 10;
+    // Set initial percentage to 1 so bar shows from 1%
+    current_percentage = 1;
+    spinner_pos = 0;
+    spinner_char_index = 0;
+    spinner_frame_counter = 0;
 
     // Record start time
     start_time = std::chrono::steady_clock::now();
@@ -201,207 +253,83 @@ void create_erofs() {
     display_running = true;
     std::thread display_thread(update_display);
 
+    // Build compression option string
+    std::string compression_args;
     if (compression_option == 1) {
-        // Fast compression with LZ4HC
-        system("sudo mkfs.erofs \\\n"
-        "        -d9 \\\n"
-        "        -zlz4hc,level=12,dictsize=8388608 \\\n"
-        "        -C1048576 \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone/rootfs.img \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
-        "        clone/rootfs.img \\\n"
-        "        \"$HOME/clone_system_temp\" > clone/log.txt 2>&1");
-
-        // Monitor log.txt for completion
-        std::ifstream log_file;
-        std::string line;
-        int seconds_without_change = 0;
-        float internal_progress = 10.0;
-
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-
-            log_file.open("clone/log.txt");
-            bool has_new_content = false;
-            std::string last_line;
-            std::string current_last_line;
-
-            if (log_file.is_open()) {
-                while (std::getline(log_file, line)) {
-                    if (!line.empty()) {
-                        current_last_line = line;
-                    }
-                }
-                log_file.close();
-
-                if (current_last_line != last_line && !current_last_line.empty()) {
-                    has_new_content = true;
-                    last_line = current_last_line;
-                }
-            }
-
-            if (!has_new_content) {
-                seconds_without_change++;
-                if (seconds_without_change >= 120) {
-                    current_percentage = 100;
-                    break;
-                }
-            } else {
-                seconds_without_change = 0;
-                internal_progress += 0.1;
-                current_percentage = (int)internal_progress;
-                if (current_percentage > 90) {
-                    current_percentage = 90;
-                }
-            }
-        }
-
-    } else if (compression_option == 2) {
-        // Medium max compression with ZSTD
-        system("sudo mkfs.erofs \\\n"
-        "        -d9 \\\n"
-        "        -zzstd,level=22,dictsize=1048576 \\\n"
-        "        -C1048576 \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone/rootfs.img \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
-        "        clone/rootfs.img \\\n"
-        "        \"$HOME/clone_system_temp\" > clone/log.txt 2>&1");
-
-        // Monitor log.txt for completion
-        std::ifstream log_file;
-        std::string line;
-        std::string last_line;
-        int seconds_without_change = 0;
-        float internal_progress = 10.0;
-
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-
-            log_file.open("clone/log.txt");
-            bool has_new_content = false;
-            std::string current_last_line;
-
-            if (log_file.is_open()) {
-                while (std::getline(log_file, line)) {
-                    if (!line.empty()) {
-                        current_last_line = line;
-                    }
-                }
-                log_file.close();
-
-                if (current_last_line != last_line && !current_last_line.empty()) {
-                    has_new_content = true;
-                    last_line = current_last_line;
-                }
-            }
-
-            if (!has_new_content) {
-                seconds_without_change++;
-                if (seconds_without_change >= 120) {
-                    current_percentage = 100;
-                    break;
-                }
-            } else {
-                seconds_without_change = 0;
-                internal_progress += 0.1;
-                current_percentage = (int)internal_progress;
-                if (current_percentage > 90) {
-                    current_percentage = 90;
-                }
-            }
-        }
-
+        compression_args = "-zlz4hc,level=12,";
     } else {
-        // Slow maximum compression with LZMA - original command
-        system("sudo mkfs.erofs \\\n"
-        "        -d9 \\\n"
-        "        -zlzma,level=109,dictsize=8388608 \\\n"
-        "        -C1048576 \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone \\\n"
-        "        --exclude-path=home/$USER/Downloads/clone/rootfs.img \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/mtab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/etc/fstab \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/dev/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/proc/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/sys/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/tmp/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/run/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/mnt/* \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/lost+found \\\n"
-        "        --exclude-path=home/$USER/clone_system_temp/clone \\\n"
-        "        clone/rootfs.img \\\n"
-        "        \"$HOME/clone_system_temp\" > clone/log.txt 2>&1");
+        compression_args = "-zlzma,level=109,dictsize=8388608";
+    }
 
-        // Monitor log.txt for completion
-        std::ifstream log_file;
-        std::string line;
-        std::string last_line;
-        int seconds_without_change = 0;
-        float internal_progress = 10.0;
+    // Build the mkfs.erofs command
+    std::string cmd = "sudo mkfs.erofs "
+    "-d9 "
+    + compression_args + " "
+    "-C1048576 "
+    "--exclude-path=home/$USER/clone_system_temp "
+    "--exclude-path=home/$USER/Downloads/clone "
+    "--exclude-path=home/$USER/Downloads/clone/rootfs.img "
+    "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-cd.rules "
+    "--exclude-path=home/$USER/clone_system_temp/etc/udev/rules.d/70-persistent-net.rules "
+    "--exclude-path=home/$USER/clone_system_temp/etc/mtab "
+    "--exclude-path=home/$USER/clone_system_temp/etc/fstab "
+    "--exclude-path=home/$USER/clone_system_temp/dev/* "
+    "--exclude-path=home/$USER/clone_system_temp/proc/* "
+    "--exclude-path=home/$USER/clone_system_temp/sys/* "
+    "--exclude-path=home/$USER/clone_system_temp/tmp/* "
+    "--exclude-path=home/$USER/clone_system_temp/run/* "
+    "--exclude-path=home/$USER/clone_system_temp/mnt/* "
+    "--exclude-path=home/$USER/clone_system_temp/lost+found "
+    "--exclude-path=home/$USER/clone_system_temp/clone "
+    "clone/rootfs.img "
+    "\"$HOME/clone_system_temp\" > clone/log.txt 2>&1 &";
 
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+    // Run mkfs.erofs in background
+    system(cmd.c_str());
 
-            log_file.open("clone/log.txt");
-            bool has_new_content = false;
-            std::string current_last_line;
+    // Monitor progress
+    int seconds_elapsed = 0;
+    bool reached_60 = false;
+    bool uuid_detected = false;
+    int uuid_wait_counter = 0;
 
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        seconds_elapsed++;
+
+        // Update progress: 1% every 10 seconds up to 60
+        if (!reached_60) {
+            int progress = seconds_elapsed / 10;
+            if (progress < 1) progress = 1; // Keep at least 1%
+            if (progress >= 60) {
+                current_percentage = 60;
+                reached_60 = true;
+            } else {
+                current_percentage = progress;
+            }
+        }
+
+        // Only check for UUID after reaching 60%
+        if (reached_60 && !uuid_detected) {
+            std::ifstream log_file("clone/log.txt");
             if (log_file.is_open()) {
+                std::string line;
                 while (std::getline(log_file, line)) {
-                    if (!line.empty()) {
-                        current_last_line = line;
+                    if (line.find("uuid") != std::string::npos || line.find("UUID") != std::string::npos) {
+                        uuid_detected = true;
+                        break;
                     }
                 }
                 log_file.close();
-
-                if (current_last_line != last_line && !current_last_line.empty()) {
-                    has_new_content = true;
-                    last_line = current_last_line;
-                }
             }
+        }
 
-            if (!has_new_content) {
-                seconds_without_change++;
-                if (seconds_without_change >= 120) {
-                    current_percentage = 100;
-                    break;
-                }
-            } else {
-                seconds_without_change = 0;
-                internal_progress += 0.1;
-                current_percentage = (int)internal_progress;
-                if (current_percentage > 90) {
-                    current_percentage = 90;
-                }
+        // If uuid detected, wait 10 seconds then go to 100%
+        if (uuid_detected) {
+            uuid_wait_counter++;
+            if (uuid_wait_counter >= 10) {
+                current_percentage = 100;
+                break;
             }
         }
     }
@@ -440,7 +368,7 @@ void cleanup() {
 void show_disk_usage() {
     print_info("Current disk usage:");
 
-    // Capture df output and print in cyan
+    // Capture df output and print in green
     FILE* pipe = popen("df -h / | tail -1", "r");
     if (pipe) {
         char buffer[256];
@@ -449,7 +377,7 @@ void show_disk_usage() {
             df_output += buffer;
         }
         pclose(pipe);
-        std::cout << CYAN << df_output << RESET;
+        std::cout << GREEN << df_output << RESET;
     }
 
     print_info("System Information:");
@@ -471,12 +399,12 @@ void show_disk_usage() {
         }
         os_release.close();
     }
-    std::cout << CYAN << "  Distribution: " << distro_info << RESET << std::endl;
+    std::cout << GREEN << "  Distribution: " << distro_info << RESET << std::endl;
 
     // Get kernel info using uname syscall
     struct utsname kernel_info;
     if (uname(&kernel_info) == 0) {
-        std::cout << CYAN << "  Kernel: " << kernel_info.release << RESET << std::endl;
+        std::cout << GREEN << "  Kernel: " << kernel_info.release << RESET << std::endl;
     }
 }
 
