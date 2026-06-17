@@ -102,21 +102,17 @@
 - 📝 Command Line Tools integration
 - 🎨 Colorful terminal output
 
-## 📋 Requirements for c multi iso creator
-- being updated soon 
-  
 ## 📋 Requirements for my c++ multi iso creator
-- Linux system (Arch, Ubuntu, Debian, CachyOS, or KDE Neon)
+- Linux system (Arch,)
 - GCC compiler (C++23 compatible)
 - Root privileges (sudo access)
 - Most Required packages can be installed through scripts:
 - You Basically need unzip gcc qt6-tools and qt5-tools to install and the rest is to create iso or test:
  - Base Arch Packages: `rsync` `squashfs-tools` `xorriso` `grub` `dosfstools` `unzip` `arch-install-scripts` `bash-completion` `erofs-utils` `findutils` `jq` `libarchive` `libisoburn` `lsb-release` `lvm2` `mkinitcpio-archiso` `mkinitcpio-nfs-utils` `mtools` `nbd` `pacman-contrib` `nano` `unzip` `wget` `parted` `procps-ng` `pv` `python` `sshfs` `syslinux` `xdg-utils` `zsh-completions` `kernel-modules-hook` `virt-manager` `qt6-tools` `qt5-tools`
 
-
 ## 💾 Installation
 
-### Main Iso Installation Methods:
+### Main Iso Installation Methods (old):
 
 ```bash
 # google drive link https://drive.google.com/drive/folders/1tJjOWo-qTJukAz8zadRgTrwM9ORRDAOI
@@ -129,6 +125,12 @@
 ### Main Script Installation Methods:
 
 # Installation Commands
+
+
+**cmiadvanced Beta v3.0 MainBranch (currently being tested)**
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/installer/patch.sh)"
+```
 
 **Advanced C++ Arch Img Iso Script++ Beta v2.03.2 MainBranch:**
 ```bash
