@@ -63,7 +63,7 @@
 - 🤖 kernel selection options and initramfs generation (needed for iso)
 - 📊 Disk usage reporting
 - 🔄 Uses Bind to bind system to a folder before compression
-- 🖼️ Create compressed system images (squashfs or erofs) (Recommended Option Lzma Level 109)
+- 🖼️ Create compressed system images (squashfs or erofs) (Recommended Option Erofs Lzma Level 109)
 - 🗜️ Slow SquashFS compression Options with xz/zstd support (zstd supports commpression levels 1-22)
 - 🗜️ SquashFS compression with Lz4hc/Lzma support (Lz4hc supports commpression levels 1-12 - Lzma supports commpression levels 1-109)
 - 🔍 MD5 checksum generation
