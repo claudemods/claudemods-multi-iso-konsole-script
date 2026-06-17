@@ -80,7 +80,7 @@ void* execute_update_thread(void* /*arg*/) {
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
         try {
             std::string version_output = run_command(
-                "cat /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/version/version.txt");
+                "cat /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/version/version.txt");
             strncpy(downloaded_version, version_output.c_str(), sizeof(downloaded_version) - 1);
         } catch (...) {
             strcpy(downloaded_version, "unknown");
@@ -94,9 +94,9 @@ void* execute_update_thread(void* /*arg*/) {
     
     // ARCH AND CACHYOS INSTALLATION
     if (strcmp(detected_distro, "arch") == 0 || strcmp(detected_distro, "cachyos") == 0) {
-        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/version/version.txt /home/$USER/.config/cmi/");
-        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced && g++ -std=c++23 -Wl,--format=binary -Wl,build-image-arch-img.zip -Wl,calamares-files.zip -Wl,claudemods.zip -Wl,--format=default main.cpp -o cmiadvanced >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/cmiadvanced /usr/bin/cmiadvanced");
+        silent_command("cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/version/version.txt /home/$USER/.config/cmi/");
+        silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/release-branch/v3.0-cmiadvanced && g++ -std=c++23 -Wl,--format=binary -Wl,build-image-arch-img.zip -Wl,calamares-files.zip -Wl,claudemods.zip -Wl,--format=default main.cpp -o cmiadvanced >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/cmiadvanced /usr/bin/cmiadvanced");
     }
     
     // Cleanup
