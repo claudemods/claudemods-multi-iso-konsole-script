@@ -18,11 +18,10 @@ The script provides these main functions:
 
 | Function | Description |
 |----------|-------------|
+| ⚙️ **ISO Creation Setup** | Setup Needed Things |
 | 🖥️ **Create System Image** | Clone your current system |
-| ⚙️ **ISO Creation Setup** | Configure ISO parameters |
 | 💿 **Generate Bootable ISO** | Build the final ISO |
 | 📊 **Check Disk Usage** | View disk space information |
-| 🤖 **Automatic Mode** | Streamlined automated process |
 
 ---
 
