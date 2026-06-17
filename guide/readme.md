@@ -1,71 +1,116 @@
-# 🔧 ClaudeMods Multi ISO Creator 
+# 🚀 cmiadvanced Beta v3.0 16-06-2026 Guide
 
-> *"v2.0 Guide — 24-06-2025"*
-
-> *"This Is For UEFI EXT4 Arch/Ubuntu/Debian Systems Without Separate Swap Or Home"*
-
-*(Edited from guide in [ApexArchIsoCreatorScriptAppImage](https://github.com/claudemods/ApexArchIsoCreatorScriptAppImage))* 
-
-*(I will add this into newer updates as a menu option shortly)*
+> 💿 **"Create Bootable ISO Images from Your System"**
 
 ---
 
-## 📌 Please Follow Guide In Full
+## 🔧 Quick Start Guide
 
-### 1️⃣ Setup  
-Use one of the setup commands to install a version of my script.
+### 1️⃣ Compile and Run
+*If you haven't installed from the bash command*
 
-### 2️⃣ Launch  
-Launch the menu after installation or type:
-- `cmi.bin` for C++ script
-- `"distroname"isocreator.bin` for C script in terminal
-
-### 3️⃣ Kernel Preparation  
-- Copy `Vmlinuz` and generate `Initramfs` using the Setup Script Menu  
-**Note:** If you reboot, you'll need to do this again.
-
-### 4️⃣ ISOLINUX Configuration  
-- Edit ISOLINUX configuration using the Setup Scripts Menu.
-- Replace `/live/vmlinuz-linux-zen` with your current kernel if not using Zen (e.g., `cachyos`, `hardened`, `linux`, or `lts`)
-- Optionally change `archisolabel` from `2025` to your desired label
-- Customize boot text and kernel version for visual appeal
-
-### 5️⃣ GRUB Configuration  
-- Edit GRUB configuration using the Setup Scripts Menu.
-- Replace `/live/vmlinuz-linux-zen` with your actual kernel if needed
-- Change `archisolabel` and customize boot text for aesthetics
-
-### 6️⃣ System Cloning  
-- Clone your system using the SquashFS Creator Menu
-- Make sure all applications are closed before proceeding
-- Go to the setup script and select directory to store clone
-- Create a SquashFS image using the menu option
-- options for cloning include current system another system or swap
-- when cloning your swap it will copy all files into clone_system_temp/home/swap
-- its then upto you to copy them files back to a swap once you install with calamares
-
-### 7️⃣ ISO Creation  
-- Use the ISO Creator Menu to generate an ISO of your cloned system
-- If you changed the ISO tag (e.g., `2025`), update it accordingly
-- Choose a location to save the ISO
-- If copying to USB afterward:
-  - Wait **4 minutes** after generation to avoid failure
-  - Same applies if generating directly to USB
-
-### 8️⃣ Configure Calamares *(C++ and C Arch Only For Now)*  
-- during install it will ask you if you want default calamares config or my custom config with new mounts and btrfs level 22 compression
-- From the Setup Scripts Menu, select **Install Calamares**, or  
-- Execute: `gen-calamares` if you've installed the custom commands
+📦 Compile the C++ script and run the executable in your terminal
 
 ---
 
-## 🌟 Optional Things To Do
+### 2️⃣ Main Menu Options
+The script provides these main functions:
 
-> ⚠️ First Option NOT Integrated Yet
+| Function | Description |
+|----------|-------------|
+| 🖥️ **Create System Image** | Clone your current system |
+| ⚙️ **ISO Creation Setup** | Configure ISO parameters |
+| 💿 **Generate Bootable ISO** | Build the final ISO |
+| 📊 **Check Disk Usage** | View disk space information |
+| 🤖 **Automatic Mode** | Streamlined automated process |
 
-1. **Test Your ISO in Custom QEMU**
+---
 
-2. **Change ISO Boot Artwork**  
-   Location: /home/$USER/.config/build-image-distroname/grub and or isolinux/splash.png
+### 3️⃣ First Run Configuration
+The script will automatically:
 
-3. **Install Custom Commands From Setup Scripts Menu**
+- 📁 Create configuration directory at `~/.config/cmi/`
+- 📄 Load any existing settings from `configuration.txt`
+- 👤 Detect your username and set appropriate paths
+
+---
+
+## 📝 Step-by-Step Usage Guide
+
+### 1️⃣ System Image Creation 🖥️
+*Recommended Option: Lzma Level 109*
+
+Select **"Create Image"** from main menu
+
+#### 🐢 Slow Squashfs Options:
+- 🔹 Clone your current system (xz compression)
+- 🔹 Clone your current system (zstd compression)
+
+#### ⚡ Fast Erofs Options:
+- 🔸 Clone your current system (Lz4hc compression)
+- 🔸 Clone your current system (Lzma Max compression)
+
+---
+
+### 2️⃣ ISO Preparation ⚙️
+Use the **"ISO Creation Setup"** menu to configure:
+
+| Setting | Description | Example |
+|---------|-------------|---------|
+| 🏷️ **Set ISO Tag** | Identifier for your ISO | `"2026"` |
+| 📛 **Set ISO Name** | Output filename | `"claudemods.iso"` |
+| 📂 **Set Output Directory** | Where to save ISO | `"/home/$USER/Downloads"` |
+| 🔩 **Select vmlinuz** | Choose kernel from `/boot` | - |
+| 🛠️ **mkinitcpio config** | May need to be setup | ⚠️ `11-dm-initramfs.rules` file sometimes not provided by device mapper |
+| 🧬 **Generate mkinitcpio** | Create initramfs | - |
+| 📝 **Edit GRUB Config** | Customize bootloader settings | - |
+| ✏️ **Edit Boot Text** | Modify boot messages | - |
+
+> 💡 Supports `$USER` variable for paths
+
+---
+
+### 3️⃣ Calamares Setup 🎨
+
+- 🖼️ Use the setup scripts menu to edit calamares `branding.desc`
+- 📸 Edit branding pictures if needed in `/usr/share/calamares/branding`
+- 🔧 Use the setup scripts menu to edit calamares `.confs` to your kernel
+- 🐧 Examples: `linux-zen`, `linux`, or leave as `linux-cachyos` (default)
+
+---
+
+### 4️⃣ ISO Generation 💿
+
+Select **"Create ISO"** from main menu
+
+The script will:
+
+- ✅ Verify all required settings are configured
+- 💿 Use `xorriso` to create bootable ISO
+- 📁 Save to your specified output directory
+
+---
+
+### 5️⃣ Post-Creation 🎉
+
+- ⏱️ **Wait 4 minutes** if writing directly to USB
+- 🧪 **Test ISO** in virtual machine before deployment
+- 🔐 **Checksum file** (`.md5`) is generated for verification
+
+---
+
+## 💡 Pro Tips
+
+- 💾 Configuration persists between runs in `~/.config/cmi/configuration.txt`
+- 📊 Main menu shows current configuration status
+- 🚫 Excludes temporary and system directories automatically
+
+---
+
+## ⚠️ Important Notes
+
+- 🔒 **Close all applications** before system cloning
+- 🔄 If you reboot, you'll need to re-select `vmlinuz` and regenerate
+- ⏳ Large images will take time to process - **be patient**
+
+---
