@@ -54,15 +54,6 @@
 
 ![C++](https://img.shields.io/badge/C++-23-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## 📝 Table of Contents
-- [Features](#-features)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Supported Distributions](#-supported-distributions)
-- [Code Overview](#-code-overview)
-- [License](#-license)
-
 ## ✨ Features
 
 ### cmiadvanced Supports Arch Only
