@@ -137,7 +137,7 @@ bool checkForUpdates() {
         currentFile.close();
     }
 
-    std::string newVersionPath = cloneDir + "/advancedimgscript++/version/version.txt";
+    std::string newVersionPath = cloneDir + "v3.0.x-cmiadvanced/v3.0-cmiadvanced/version/version.txt";
     std::string newVersion = "";
 
     std::ifstream newFile(newVersionPath);
@@ -815,7 +815,7 @@ void runCalamares() {
 
 void updateScript() {
     std::cout << COLOR_CYAN << "\nUpdating script from GitHub..." << COLOR_RESET << std::endl;
-    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/main/advancedimgscript++/installer/patch.sh )\"");
+    execute_command("bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/installer/patch.sh)\"");
     std::cout << COLOR_GREEN << "\nScript updated successfully!" << COLOR_RESET << std::endl;
     std::cout << COLOR_GREEN << "Press any key to continue..." << COLOR_RESET;
     getch();
