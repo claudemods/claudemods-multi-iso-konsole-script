@@ -801,8 +801,8 @@ void installISOToUSB() {
     getch();
 }
 
-void runCMIInstaller() {
-    execute_command("cmirsyncinstaller", true);
+void cmiadvancedinstaller() {
+    execute_command("/home/" + USERNAME + "/.config/cmi/cmiadvancedinstaller", true);
     std::cout << COLOR_GREEN << "\nPress any key to continue..." << COLOR_RESET;
     getch();
 }
@@ -829,7 +829,7 @@ void showMainMenu() {
         "Create ISO",
         "Show Disk Usage",
         "Install ISO to USB",
-        "CMI BTRFS/EXT4 Installer",
+        "cmiadvancedinstaller",
         "Calamares",
         "Update Script",
         "Exit"
@@ -884,7 +884,7 @@ void showMainMenu() {
                         installISOToUSB();
                         break;
                     case 6:
-                        runCMIInstaller();
+                        cmiadvancedinstaller();
                         break;
                     case 7:
                         runCalamares();
