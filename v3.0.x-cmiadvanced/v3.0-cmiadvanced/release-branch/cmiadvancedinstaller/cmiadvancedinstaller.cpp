@@ -216,6 +216,7 @@ void install_grub_btrfs(const string& drive) {
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
     "./opt/btrfsfstabcompressed.sh; "
+    "rm -rf /opt/btrfsfstabcompressed.sh; "
     "mkinitcpio -P\"");
 }
 
