@@ -30,7 +30,7 @@ The script will automatically:
 
 - 📁 Create configuration directory at `~/.config/cmi/`
 - 📄 Load any existing settings from `configuration.txt`
-- 👤 Detect your username and set appropriate paths
+- 👤  ask appropriate paths for clone ect..
 
 ---
 
