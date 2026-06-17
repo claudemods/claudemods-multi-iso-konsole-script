@@ -80,9 +80,9 @@ if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     print_status "Git cloning repository"
     run_command_cyan "git clone https://github.com/claudemods/claudemods-multi-iso-konsole-script.git"
     print_status "Building installer"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/updatermain && g++ -std=c++23 main.cpp -o cmiadvancedupdater.bin"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/updater && g++ -std=c++23 main.cpp -o cmiadvancedupdater.bin"
     print_status "Installing"
-    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/updatermain && ./cmiadvancedupdater.bin"
+    run_command_cyan "cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/updater && ./cmiadvancedupdater.bin"
     print_status "Cleaning up"
     run_command_cyan "rm -rf /home/$USER/claudemods-multi-iso-konsole-script"
     else
