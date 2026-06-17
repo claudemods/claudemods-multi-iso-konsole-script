@@ -49,8 +49,6 @@
 <p align="center">Without Separate Swap Or Home </p>
 
 <div align="center">
-  <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
-</div>
 
 ---
 
