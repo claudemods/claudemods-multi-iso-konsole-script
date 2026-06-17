@@ -1,4 +1,4 @@
-# 🚀 cmiadvanced Beta v3.0 16-06-2026 Guide
+# 🚀 cmiadvanced Beta v3.0 17-06-2026 Guide
 
 > 💿 **"Create Bootable ISO Images from Your System"**
 
@@ -7,8 +7,6 @@
 ## 🔧 Quick Start Guide
 
 ### 1️⃣ Compile and Run
-*If you haven't installed from the bash command*
-
 📦 Compile the C++ script and run the executable in your terminal
 
 ---
@@ -36,22 +34,7 @@ The script will automatically:
 
 ## 📝 Step-by-Step Usage Guide
 
-### 1️⃣ System Image Creation 🖥️
-*Recommended Option: Lzma Level 109*
-
-Select **"Create Image"** from main menu
-
-#### 🐢 Slow Squashfs Options:
-- 🔹 Clone your current system (xz compression)
-- 🔹 Clone your current system (zstd compression)
-
-#### ⚡ Fast Erofs Options:
-- 🔸 Clone your current system (Lz4hc compression)
-- 🔸 Clone your current system (Lzma Max compression)
-
----
-
-### 2️⃣ ISO Preparation ⚙️
+### 1️⃣ ISO Preparation ⚙️
 Use the **"ISO Creation Setup"** menu to configure:
 
 | Setting | Description | Example |
@@ -69,12 +52,29 @@ Use the **"ISO Creation Setup"** menu to configure:
 
 ---
 
-### 3️⃣ Calamares Setup 🎨
+### 2️⃣ Calamares Setup 🎨
 
 - 🖼️ Use the setup scripts menu to edit calamares `branding.desc`
 - 📸 Edit branding pictures if needed in `/usr/share/calamares/branding`
 - 🔧 Use the setup scripts menu to edit calamares `.confs` to your kernel
 - 🐧 Examples: `linux-zen`, `linux`, or leave as `linux-cachyos` (default)
+
+---
+
+### 3️⃣ System Image Creation 🖥️
+*Recommended Option: Lzma Level 109*
+
+Select **"Create Image"** from main menu
+
+#### 🐢 Slow Squashfs Options:
+- 🔹 Clone your current system (xz compression)
+- 🔹 Clone your current system (zstd compression)
+
+#### ⚡ Fast Erofs Options:
+- 🔸 Clone your current system (Lz4hc compression)
+- 🔸 Clone your current system (Lzma Max compression)
+
+---
 
 ---
 
