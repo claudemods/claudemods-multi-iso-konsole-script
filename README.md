@@ -68,8 +68,8 @@
 ### cmiadvanced Supports Arch Only
 - 🚀 Generate bootable ISOs with custom configurations
 - 🛠️ Installs Latest calamares with options for ext4 or btrfs this allows installing your system after cloning and booting
-- 🛠️ Customizable calamares branding and kernel options
-- 🤖 initramfs generation
+- 🛠️ Customizable calamares branding
+- 🤖 kernel selection options and initramfs generation (needed for iso)
 - 📊 Disk usage reporting
 - 🔄 Uses Bind to bind system to a folder before compression
 - 🖼️ Create compressed system images (squashfs or erofs) (Recommended Option Lzma Level 109)
