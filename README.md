@@ -18,9 +18,6 @@
       
   </div>
    
-   ## [ Website MainPage ](https://www.claudemodsreloaded.co.uk/isocreatorinfo.php)
-  
-   ## [ Website Guide ](https://claudemodsreloaded.co.uk/imgisoguide.php)
 
   ## [ Guide ](https://github.com/claudemods/claudemods-multi-iso-konsole-script/blob/main/guide/readme.md)
 
@@ -45,19 +42,11 @@
 
   <div align="center">
 
-## 🖥️ Claudemods Arch Advanced Img Iso Creator v2.03.x 🚀
+## 🖥️ Claudemods cmiadvanced beta v3.0 17-06-2026🚀
 
-<p align="center">This Is For UEFI Ext4 Arch Systems </p>
+<p align="center">This Is For UEFI Ext4/Btfs Arch Systems </p>
 
 <p align="center">Without Separate Swap Or Home </p>
-
-<div align="center">
-  <h3 align="center">these projects are an experimental playground</h3>
-</div>
-
-<div align="center">
-  <h3 align="center">i have wild ideas and lots of things being made in this repository</h3>
-</div>
 
 <div align="center">
   <h3 align="center">contribute if you want and test all new scripts with caution!</h3>
@@ -78,28 +67,18 @@
 
 ## ✨ Features
 
-### Img Iso Method Supports Arch Only
+### cmiadvanced Supports Arch Only
 - 🚀 Generate bootable ISOs with custom configurations
-- 🛠️ Customizable branding and kernel options
-- 🖼️ Create compressed system images (Ext4)
-- 📊 Disk usage reporting
-- 🔄 Rsync-based file copying with intelligent exclusions
-- 🗜️ SquashFS compression with zstd support
+- 🛠️ Installs Latest calamares with options for ext4 or btrfs this allows installing your system after cloning and booting
+- 🛠️ Customizable calamares branding and kernel options
 - 🤖 initramfs generation
+- 📊 Disk usage reporting
+- 🔄 Uses Bind to bind system to a folder before compression
+- 🖼️ Create compressed system images (squashfs or erofs) (Recommended Option Lzma Level 109)
+- 🗜️ Slow SquashFS compression Options with xz/zstd support (zstd supports commpression levels 1-22)
+- 🗜️ SquashFS compression with Lz4hc/Lzma support (Lz4hc supports commpression levels 1-12 - Lzma supports commpression levels 1-109)
 - 🔍 MD5 checksum generation
 - ⏱️ Real-time updates and status indicators
-- 🎨 Colorful terminal output
-
-### My Other ISO Methods Supports
-- 🚀 Generate bootable ISOs with custom configurations
-- 🐧 Multi-Distro Support (Arch and cachyos works, Ubuntu Debian KDE Neon kernels dont boot from tests)
-- 🛠️ Customizable branding and kernel options
-- 🔄 Rsync-based file copying with intelligent exclusions
-- 🗜️ SquashFS compression with zstd support
-- 📊 Disk usage reporting
-- 🤖 initramfs generation
-- ⏱️ Real-time updates and status indicators
-- 📝 Command Line Tools integration
 - 🎨 Colorful terminal output
 
 ## 📋 Requirements for my c++ multi iso creator
@@ -127,12 +106,7 @@
 # Installation Commands
 
 
-**cmiadvanced Beta v3.0 MainBranch (currently being tested)**
+** new cmiadvanced Beta v3.0 Release Branch (currently being tested)**
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/installer/patch.sh)"
-```
-
-**Advanced C++ Arch Img Iso Script++ Beta v2.03.2 MainBranch:**
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/advancedimgscript%2B%2B/installer/patch.sh)"
 ```
