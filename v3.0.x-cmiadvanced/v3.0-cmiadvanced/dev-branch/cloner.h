@@ -277,8 +277,8 @@ public:
         while (ErofsState::display_running) {
             auto current_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(current_time - ErofsState::start_time);
-            int minutes = elapsed.count() / 60;
-            int seconds = elapsed.count() % 60;
+            int minutes = elapsed.count() / 30;
+            int seconds = elapsed.count() % 30;
 
             std::stringstream timer_ss;
             timer_ss << std::setfill('0') << std::setw(2) << minutes << ":"
@@ -387,7 +387,7 @@ public:
             if (!reached_60) {
                 int progress = seconds_elapsed / 10;
                 if (progress < 1) progress = 1;
-                if (progress >= 60) {
+                if (progress >= 30) {
                     reached_60 = true;
                 } else {
                     ErofsState::current_percentage = progress;
@@ -396,7 +396,7 @@ public:
 
             if (reached_60) {
                 // ALWAYS keep at 60% while waiting for UUID
-                ErofsState::current_percentage = 60;
+                ErofsState::current_percentage = 30;
 
                 if (!uuid_detected) {
                     std::ifstream log_file(logFile);
