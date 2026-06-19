@@ -88,6 +88,7 @@ void setIsoName();
 void setOutputDir();
 void selectVmlinuz();
 void copyMkinitcpioConfig();
+void checkMkinitcpioConfig();
 void generateMkinitcpio();
 void editGrubCfg();
 void editBootText();
@@ -97,6 +98,9 @@ void editCalamares2();
 
 // Main setup menu function
 void showSetupMenu() {
+    // Automatically check if mkinitcpio config exists before showing menu
+    checkMkinitcpioConfig();
+    
     std::vector<std::string> items = {
         "Extract Needed Files", // NEW: Added as first option
         "Set Clone Directory",
@@ -159,6 +163,42 @@ void showSetupMenu() {
     }
 }
 
+void checkMkinitcpioConfig() {
+    std::string destFile = "/usr/lib/initcpio/udev/11-dm-initramfs.rules";
+    
+    std::cout << COLOR_CYAN << "Automatically checking if mkinitcpio config exists..." << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Checking: " << destFile << COLOR_RESET << std::endl;
+    
+    std::ifstream destCheck(destFile);
+    if (destCheck.good()) {
+        std::cout << COLOR_GREEN << "TRUE - File already exists!" << COLOR_RESET << std::endl;
+        config.mkinitcpioConfigCopied = true;
+        saveConfig();
+    } else {
+        std::cout << COLOR_RED << "FALSE - File does not exist!" << COLOR_RESET << std::endl;
+        config.mkinitcpioConfigCopied = false;
+        saveConfig();
+    }
+    destCheck.close();
+}
+
+void copyMkinitcpioConfig() {
+    std::string sourceFile = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/11-dm-initramfs.rules";
+    std::string destDir = "/usr/lib/initcpio/udev";
+    std::string destFile = destDir + "/11-dm-initramfs.rules";
+
+    std::cout << COLOR_CYAN << "Copying mkinitcpio config..." << COLOR_RESET << std::endl;
+
+    // Copy the file
+    std::string copyCmd = "sudo cp " + sourceFile + " " + destFile;
+    execute_command(copyCmd);
+
+    config.mkinitcpioConfigCopied = true;
+    saveConfig();
+    std::cout << COLOR_GREEN << "mkinitcpio config copied successfully!" << COLOR_RESET << std::endl;
+    std::cout << COLOR_CYAN << "Copied to: " << destFile << COLOR_RESET << std::endl;
+}
+
 void selectVmlinuz() {
     DIR *dir;
     struct dirent *ent;
@@ -206,35 +246,6 @@ void selectVmlinuz() {
     } catch (...) {
         std::cerr << COLOR_RED << "Invalid input!" << COLOR_RESET << std::endl;
     }
-}
-
-void copyMkinitcpioConfig() {
-    std::string sourceFile = "/home/" + USERNAME + "/.config/cmi/build-image-arch-img/11-dm-initramfs.rules";
-    std::string destDir = "/usr/lib/initcpio/udev";
-    std::string destFile = destDir + "/11-dm-initramfs.rules";
-
-    std::cout << COLOR_CYAN << "Copying mkinitcpio config..." << COLOR_RESET << std::endl;
-
-    // Check if source file exists
-    std::ifstream srcCheck(sourceFile);
-    if (!srcCheck.good()) {
-        std::cerr << COLOR_RED << "Source file not found: " << sourceFile << COLOR_RESET << std::endl;
-        std::cerr << COLOR_RED << "Please extract needed files first!" << COLOR_RESET << std::endl;
-        return;
-    }
-    srcCheck.close();
-
-    // Create destination directory if it doesn't exist
-    execute_command("sudo mkdir -p " + destDir, true);
-
-    // Copy the file
-    std::string copyCmd = "sudo cp " + sourceFile + " " + destFile;
-    execute_command(copyCmd);
-
-    config.mkinitcpioConfigCopied = true;
-    saveConfig();
-    std::cout << COLOR_GREEN << "mkinitcpio config copied successfully!" << COLOR_RESET << std::endl;
-    std::cout << COLOR_CYAN << "Copied to: " << destFile << COLOR_RESET << std::endl;
 }
 
 void generateMkinitcpio() {
