@@ -825,12 +825,12 @@ void showMainMenu() {
     std::vector<std::string> items = {
         "Guide",
         "Setup Scripts",
-        "Create Image",
-        "Create ISO",
-        "Show Disk Usage",
-        "Install ISO to USB",
-        "cmiadvancedinstaller",
-        "Calamares",
+        "Create System Images",
+        "Generate Bootable Isos",
+        "Check Disk Usage",
+        "Install ISO To USB",
+        "CmiAdvancedInstaller (custom ext4/btrfs squashfs/erofs installer)",
+        "Launch Calamares",
         "Update Script",
         "Exit"
     };
