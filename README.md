@@ -95,7 +95,7 @@
 # Installation Commands
 
 
-**new cmiadvanced Beta v3.0 Release Branch (currently being tested)**
+**new cmiadvanced Beta v3.0 19-06-2026 Release Branch ( built off 2.03.2 mostly finished fixes and improvements being added)**
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/refs/heads/main/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/installer/patch.sh)"
 ```
