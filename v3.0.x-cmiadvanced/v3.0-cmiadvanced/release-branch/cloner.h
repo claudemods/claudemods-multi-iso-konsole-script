@@ -322,7 +322,6 @@ public:
 
         execute_command("mkdir -p " + getOutputDirectory(), true);
 
-        execute_command("sudo cp -a /boot " + cloneDir + "/ 2>/dev/null", true);
 
         std::string logFile = getOutputDirectory() + "/log.txt";
         execute_command("rm -f " + logFile, true);
@@ -504,10 +503,10 @@ public:
     // Show clone options menu
     static void showCloneOptionsMenu(bool allCheckboxesChecked, const std::string& cloneDirConfig) {
         std::vector<std::string> items = {
-            "--- Squashfs Slow Compression Options ---",
-            "Clone Current System (xz compression)",
+            COLOR_GREEN + "--- Squashfs Slow Compression Options ---" + COLOR_RESET,
             "Clone Current System (zstd compression)",
-            "--- Erofs Fast Options ---",
+            "Clone Current System (xz compression)",
+            COLOR_GREEN + "--- Erofs Fast Options ---" + COLOR_RESET,
             "Clone Current System (Lz4hc compression)",
             "Clone Current System (Lzma compression)",
             "Back to Main Menu"
@@ -564,10 +563,10 @@ public:
 
                     switch (selected) {
                         case 1:
-                            cloneCurrentSystem_xz(cloneDir);
+                            cloneCurrentSystem(cloneDir);
                             break;
                         case 2:
-                            cloneCurrentSystem(cloneDir);
+                            cloneCurrentSystem_xz(cloneDir);
                             break;
                         case 4:
                             cloneCurrentSystemErofsFast(cloneDir);
