@@ -42,7 +42,7 @@
 
   <div align="center">
 
-## 🖥️ Claudemods cmiadvanced beta v3.0 17-06-2026🚀
+## 🖥️ Claudemods cmiadvanced beta 🚀
 
 <p align="center">This Is For UEFI Ext4/Btfs Arch Systems </p>
 
