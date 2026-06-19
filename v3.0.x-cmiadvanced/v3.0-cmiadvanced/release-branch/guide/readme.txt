@@ -12,17 +12,22 @@
 │                                                                              │
 │  2️⃣ Main Menu Options                                                        │
 │     The script provides these main functions:                                │
-│     - Create System Image                                                    │
-│     - ISO Creation Setup                                                     │
+│     - guide                                                                  │
+│     - setup scripts                                                          │
+│     - Create System Images                                                   │
 │     - Generate Bootable ISO                                                  │
 │     - Check Disk Usage                                                       │
-│     - Automatic Mode                                                         │
+│     - install Iso To Usb                                                     │
+│     - CmiAdvancedInstaller (custom ext4/btrfs squashfs/erofs installer       │
+│      - Launch Calamares
+│      - Update Script
+│                                                                              │
 │                                                                              │
 │  3️⃣ First Run Configuration                                                  │
 │     The script will automatically:                                           │
-│     - Create configuration directory at ~/.config/cmi/                       │
+│     - If Need Create configuration directory at ~/.config/cmi/               │
 │     - Load any existing settings from configuration.txt                      │
-│     - Detect your username and set appropriate paths                         │
+│                                                                              │
 │                                                                              │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
