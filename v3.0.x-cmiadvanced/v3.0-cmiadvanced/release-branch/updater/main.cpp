@@ -98,8 +98,8 @@ void* execute_update_thread(void* /*arg*/) {
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch && g++ -std=c++23 -Wl,--format=binary -Wl,build-image-arch-img.zip -Wl,calamares-files.zip -Wl,claudemods.zip -Wl,--format=default main.cpp -o cmiadvanced >/dev/null 2>&1");
         silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/cmiadvanced /usr/bin/cmiadvanced");
         silent_command("cd /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/cmiadvancedinstaller && g++ cmiadvancedinstaller.cpp -o cmiadvancedinstaller >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/cmiadvancedinstaller /home/$USER/.config/cmi/cmiadvancedinstaller >/dev/null 2>&1");
-        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/btrfsfstabcompressed.sh /home/$USER/.config/cmi/btrfsfstabcompressed.sh >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/cmiadvancedinstaller/cmiadvancedinstaller /home/$USER/.config/cmi/cmiadvancedinstaller >/dev/null 2>&1");
+        silent_command("sudo cp /home/$USER/claudemods-multi-iso-konsole-script/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/cmiadvancedinstaller/btrfsfstabcompressed.sh /home/$USER/.config/cmi/btrfsfstabcompressed.sh >/dev/null 2>&1");
     }
     
     // Cleanup
