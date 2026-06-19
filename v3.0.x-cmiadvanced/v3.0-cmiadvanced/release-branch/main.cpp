@@ -493,7 +493,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
         menuBuffer += COLOR_RED + line + COLOR_RESET + "\n";
     }
 
-    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 17-06-2026" + COLOR_RESET + "\n";
+    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 19-06-2026" + COLOR_RESET + "\n";
     menuBuffer += COLOR_RED + "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" + COLOR_RESET + "\n";
 
     // Time line
