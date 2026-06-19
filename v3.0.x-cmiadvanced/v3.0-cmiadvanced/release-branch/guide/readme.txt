@@ -1,6 +1,6 @@
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │                                                                              │
-│                  cmiadvanced Beta v3.0 17-06-2026 Guide                      │
+│                  cmiadvanced Beta v3.0 19-06-2026 Guide                      │
 │                                                                              │
 │            "Create Bootable ISO Images from Your System"                     │
 │                                                                              │
@@ -50,7 +50,9 @@
 │     • Edit GRUB Config - Customize bootloader settings                       │
 │     • Edit Boot Text                                                         │
 │                                                                              │
-│  3️⃣ Calamares Setup                                                          │
+│  3️⃣ Calamares Setup                                                                                         │
+│     - Use the setup scripts menu to setup calamares for ext4 or btrfs        │
+│    - Use the setup scripts menu to setup calamares for your squashfs/erofs.img│
 │     - Use the setup scripts menu to edit calamares branding.desc             │
 │     - Edit the branding pictures if need be in /usr/share/calamares/branding │
 │     - Use the setup scripts menu to edit calamares .confs to your kernel     │
