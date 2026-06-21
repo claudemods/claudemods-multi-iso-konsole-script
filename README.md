@@ -95,7 +95,7 @@
 # Installation Commands
 
 
-**new cmiadvanced Beta v3.0 19-06-2026 Release Branch**
+**new cmiadvanced Beta v3.0 21-06-2026 Release Branch**
 
 **built off 2.03.2 mostly finished fixes and improvements being added**
 ```bash
