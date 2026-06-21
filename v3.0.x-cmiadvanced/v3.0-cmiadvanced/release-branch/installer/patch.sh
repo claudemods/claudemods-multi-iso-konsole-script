@@ -69,7 +69,7 @@ detect_distro
 # Conditional logic based on the detected distribution
 if [[ "$DISTRO" == "arch" || "$DISTRO" == "cachyos" ]]; then
     # Commands for Arch/CachyOS
-    print_status "cmiadvanced Beta v3.0 17-06-2026 Installer"
+    print_status "cmiadvanced Beta v3.0 21-06-2026 Installer"
     print_status "Updating pacman database"
     print_status "Installing dependencies"
     print_status "git clone and install main script"
