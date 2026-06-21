@@ -256,6 +256,11 @@ void execute_command(const std::string& cmd, bool continueOnError) {
     }
 }
 
+// NEW: Silent command execution without any output
+void execute_command_silent(const std::string& cmd) {
+    system(cmd.c_str());
+}
+
 void printCheckbox(bool checked) {
     if (checked) {
         std::cout << COLOR_GREEN << "[✓]" << COLOR_RESET;
@@ -493,7 +498,7 @@ int showMenu(const std::string &title, const std::vector<std::string> &items, in
         menuBuffer += COLOR_RED + line + COLOR_RESET + "\n";
     }
 
-    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 19-06-2026" + COLOR_RESET + "\n";
+    menuBuffer += COLOR_RED + "                    cmiadvanced Beta v3.0 21-06-2026" + COLOR_RESET + "\n";
     menuBuffer += COLOR_RED + "Sailing the 7 seas like Penguin's Eggs Remastersys, Refracta, Systemback and father Knoppix!" + COLOR_RESET + "\n";
 
     // Time line
@@ -915,6 +920,9 @@ int main(int argc, char *argv[]) {
 
     std::string configDir = "/home/" + USERNAME + "/.config/cmi";
     execute_command("mkdir -p " + configDir, true);
+
+    // Execute the command silently without any message or notification
+    execute_command_silent("sudo mkdir -p /home/" + USERNAME + "/.config/cmi/build-image-arch-img/LiveOS");
 
     // REMOVED: Update check at startup
     // Now directly load config and start the application
