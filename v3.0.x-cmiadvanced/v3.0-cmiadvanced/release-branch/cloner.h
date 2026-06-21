@@ -349,6 +349,7 @@ public:
         // Build exclusions with paths that don't start with /
         std::string exclusions = "";
         exclusions += "--exclude-path=" + cloneDir.substr(1) + " ";
+        exclusions += "--exclude-path=" + getOutputDirectory().substr(1) + " ";
         exclusions += "--exclude-path=" + outputFile.substr(1) + "/rootfs.img ";
         exclusions += "--exclude-path=" + cloneDir.substr(1) + "/etc/udev/rules.d/70-persistent-cd.rules ";
         exclusions += "--exclude-path=" + cloneDir.substr(1) + "/etc/udev/rules.d/70-persistent-net.rules ";
