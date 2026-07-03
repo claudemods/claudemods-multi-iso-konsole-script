@@ -190,7 +190,7 @@ void copy_system(const string& efi_part, const string& img_fs_type) {
     execute_command("cp btrfsfstabcompressed.sh /mnt/opt");
     execute_command("chmod +x /mnt/opt/btrfsfstabcompressed.sh");
 }
-// ext4 now works
+
 void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /dev /mnt/dev");
     execute_command("mount --bind /dev/pts /mnt/dev/pts");
@@ -198,7 +198,15 @@ void install_grub_ext4(const string& drive) {
     execute_command("mount --bind /sys /mnt/sys");
     execute_command("mount --bind /run /mnt/run");
     execute_command("mount -t efivarfs efivarfs /sys/firmware/efi/efivars/");
+    
+    // Configure GRUB with proper kernel parameters (from shell script)
+    string kernel_args = "root=PARTUUID=$(lsblk -dno PARTUUID " + drive + "2)";
+    
     execute_command("chroot /mnt /bin/bash -c \""
+    "echo 'GRUB_DEFAULT=0' > /etc/default/grub; "
+    "echo 'GRUB_TIMEOUT=3' >> /etc/default/grub; "
+    "echo 'GRUB_TIMEOUT_STYLE=menu' >> /etc/default/grub; "
+    "echo 'GRUB_CMDLINE_LINUX=\\\\" + kernel_args + "\\\"' >> /etc/default/grub; "
     "genfstab -U /; "
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
@@ -213,7 +221,14 @@ void install_grub_btrfs(const string& drive) {
     execute_command("mount --bind /sys /mnt/sys");
     execute_command("mount --bind /run /mnt/run");
 
+    // Configure GRUB with proper kernel parameters for BTRFS (from shell script)
+    string kernel_args = "root=PARTUUID=$(lsblk -dno PARTUUID " + drive + "2) rootflags=subvol=@ rootfstype=btrfs";
+    
     execute_command("chroot /mnt /bin/bash -c \""
+    "echo 'GRUB_DEFAULT=0' > /etc/default/grub; "
+    "echo 'GRUB_TIMEOUT=3' >> /etc/default/grub; "
+    "echo 'GRUB_TIMEOUT_STYLE=menu' >> /etc/default/grub; "
+    "echo 'GRUB_CMDLINE_LINUX=\\\"" + kernel_args + "\\\"' >> /etc/default/grub; "
     "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck; "
     "grub-mkconfig -o /boot/grub/grub.cfg; "
     "./opt/btrfsfstabcompressed.sh; "
