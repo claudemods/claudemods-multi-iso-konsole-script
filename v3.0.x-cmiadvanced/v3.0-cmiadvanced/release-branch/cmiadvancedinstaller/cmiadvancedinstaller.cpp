@@ -53,6 +53,49 @@ bool directory_exists(const string& path) {
     return S_ISDIR(statbuf.st_mode);
 }
 
+void list_available_drives() {
+    cout << COLOR_CYAN << "\nAvailable drives:" << COLOR_RESET << endl;
+    cout << COLOR_YELLOW;
+    
+    // Get list of block devices
+    string cmd = "lsblk -d -o NAME,SIZE,MODEL | grep -v 'loop\\|sr0\\|zram'";
+    string result = exec(cmd.c_str());
+    
+    // Display header
+    cout << "NAME        SIZE    MODEL" << endl;
+    cout << "----------------------------------------" << endl;
+    
+    // Parse and display each drive
+    istringstream stream(result);
+    string line;
+    while (getline(stream, line)) {
+        if (!line.empty()) {
+            // Extract device name and add /dev/ prefix
+            istringstream line_stream(line);
+            string name, size, model;
+            line_stream >> name;
+            
+            // Format size
+            string size_str;
+            if (line_stream >> size) {
+                size_str = size;
+            }
+            
+            // Get model (rest of line)
+            getline(line_stream, model);
+            // Trim leading spaces from model
+            size_t start = model.find_first_not_of(" \t");
+            if (start != string::npos) {
+                model = model.substr(start);
+            }
+            
+            // Display formatted drive info
+            cout << "/dev/" << left << setw(10) << name << " " << setw(8) << size_str << model << endl;
+        }
+    }
+    cout << COLOR_RESET << endl;
+}
+
 string get_uk_date_time() {
     time_t now = time(0);
     tm* ltm = localtime(&now);
@@ -80,7 +123,7 @@ void display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << endl;
-cout << COLOR_CYAN << "claudemods cmi advanced installer v1.03" << COLOR_RESET << endl;
+cout << COLOR_CYAN << "claudemods cmi advanced installer v1.03 03-07-2026" << COLOR_RESET << endl;
 cout << COLOR_CYAN << "Supports Btrfs and Ext4 filesystems (squashfs/erofs.img)" << COLOR_RESET << endl << endl;
 }
 
@@ -264,6 +307,9 @@ void post_install_menu() {
 
 int main() {
     display_header();
+
+    // Show available drives
+    list_available_drives();
 
     string drive;
     cout << COLOR_CYAN << "Enter target drive (e.g., /dev/sda): " << COLOR_RESET;
