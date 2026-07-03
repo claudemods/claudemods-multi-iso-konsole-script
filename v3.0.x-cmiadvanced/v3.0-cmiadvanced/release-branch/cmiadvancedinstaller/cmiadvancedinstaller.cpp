@@ -80,7 +80,7 @@ void display_header() {
 ╚█████╔╝███████╗██║░░██║╚██████╔╝██████╔╝███████╗██║░╚═╝░██║╚█████╔╝██████╔╝██████╔╝
 ░╚════╝░╚══════╝╚═╝░░░░░░╚═════╝░╚═════╝░╚══════╝╚═╝░░░░░╚═╝░╚════╝░╚═════╝░╚═════╝░
 )" << endl;
-cout << COLOR_CYAN << "claudemods cmi advanced installer v1.02" << COLOR_RESET << endl;
+cout << COLOR_CYAN << "claudemods cmi advanced installer v1.03" << COLOR_RESET << endl;
 cout << COLOR_CYAN << "Supports Btrfs and Ext4 filesystems (squashfs/erofs.img)" << COLOR_RESET << endl << endl;
 }
 
@@ -248,7 +248,7 @@ void post_install_menu() {
         
         if (choice == "1") {
             cout << COLOR_CYAN << "Unmounting and rebooting..." << COLOR_RESET << endl;
-            execute_command("umount -R /mnt");
+            execute_command("umount -L /mnt");
             execute_command("reboot");
             menu_running = false;
         }
