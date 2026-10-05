@@ -3,6 +3,7 @@
 #include "config.h"
 #include "taskcontext.h"
 
+#include <QColor>
 #include <QList>
 #include <QMainWindow>
 
@@ -26,7 +27,8 @@ public:
     explicit MainWindow(SudoManager* sudo, QWidget* parent = nullptr);
 
     // GUI-thread sinks used by TaskContext.
-    void appendOutput(const QString& text);
+    // An invalid color uses the default output color.
+    void appendOutput(const QString& text, const QColor& color = QColor());
     void appendLog(const QString& text, LogLevel level);
     void setTaskProgress(int percent, const QString& format);
 

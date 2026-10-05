@@ -431,16 +431,20 @@ void MainWindow::refreshStatus()
 
 void MainWindow::persist()
 {
-    if (!saveConfig(m_config))
-        appendLog(QStringLiteral("Failed to save configuration to ") + Paths::configFile(), LogLevel::Error);
+    // configuration.txt may be root-owned (e.g. from running as root before):
+    // fall back to writing it with sudo so the settings are always saved.
+    if (!saveConfig(m_config) && !m_sudo->writeFileAsRoot(Paths::configFile(), configText(m_config)))
+        showError(QStringLiteral("Configuration"),
+                  QStringLiteral("Failed to save configuration to ") + Paths::configFile());
     refreshStatus();
 }
 
 // =================================================================== Output
 
-void MainWindow::appendOutput(const QString& text)
+void MainWindow::appendOutput(const QString& text, const QColor& color)
 {
-    m_console->appendStream(text, QColor(QStringLiteral("#b8d4ff")));
+    // Command output is cyan, like COLOR_CYAN in the original execute_command().
+    m_console->appendStream(text, color.isValid() ? color : QColor(QStringLiteral("#00ffff")));
 }
 
 void MainWindow::appendLog(const QString& text, LogLevel level)
@@ -638,6 +642,15 @@ void MainWindow::createISO()
 
         ctx.log(QStringLiteral("ISO created successfully at ") + isoPath);
         ctx.log(QStringLiteral("Ownership changed to current user: ") + user, LogLevel::Success);
+
+        // Check only (not a command): confirm the ISO is really on disk.
+        const QFileInfo iso(isoPath);
+        if (iso.exists())
+            ctx.log(QStringLiteral("Verified: ") + isoPath + QStringLiteral(" exists (") + humanSize(iso.size()) +
+                    QStringLiteral(")"), LogLevel::Success);
+        else
+            ctx.log(QStringLiteral("WARNING: ") + isoPath + QStringLiteral(" does not exist - xorriso did not write it. "
+                    "Check the xorriso output above."), LogLevel::Error);
     });
 }
 

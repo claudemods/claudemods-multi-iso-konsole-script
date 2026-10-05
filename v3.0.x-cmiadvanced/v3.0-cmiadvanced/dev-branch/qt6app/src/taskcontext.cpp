@@ -59,7 +59,8 @@ void TaskContext::emitText(const QString& text)
     if (text.isEmpty())
         return;
     MainWindow* w = m_window;
-    gui([w, text] { w->appendOutput(text); });
+    const QColor color = m_outputColor;
+    gui([w, text, color] { w->appendOutput(text, color); });
 }
 
 bool TaskContext::execute(const QString& cmd, bool continueOnError)

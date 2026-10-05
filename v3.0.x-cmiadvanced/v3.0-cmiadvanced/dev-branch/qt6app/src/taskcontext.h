@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QByteArray>
+#include <QColor>
 #include <QProcessEnvironment>
 #include <QString>
 
@@ -41,6 +42,8 @@ public:
     void progress(int percent, const QString& format = QString());
     // Queues `fn` to run on the GUI thread (use for touching config/widgets).
     void gui(std::function<void()> fn);
+    // Colour for command output from now on; an invalid colour means the default.
+    void setOutputColor(const QColor& color) { m_outputColor = color; }
 
 private:
     QString shellScript(const QString& cmd) const;
@@ -52,4 +55,5 @@ private:
     MainWindow* m_window;
     QProcessEnvironment m_env;
     QString m_prelude;
+    QColor m_outputColor;
 };
