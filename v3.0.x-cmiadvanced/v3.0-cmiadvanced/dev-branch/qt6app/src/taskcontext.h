@@ -36,7 +36,7 @@ public:
     void gui(std::function<void()> fn);
 
 private:
-    bool startShell(QProcess& p, const QString& cmd);
+    bool startShell(QProcess& p, const QString& cmd, bool usePty = false);
     void forward(QProcess& p, QStringDecoder& decoder);
     int pump(QProcess& p, const std::function<void(qint64)>& tick = {});
 

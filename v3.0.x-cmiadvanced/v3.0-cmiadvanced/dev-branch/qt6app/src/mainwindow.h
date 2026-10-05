@@ -12,6 +12,7 @@ class Console;
 class QLabel;
 class QProcess;
 class QProgressBar;
+class QPushButton;
 class QStackedWidget;
 class QThread;
 class QTimer;
@@ -50,7 +51,9 @@ private:
     void refreshDiskUsage();
     void updateClock();
     void setBusy(bool busy, const QString& title = QString());
-    void startTask(const QString& title, TaskBody body, std::function<void()> onDone = {});
+    // expandLog: give the output panel the whole window while the task runs.
+    void startTask(const QString& title, TaskBody body, std::function<void()> onDone = {}, bool expandLog = true);
+    void setLogExpanded(bool expanded);
     void persist();
     void showError(const QString& title, const QString& message);
 
@@ -83,8 +86,12 @@ private:
     void cloneErofs(bool lzma);
 
     SudoManager* m_sudo;
-    ConfigState m_config;
+    ConfigState m_config;    // starts empty every launch - filled in through Setup Scripts
+    ConfigState m_previous;  // last saved answers, only used to pre-fill the input dialogs
 
+    QWidget* m_statusPanel = nullptr;
+    QPushButton* m_expandButton = nullptr;
+    bool m_logExpanded = false;
     QStackedWidget* m_menus = nullptr;
     QWidget* m_mainPage = nullptr;
     QWidget* m_setupPage = nullptr;

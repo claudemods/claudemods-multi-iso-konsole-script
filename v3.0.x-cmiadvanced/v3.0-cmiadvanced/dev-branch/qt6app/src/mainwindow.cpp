@@ -143,7 +143,8 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
 
     auto* splitter = new QSplitter(Qt::Horizontal);
     splitter->setChildrenCollapsible(false);
-    splitter->addWidget(buildStatusPanel());
+    m_statusPanel = buildStatusPanel();
+    splitter->addWidget(m_statusPanel);
     splitter->addWidget(buildMenus());
     splitter->addWidget(buildConsolePanel());
     splitter->setStretchFactor(0, 0);
@@ -153,7 +154,9 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
     root->addWidget(splitter, 1);
     setCentralWidget(central);
 
-    loadConfig(m_config);
+    // Every launch starts with an unticked configuration: the checklist is the
+    // setup itself. Previous answers only pre-fill the input dialogs.
+    loadConfig(m_previous);
     refreshStatus();
 
     m_clockTimer = new QTimer(this);
@@ -174,7 +177,7 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
         ctx.run(QStringLiteral("mkdir -p ") + shellQuote(configDir), false);
         // Silent, like the original startup step.
         ctx.capture(QStringLiteral("sudo mkdir -p ") + shellQuote(liveOs));
-    });
+    }, {}, false);
 }
 
 QWidget* MainWindow::buildStatusPanel()
@@ -336,6 +339,10 @@ QWidget* MainWindow::buildConsolePanel()
     title->setObjectName(QStringLiteral("sectionTitle"));
     header->addWidget(title);
     header->addStretch();
+    m_expandButton = new QPushButton(QStringLiteral("Expand"));
+    m_expandButton->setToolTip(QStringLiteral("Give the output panel the whole window"));
+    connect(m_expandButton, &QPushButton::clicked, this, [this] { setLogExpanded(!m_logExpanded); });
+    header->addWidget(m_expandButton);
     auto* clear = new QPushButton(QStringLiteral("Clear"));
     header->addWidget(clear);
     layout->addLayout(header);
@@ -481,13 +488,24 @@ void MainWindow::setBusy(bool busy, const QString& title)
     }
 }
 
-void MainWindow::startTask(const QString& title, TaskBody body, std::function<void()> onDone)
+void MainWindow::setLogExpanded(bool expanded)
+{
+    m_logExpanded = expanded;
+    m_statusPanel->setVisible(!expanded);
+    m_menus->setVisible(!expanded);
+    m_expandButton->setText(expanded ? QStringLiteral("Restore") : QStringLiteral("Expand"));
+}
+
+void MainWindow::startTask(const QString& title, TaskBody body, std::function<void()> onDone, bool expandLog)
 {
     if (m_task) {
         appendLog(QStringLiteral("Another operation is still running. Please wait for it to finish."), LogLevel::Warning);
         return;
     }
     setBusy(true, title);
+    const bool autoExpanded = expandLog && !m_logExpanded;
+    if (autoExpanded)
+        setLogExpanded(true);
 
     const QProcessEnvironment env = m_sudo->environment();
     const QString prelude = m_sudo->shellPrelude();
@@ -495,10 +513,13 @@ void MainWindow::startTask(const QString& title, TaskBody body, std::function<vo
         TaskContext ctx(this, env, prelude);
         body(ctx);
     });
-    connect(m_task, &QThread::finished, this, [this, onDone = std::move(onDone)] {
+    connect(m_task, &QThread::finished, this, [this, autoExpanded, onDone = std::move(onDone)] {
         m_task->deleteLater();
         m_task = nullptr;
         setBusy(false);
+        // The output stays in the (normal size) output panel afterwards.
+        if (autoExpanded)
+            setLogExpanded(false);
         refreshStatus();
         refreshDiskUsage();
         if (onDone)
@@ -806,13 +827,16 @@ void MainWindow::extractNeededFiles()
 void MainWindow::setCloneDir()
 {
     const QString defaultDir = QStringLiteral("/home/") + Paths::username();
+    const QString suffix = QStringLiteral("/clone_system_temp");
+    const QString remembered = !m_config.cloneDir.isEmpty() ? m_config.cloneDir : m_previous.cloneDir;
+    const QString suggestion = remembered.endsWith(suffix) ? remembered.chopped(suffix.size()) : defaultDir;
     bool ok = false;
     QString parentDir = QInputDialog::getText(
         this, QStringLiteral("Set Clone Directory"),
         QStringLiteral("Current clone directory: %1\nDefault directory: %2\n\n"
                        "Enter parent directory for clone_system_temp folder (e.g., %2 or $USER):")
             .arg(m_config.cloneDir.isEmpty() ? QStringLiteral("Not set") : m_config.cloneDir, defaultDir),
-        QLineEdit::Normal, defaultDir, &ok).trimmed();
+        QLineEdit::Normal, suggestion, &ok).trimmed();
     if (!ok)
         return;
 
@@ -837,7 +861,8 @@ void MainWindow::setIsoTag()
     bool ok = false;
     const QString tag = QInputDialog::getText(this, QStringLiteral("Set ISO Tag"),
                                               QStringLiteral("Enter ISO tag (e.g., default is 2026):"),
-                                              QLineEdit::Normal, m_config.isoTag, &ok);
+                                              QLineEdit::Normal,
+                                              m_config.isoTag.isEmpty() ? m_previous.isoTag : m_config.isoTag, &ok);
     if (!ok)
         return;
     m_config.isoTag = tag.trimmed();
@@ -850,7 +875,8 @@ void MainWindow::setIsoName()
     bool ok = false;
     const QString name = QInputDialog::getText(this, QStringLiteral("Set ISO Name"),
                                                QStringLiteral("Enter ISO name (e.g., claudemods.iso):"),
-                                               QLineEdit::Normal, m_config.isoName, &ok);
+                                               QLineEdit::Normal,
+                                               m_config.isoName.isEmpty() ? m_previous.isoName : m_config.isoName, &ok);
     if (!ok)
         return;
     m_config.isoName = name.trimmed();
@@ -867,7 +893,10 @@ void MainWindow::setOutputDir()
         QStringLiteral("Current output directory: %1\nDefault directory: %2\n\n"
                        "Enter output directory (e.g., %2 or $USER/Downloads):")
             .arg(m_config.outputDir.isEmpty() ? QStringLiteral("Not set") : m_config.outputDir, defaultDir),
-        QLineEdit::Normal, m_config.outputDir.isEmpty() ? defaultDir : m_config.outputDir, &ok).trimmed();
+        QLineEdit::Normal,
+        !m_config.outputDir.isEmpty() ? m_config.outputDir
+                                      : (!m_previous.outputDir.isEmpty() ? m_previous.outputDir : defaultDir),
+        &ok).trimmed();
     if (!ok)
         return;
 
@@ -904,7 +933,8 @@ void MainWindow::selectVmlinuz()
     }
 
     bool ok = false;
-    const int current = qMax(0, files.indexOf(m_config.vmlinuzPath));
+    const int current = qMax(0, files.indexOf(m_config.vmlinuzPath.isEmpty() ? m_previous.vmlinuzPath
+                                                                              : m_config.vmlinuzPath));
     const QString choice = QInputDialog::getItem(this, QStringLiteral("Select vmlinuz"),
                                                  QStringLiteral("Available vmlinuz files:"), files, current, false, &ok);
     if (!ok || choice.isEmpty())
@@ -1020,8 +1050,8 @@ void MainWindow::editSystemFile(const QString& label, const QString& path, bool 
                 ctx.log(QStringLiteral("Saved ") + path, LogLevel::Success);
             else
                 ctx.log(QStringLiteral("Failed to save ") + path, LogLevel::Error);
-        }, markEdited);
-    });
+        }, markEdited, false);
+    }, false);
 }
 
 // =================================================================== Clone menu

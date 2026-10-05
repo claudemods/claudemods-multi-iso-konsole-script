@@ -1,8 +1,10 @@
 #include "taskcontext.h"
 
+#include "config.h"
 #include "mainwindow.h"
 
 #include <QDir>
+#include <QStandardPaths>
 #include <QElapsedTimer>
 #include <QMetaObject>
 #include <QProcess>
@@ -32,12 +34,27 @@ void TaskContext::progress(int percent, const QString& format)
     gui([w, percent, format] { w->setTaskProgress(percent, format); });
 }
 
-bool TaskContext::startShell(QProcess& p, const QString& cmd)
+bool TaskContext::startShell(QProcess& p, const QString& cmd, bool usePty)
 {
-    p.setProcessEnvironment(m_env);
+    QProcessEnvironment env = m_env;
     // Same as running the terminal version from the home directory.
     p.setWorkingDirectory(QDir::homePath());
-    p.start(QStringLiteral("/bin/bash"), {QStringLiteral("-c"), m_prelude + cmd});
+
+    static const QString script = QStandardPaths::findExecutable(QStringLiteral("script"));
+    if (usePty && !script.isEmpty()) {
+        // Run inside a pseudo-terminal (util-linux `script`) so tools such as
+        // mksquashfs, dd and pacman draw their live, self-updating progress
+        // bars; the console redraws "\r" lines in place.
+        env.insert(QStringLiteral("SHELL"), QStringLiteral("/bin/bash"));
+        env.insert(QStringLiteral("TERM"), QStringLiteral("xterm-256color"));
+        const QString inner = QStringLiteral("stty cols 110 rows 40 2>/dev/null; ") + m_prelude + cmd;
+        p.setProcessEnvironment(env);
+        p.start(script, {QStringLiteral("-qefc"), QStringLiteral("/bin/bash -c ") + shellQuote(inner),
+                         QStringLiteral("/dev/null")});
+    } else {
+        p.setProcessEnvironment(env);
+        p.start(QStringLiteral("/bin/bash"), {QStringLiteral("-c"), m_prelude + cmd});
+    }
     if (!p.waitForStarted(10000)) {
         log(QStringLiteral("Failed to start: ") + cmd, LogLevel::Error);
         return false;
@@ -78,7 +95,7 @@ int TaskContext::run(const QString& cmd, bool echo)
         log(cmd, LogLevel::Command);
     QProcess p;
     p.setProcessChannelMode(QProcess::MergedChannels);
-    if (!startShell(p, cmd))
+    if (!startShell(p, cmd, true))
         return -1;
     p.closeWriteChannel();
     return pump(p);
