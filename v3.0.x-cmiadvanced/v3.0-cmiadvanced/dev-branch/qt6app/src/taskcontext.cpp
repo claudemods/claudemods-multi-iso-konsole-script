@@ -5,7 +5,9 @@
 #include "sudomanager.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QMetaObject>
+#include <QRegularExpression>
 #include <QProcess>
 #include <QStringDecoder>
 
@@ -119,25 +121,58 @@ int TaskContext::run(const QString& cmd, bool echo)
     int status = 0;
     bool exited = false;
 
+    // Prompt detection: when output stops on an unfinished line that looks like
+    // a question (e.g. `read -p "Enter your choice (1 or 2): "`), pop up a
+    // dialog and type the answer into the command's terminal.
+    static const QRegularExpression ansi(QStringLiteral("\x1B(\\[[0-9;?]*[ -/]*[@-~]|\\][^\x07]*\x07|[()][A-Za-z0-9])"));
+    QString tail;               // output since the last newline
+    bool promptAnswered = false;
+    QElapsedTimer quiet;        // time since the last output
+    quiet.start();
+
     // Read output until the command itself has exited...
     while (!exited) {
         pollfd pfd = {master, POLLIN, 0};
         const int pr = poll(&pfd, 1, 100);
         if (pr > 0) {
             const ssize_t n = read(master, buf, sizeof buf);
-            if (n > 0)
-                emitText(decoder.decode(QByteArrayView(buf, n)));
-            else if (n < 0 && errno == EINTR)
+            if (n > 0) {
+                const QString text = decoder.decode(QByteArrayView(buf, n));
+                emitText(text);
+                const qsizetype nl = text.lastIndexOf(QLatin1Char('\n'));
+                tail = nl >= 0 ? text.mid(nl + 1) : tail + text;
+                promptAnswered = false;
+                quiet.restart();
+            } else if (n < 0 && errno == EINTR) {
                 continue;
-            else {
+            } else {
                 // Terminal closed: the command is ending; wait for it to finish.
                 waitpid(pid, &status, 0);
                 exited = true;
                 break;
             }
         }
-        if (waitpid(pid, &status, WNOHANG) == pid)
+        if (waitpid(pid, &status, WNOHANG) == pid) {
             exited = true;
+            break;
+        }
+
+        if (!promptAnswered && quiet.elapsed() > 700 && !tail.contains(QLatin1Char('\r'))) {
+            QString prompt = tail;
+            prompt.remove(ansi);
+            prompt = prompt.trimmed();
+            static const QRegularExpression looksLikePrompt(QStringLiteral("([:?>\\])]|\\(y/n\\)|\\[y/n\\])$"),
+                                                            QRegularExpression::CaseInsensitiveOption);
+            if (!prompt.isEmpty() && looksLikePrompt.match(prompt).hasMatch()) {
+                QString answer;
+                MainWindow* w = m_window;
+                QMetaObject::invokeMethod(w, [w, cmd, prompt, &answer] { answer = w->askInput(cmd, prompt); },
+                                          Qt::BlockingQueuedConnection);
+                const QByteArray line = answer.toLocal8Bit() + '\n';
+                if (write(master, line.constData(), static_cast<size_t>(line.size())) < 0) { /* command ended */ }
+                promptAnswered = true;
+            }
+        }
     }
     // ...then collect whatever output is still buffered.
     while (true) {

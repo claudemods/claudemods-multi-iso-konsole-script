@@ -31,6 +31,9 @@ public:
     void appendOutput(const QString& text, const QColor& color = QColor());
     void appendLog(const QString& text, LogLevel level);
     void setTaskProgress(int percent, const QString& format);
+    // Pops up a dialog for a command that is waiting for input (e.g. `read -p`).
+    // Returns the text to type into the command; Cancel sends an empty line.
+    QString askInput(const QString& command, const QString& prompt);
 
 protected:
     void closeEvent(QCloseEvent* event) override;

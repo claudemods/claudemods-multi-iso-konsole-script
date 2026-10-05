@@ -528,6 +528,33 @@ void MainWindow::setTaskProgress(int percent, const QString& format)
     m_progress->setFormat(format.isEmpty() ? QStringLiteral("%p%") : format);
 }
 
+QString MainWindow::askInput(const QString& command, const QString& prompt)
+{
+    // Show the question with the lines printed just before it (e.g. the 1)/2) choices).
+    QStringList lines = m_console->toPlainText().split(QLatin1Char('\n'));
+    while (!lines.isEmpty() && lines.last().trimmed().isEmpty())
+        lines.removeLast();
+    if (!lines.isEmpty())
+        lines.removeLast();  // the prompt line itself, shown below
+    QStringList context;
+    for (qsizetype i = lines.size() - 1; i >= 0 && context.size() < 6; --i) {
+        if (lines[i].startsWith(QStringLiteral("$ ")))
+            break;
+        context.prepend(lines[i]);
+    }
+    QString label = context.join(QLatin1Char('\n'));
+    if (!label.isEmpty())
+        label += QStringLiteral("\n\n");
+    label += prompt;
+
+    bool ok = false;
+    const QString answer = QInputDialog::getText(this, QStringLiteral("Input needed"), label, QLineEdit::Normal,
+                                                 QString(), &ok);
+    appendLog(QStringLiteral("Input for ") + command.left(60) + QStringLiteral(": ") +
+              (ok ? answer : QStringLiteral("(cancelled - sent empty line)")), LogLevel::Info);
+    return ok ? answer : QString();
+}
+
 void MainWindow::showError(const QString& title, const QString& message)
 {
     appendLog(message, LogLevel::Error);
