@@ -155,8 +155,8 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
     root->addWidget(splitter, 1);
     setCentralWidget(central);
 
-    // Every launch starts with an unticked configuration: the checklist is the
-    // setup itself. Each step saves to ~/.config/cmi/configuration.txt.
+    // Same as the original: load ~/.config/cmi/configuration.txt at startup.
+    loadConfig(m_config);
     refreshStatus();
 
     m_clockTimer = new QTimer(this);
