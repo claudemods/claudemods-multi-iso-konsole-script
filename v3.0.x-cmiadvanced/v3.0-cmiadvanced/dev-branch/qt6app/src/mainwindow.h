@@ -86,8 +86,7 @@ private:
     void cloneErofs(bool lzma);
 
     SudoManager* m_sudo;
-    ConfigState m_config;    // starts empty every launch - filled in through Setup Scripts
-    ConfigState m_previous;  // last saved answers, only used to pre-fill the input dialogs
+    ConfigState m_config;  // starts empty every launch; every step saves to configuration.txt
 
     QWidget* m_statusPanel = nullptr;
     QPushButton* m_expandButton = nullptr;

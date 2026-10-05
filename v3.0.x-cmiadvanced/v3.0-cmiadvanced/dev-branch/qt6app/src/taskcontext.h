@@ -20,14 +20,21 @@ class TaskContext
 public:
     TaskContext(MainWindow* window, QProcessEnvironment env, QString prelude);
 
-    // Runs a command, streaming its output. Returns the exit code (-1 on crash).
+    // Same as the original execute_command(): runs the command in a real
+    // terminal (pty) so progress bars/spinners animate, and waits until it has
+    // completely finished. On failure logs "Command failed but continuing: ..."
+    // (continueOnError) or "Error executing: ..." and returns false.
+    bool execute(const QString& cmd, bool continueOnError = false);
+
+    // Runs a command in a pty and waits for it to finish. Returns the exit code.
     int run(const QString& cmd, bool echo = true);
+    // Same as the original system(): runs the command without a terminal and
+    // returns its exit code (used for commands that background themselves).
+    int system(const QString& cmd);
     // Runs a command and returns stdout without echoing it.
     QByteArray capture(const QString& cmd, int* exitCode = nullptr);
     // Runs a command feeding `input` on stdin.
     int runWithInput(const QString& cmd, const QByteArray& input, bool echo = true);
-    // Like run(), but calls `tick` with the elapsed milliseconds while it runs.
-    int runTimed(const QString& cmd, const std::function<void(qint64)>& tick);
 
     void log(const QString& text, LogLevel level = LogLevel::Info);
     // percent < 0 shows a busy indicator. `format` follows QProgressBar::setFormat.
@@ -36,9 +43,11 @@ public:
     void gui(std::function<void()> fn);
 
 private:
-    bool startShell(QProcess& p, const QString& cmd, bool usePty = false);
+    QString shellScript(const QString& cmd) const;
+    bool startShell(QProcess& p, const QString& cmd);
     void forward(QProcess& p, QStringDecoder& decoder);
-    int pump(QProcess& p, const std::function<void(qint64)>& tick = {});
+    void emitText(const QString& text);
+    int pump(QProcess& p);
 
     MainWindow* m_window;
     QProcessEnvironment m_env;

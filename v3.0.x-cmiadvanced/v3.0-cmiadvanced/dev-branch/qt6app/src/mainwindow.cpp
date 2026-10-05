@@ -62,14 +62,15 @@ QString squashfsExcludes()
         "-e clone_system_temp");
 }
 
-// Bind mounts / onto the clone directory. Returns false (and logs) on failure.
+// The helpers below use the exact commands from cloner.h.
+
+// Cloner::mountSystemToCloneDir
 bool mountSystemToCloneDir(TaskContext& ctx, const QString& cloneDir)
 {
     ctx.log(QStringLiteral("Mounting system to: ") + cloneDir);
-    ctx.run(QStringLiteral("sudo mkdir -p ") + shellQuote(cloneDir));
-    if (ctx.run(QStringLiteral("sudo mount --bind / ") + shellQuote(cloneDir)) != 0) {
+    ctx.execute(QStringLiteral("sudo mkdir -p ") + cloneDir, true);
+    if (ctx.run(QStringLiteral("sudo mount --bind / ") + cloneDir) != 0) {
         ctx.log(QStringLiteral("Failed to bind mount!"), LogLevel::Error);
-        ctx.log(QStringLiteral("Failed to mount system!"), LogLevel::Error);
         return false;
     }
     ctx.log(QStringLiteral("System mounted successfully to: ") + cloneDir, LogLevel::Success);
@@ -79,23 +80,23 @@ bool mountSystemToCloneDir(TaskContext& ctx, const QString& cloneDir)
 void unmountCloneDir(TaskContext& ctx, const QString& cloneDir)
 {
     ctx.log(QStringLiteral("Unmounting bind mount..."));
-    ctx.run(QStringLiteral("sudo umount ") + shellQuote(cloneDir));
+    ctx.execute(QStringLiteral("sudo umount ") + cloneDir, true);
 }
 
-void createChecksum(TaskContext& ctx, const QString& file)
+// Cloner::createChecksum
+void createChecksum(TaskContext& ctx, const QString& filename)
 {
-    // Redirect inside the root shell: LiveOS is root-owned.
-    const QString inner = QStringLiteral("sha512sum ") + shellQuote(file) +
-                          QStringLiteral(" > ") + shellQuote(file + QStringLiteral(".sha512"));
-    ctx.run(QStringLiteral("sudo sh -c ") + shellQuote(inner));
+    ctx.execute(QStringLiteral("sudo sha512sum ") + filename + QStringLiteral(" > ") + filename +
+                QStringLiteral(".sha512"), true);
 }
 
-void printImageSize(TaskContext& ctx, const QString& label, const QString& file)
+// Cloner::printFinalMessage
+void printFinalMessage(TaskContext& ctx, const QString& outputFile)
 {
-    int code = 0;
-    const QString size = QString::fromUtf8(
-        ctx.capture(QStringLiteral("sudo du -h ") + shellQuote(file) + QStringLiteral(" | cut -f1"), &code)).trimmed();
-    ctx.log(label + (size.isEmpty() ? QStringLiteral("unknown") : size), LogLevel::Success);
+    ctx.log(QStringLiteral("SquashFS image created successfully: ") + outputFile);
+    ctx.log(QStringLiteral("Checksum file: ") + outputFile + QStringLiteral(".sha512"));
+    ctx.log(QStringLiteral("Size: "));
+    ctx.execute(QStringLiteral("sudo du -h ") + outputFile + QStringLiteral(" | cut -f1"), true);
 }
 
 QString findTerminal(QStringList* argsBeforeCommand)
@@ -155,8 +156,7 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
     setCentralWidget(central);
 
     // Every launch starts with an unticked configuration: the checklist is the
-    // setup itself. Previous answers only pre-fill the input dialogs.
-    loadConfig(m_previous);
+    // setup itself. Each step saves to ~/.config/cmi/configuration.txt.
     refreshStatus();
 
     m_clockTimer = new QTimer(this);
@@ -173,10 +173,13 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
 
     const QString configDir = Paths::configDir();
     const QString liveOs = Paths::liveOsDir();
+    // Created as the user first so configuration.txt (written by the app) stays
+    // writable even though the commands below run as root.
+    QDir().mkpath(configDir);
     startTask(QStringLiteral("Initializing"), [configDir, liveOs](TaskContext& ctx) {
-        ctx.run(QStringLiteral("mkdir -p ") + shellQuote(configDir), false);
-        // Silent, like the original startup step.
-        ctx.capture(QStringLiteral("sudo mkdir -p ") + shellQuote(liveOs));
+        ctx.execute(QStringLiteral("mkdir -p ") + configDir, true);
+        // Silent, like the original execute_command_silent().
+        ctx.capture(QStringLiteral("sudo mkdir -p ") + liveOs);
     }, {}, false);
 }
 
@@ -579,7 +582,7 @@ void MainWindow::openCloneMenu()
 
 void MainWindow::checkDiskUsage()
 {
-    startTask(QStringLiteral("Check Disk Usage"), [](TaskContext& ctx) { ctx.run(QStringLiteral("df -h")); });
+    startTask(QStringLiteral("Check Disk Usage"), [](TaskContext& ctx) { ctx.execute(QStringLiteral("df -h")); });
 }
 
 void MainWindow::createISO()
@@ -602,7 +605,7 @@ void MainWindow::createISO()
 
     startTask(QStringLiteral("Generate Bootable Iso"), [=](TaskContext& ctx) {
         ctx.log(QStringLiteral("Starting ISO creation process..."));
-        ctx.run(QStringLiteral("mkdir -p ") + shellQuote(outputDir));
+        ctx.execute(QStringLiteral("mkdir -p ") + outputDir, true);
 
         const QString xorrisoCmd =
             QStringLiteral("sudo xorriso -as mkisofs "
@@ -627,19 +630,14 @@ void MainWindow::createISO()
                            "-iso-level 3 "
                            "-o \"") + outputDir + QStringLiteral("/") + isoName + QStringLiteral("\" ") + buildDir;
 
-        const int rc = ctx.run(xorrisoCmd);
-        if (rc != 0)
-            ctx.log(QStringLiteral("Command failed but continuing: xorriso"), LogLevel::Warning);
+        ctx.execute(xorrisoCmd, true);
 
         const QString isoPath = outputDir + QStringLiteral("/") + isoName;
-        ctx.run(QStringLiteral("sudo chown ") + user + QStringLiteral(":") + user + QStringLiteral(" ") + shellQuote(isoPath));
+        ctx.execute(QStringLiteral("sudo chown ") + user + QStringLiteral(":") + user + QStringLiteral(" \"") + isoPath +
+                    QStringLiteral("\""), true);
 
-        if (rc == 0) {
-            ctx.log(QStringLiteral("ISO created successfully at ") + isoPath, LogLevel::Success);
-            ctx.log(QStringLiteral("Ownership changed to current user: ") + user, LogLevel::Success);
-        } else {
-            ctx.log(QStringLiteral("ISO creation failed - check the output above."), LogLevel::Error);
-        }
+        ctx.log(QStringLiteral("ISO created successfully at ") + isoPath);
+        ctx.log(QStringLiteral("Ownership changed to current user: ") + user, LogLevel::Success);
     });
 }
 
@@ -701,12 +699,9 @@ void MainWindow::installISOToUSB()
 
     startTask(QStringLiteral("Install ISO To USB"), [=](TaskContext& ctx) {
         ctx.log(QStringLiteral("Writing ") + selectedISO + QStringLiteral(" to ") + targetDrive + QStringLiteral("..."));
-        const int rc = ctx.run(QStringLiteral("sudo dd if=") + shellQuote(selectedISO) + QStringLiteral(" of=") +
-                               shellQuote(targetDrive) + QStringLiteral(" bs=4M status=progress oflag=sync"));
-        if (rc == 0)
-            ctx.log(QStringLiteral("ISO successfully written to USB drive!"), LogLevel::Success);
-        else
-            ctx.log(QStringLiteral("Writing the ISO failed - check the output above."), LogLevel::Error);
+        ctx.execute(QStringLiteral("sudo dd if=") + selectedISO + QStringLiteral(" of=") + targetDrive +
+                    QStringLiteral(" bs=4M status=progress oflag=sync"), true);
+        ctx.log(QStringLiteral("ISO successfully written to USB drive!"), LogLevel::Success);
     });
 }
 
@@ -731,7 +726,7 @@ void MainWindow::launchInstaller()
     // that terminal with the stored password first so it is not asked again.
     const QString script = m_sudo->shellPrelude() +
                            QStringLiteral("command sudo -A -v 2>/dev/null || command sudo -v; ") +
-                           shellQuote(installer) +
+                           installer +
                            QStringLiteral("; echo; read -n 1 -s -r -p 'Press any key to continue...'");
     args << QStringLiteral("bash") << QStringLiteral("-c") << script;
 
@@ -748,7 +743,7 @@ void MainWindow::launchInstaller()
 
 void MainWindow::runCalamares()
 {
-    startTask(QStringLiteral("Calamares"), [](TaskContext& ctx) { ctx.run(QStringLiteral("sudo calamares")); });
+    startTask(QStringLiteral("Calamares"), [](TaskContext& ctx) { ctx.execute(QStringLiteral("sudo calamares"), true); });
 }
 
 void MainWindow::updateScript()
@@ -762,13 +757,11 @@ void MainWindow::updateScript()
 
     startTask(QStringLiteral("Update Script"), [](TaskContext& ctx) {
         ctx.log(QStringLiteral("Updating script from GitHub..."));
-        const int rc = ctx.run(QStringLiteral(
-            "bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/"
-            "refs/heads/main/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/installer/patch.sh)\""));
-        if (rc == 0)
-            ctx.log(QStringLiteral("Script updated successfully!"), LogLevel::Success);
-        else
-            ctx.log(QStringLiteral("Update failed - check the output above."), LogLevel::Error);
+        if (!ctx.execute(QStringLiteral(
+                "bash -c \"$(curl -fsSL https://raw.githubusercontent.com/claudemods/claudemods-multi-iso-konsole-script/"
+                "refs/heads/main/v3.0.x-cmiadvanced/v3.0-cmiadvanced/release-branch/installer/patch.sh)\"")))
+            return;
+        ctx.log(QStringLiteral("Script updated successfully!"), LogLevel::Success);
     });
 }
 
@@ -784,11 +777,16 @@ void MainWindow::extractNeededFiles()
         ctx.log(QStringLiteral("Extracting embedded zip resources..."));
         QDir().mkpath(configDir);
 
-        struct Zip { QString name; QString unzipArgs; };
+        // ResourceManager::extractEmbeddedZip: write each zip, unzip it, remove it.
+        struct Zip { QString name; QString extractCmd; };
         const QList<Zip> zips = {
-            {QStringLiteral("build-image-arch-img.zip"), QString()},
-            {QStringLiteral("calamares-files.zip"), QString()},
-            {QStringLiteral("claudemods.zip"), QStringLiteral(" -d ") + shellQuote(calamaresTargetDir)},
+            {QStringLiteral("build-image-arch-img.zip"),
+             QStringLiteral("cd ") + configDir + QStringLiteral(" && unzip -o build-image-arch-img.zip >/dev/null 2>&1")},
+            {QStringLiteral("calamares-files.zip"),
+             QStringLiteral("cd ") + configDir + QStringLiteral(" && unzip -o calamares-files.zip >/dev/null 2>&1")},
+            {QStringLiteral("claudemods.zip"),
+             QStringLiteral("cd ") + configDir + QStringLiteral(" && unzip -o claudemods.zip -d ") + calamaresTargetDir +
+                 QStringLiteral(" >/dev/null 2>&1")},
         };
 
         for (const Zip& zip : zips) {
@@ -799,14 +797,11 @@ void MainWindow::extractNeededFiles()
                 return;
             }
             QFile::setPermissions(target, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadGroup | QFile::ReadOther);
-            ctx.log(QStringLiteral("Unpacking ") + zip.name + QStringLiteral("..."));
-            const int rc = ctx.run(QStringLiteral("cd ") + shellQuote(configDir) + QStringLiteral(" && unzip -o ") +
-                                   zip.name + zip.unzipArgs + QStringLiteral(" >/dev/null 2>&1"), false);
-            QFile::remove(target);
-            if (rc != 0) {
+            if (ctx.run(zip.extractCmd) != 0) {
                 ctx.log(QStringLiteral("Failed to extract ") + zip.name, LogLevel::Error);
                 return;
             }
+            ctx.run(QStringLiteral("rm -f ") + target);
         }
 
         ctx.log(QStringLiteral("Embedded zip resources extracted successfully!"), LogLevel::Success);
@@ -817,9 +812,7 @@ void MainWindow::extractNeededFiles()
         ctx.log(QStringLiteral("All needed files extracted successfully!"), LogLevel::Success);
 
         ctx.log(QStringLiteral("Running post-extraction setup script..."));
-        const int rc = ctx.run(QStringLiteral("bash ") + shellQuote(configDir + QStringLiteral("/extrainstalls.sh")));
-        if (rc != 0)
-            ctx.log(QStringLiteral("Command failed but continuing: extrainstalls.sh"), LogLevel::Warning);
+        ctx.execute(QStringLiteral("bash ") + configDir + QStringLiteral("/extrainstalls.sh"), true);
         ctx.log(QStringLiteral("Post-extraction setup completed!"), LogLevel::Success);
     });
 }
@@ -827,16 +820,13 @@ void MainWindow::extractNeededFiles()
 void MainWindow::setCloneDir()
 {
     const QString defaultDir = QStringLiteral("/home/") + Paths::username();
-    const QString suffix = QStringLiteral("/clone_system_temp");
-    const QString remembered = !m_config.cloneDir.isEmpty() ? m_config.cloneDir : m_previous.cloneDir;
-    const QString suggestion = remembered.endsWith(suffix) ? remembered.chopped(suffix.size()) : defaultDir;
     bool ok = false;
     QString parentDir = QInputDialog::getText(
         this, QStringLiteral("Set Clone Directory"),
         QStringLiteral("Current clone directory: %1\nDefault directory: %2\n\n"
                        "Enter parent directory for clone_system_temp folder (e.g., %2 or $USER):")
             .arg(m_config.cloneDir.isEmpty() ? QStringLiteral("Not set") : m_config.cloneDir, defaultDir),
-        QLineEdit::Normal, suggestion, &ok).trimmed();
+        QLineEdit::Normal, QString(), &ok);
     if (!ok)
         return;
 
@@ -852,7 +842,7 @@ void MainWindow::setCloneDir()
 
     const QString cloneDir = m_config.cloneDir;
     startTask(QStringLiteral("Create clone directory"), [cloneDir](TaskContext& ctx) {
-        ctx.run(QStringLiteral("sudo mkdir -p ") + shellQuote(cloneDir));
+        ctx.execute(QStringLiteral(" sudo mkdir -p ") + cloneDir, true);
     });
 }
 
@@ -861,11 +851,10 @@ void MainWindow::setIsoTag()
     bool ok = false;
     const QString tag = QInputDialog::getText(this, QStringLiteral("Set ISO Tag"),
                                               QStringLiteral("Enter ISO tag (e.g., default is 2026):"),
-                                              QLineEdit::Normal,
-                                              m_config.isoTag.isEmpty() ? m_previous.isoTag : m_config.isoTag, &ok);
+                                              QLineEdit::Normal, QString(), &ok);
     if (!ok)
         return;
-    m_config.isoTag = tag.trimmed();
+    m_config.isoTag = tag;
     persist();
     appendLog(QStringLiteral("ISO tag set to: ") + m_config.isoTag, LogLevel::Success);
 }
@@ -875,11 +864,10 @@ void MainWindow::setIsoName()
     bool ok = false;
     const QString name = QInputDialog::getText(this, QStringLiteral("Set ISO Name"),
                                                QStringLiteral("Enter ISO name (e.g., claudemods.iso):"),
-                                               QLineEdit::Normal,
-                                               m_config.isoName.isEmpty() ? m_previous.isoName : m_config.isoName, &ok);
+                                               QLineEdit::Normal, QString(), &ok);
     if (!ok)
         return;
-    m_config.isoName = name.trimmed();
+    m_config.isoName = name;
     persist();
     appendLog(QStringLiteral("ISO name set to: ") + m_config.isoName, LogLevel::Success);
 }
@@ -893,10 +881,7 @@ void MainWindow::setOutputDir()
         QStringLiteral("Current output directory: %1\nDefault directory: %2\n\n"
                        "Enter output directory (e.g., %2 or $USER/Downloads):")
             .arg(m_config.outputDir.isEmpty() ? QStringLiteral("Not set") : m_config.outputDir, defaultDir),
-        QLineEdit::Normal,
-        !m_config.outputDir.isEmpty() ? m_config.outputDir
-                                      : (!m_previous.outputDir.isEmpty() ? m_previous.outputDir : defaultDir),
-        &ok).trimmed();
+        QLineEdit::Normal, QString(), &ok);
     if (!ok)
         return;
 
@@ -910,9 +895,8 @@ void MainWindow::setOutputDir()
     persist();
     appendLog(QStringLiteral("Output directory set to: ") + dir, LogLevel::Success);
 
-    const QString expanded = expandPath(dir);
-    startTask(QStringLiteral("Create output directory"), [expanded](TaskContext& ctx) {
-        ctx.run(QStringLiteral("mkdir -p ") + shellQuote(expanded));
+    startTask(QStringLiteral("Create output directory"), [dir](TaskContext& ctx) {
+        ctx.execute(QStringLiteral("mkdir -p ") + dir, true);
     });
 }
 
@@ -933,8 +917,7 @@ void MainWindow::selectVmlinuz()
     }
 
     bool ok = false;
-    const int current = qMax(0, files.indexOf(m_config.vmlinuzPath.isEmpty() ? m_previous.vmlinuzPath
-                                                                              : m_config.vmlinuzPath));
+    const int current = qMax(0, files.indexOf(m_config.vmlinuzPath));
     const QString choice = QInputDialog::getItem(this, QStringLiteral("Select vmlinuz"),
                                                  QStringLiteral("Available vmlinuz files:"), files, current, false, &ok);
     if (!ok || choice.isEmpty())
@@ -942,10 +925,8 @@ void MainWindow::selectVmlinuz()
 
     const QString destPath = Paths::buildDir() + QStringLiteral("/boot/vmlinuz-x86_64");
     startTask(QStringLiteral("Select vmlinuz"), [this, choice, destPath](TaskContext& ctx) {
-        if (ctx.run(QStringLiteral("sudo cp ") + shellQuote(choice) + QStringLiteral(" ") + shellQuote(destPath)) != 0) {
-            ctx.log(QStringLiteral("Error copying ") + choice, LogLevel::Error);
+        if (!ctx.execute(QStringLiteral("sudo cp ") + choice + QStringLiteral(" ") + destPath))
             return;
-        }
         ctx.log(QStringLiteral("Selected: ") + choice);
         ctx.log(QStringLiteral("Copied to: ") + destPath);
         ctx.gui([this, choice] {
@@ -978,10 +959,8 @@ void MainWindow::copyMkinitcpioConfig()
 
     startTask(QStringLiteral("mkinitcpio Config"), [this, sourceFile, destFile](TaskContext& ctx) {
         ctx.log(QStringLiteral("Copying mkinitcpio config..."));
-        if (ctx.run(QStringLiteral("sudo cp ") + shellQuote(sourceFile) + QStringLiteral(" ") + shellQuote(destFile)) != 0) {
-            ctx.log(QStringLiteral("Error copying mkinitcpio config (did you run Extract Needed Files?)"), LogLevel::Error);
+        if (!ctx.execute(QStringLiteral("sudo cp ") + sourceFile + QStringLiteral(" ") + destFile))
             return;
-        }
         ctx.gui([this] {
             m_config.mkinitcpioConfigCopied = true;
             persist();
@@ -1001,13 +980,9 @@ void MainWindow::generateMkinitcpio()
     const QString buildDir = Paths::buildDir();
     startTask(QStringLiteral("Generate mkinitcpio"), [this, buildDir](TaskContext& ctx) {
         ctx.log(QStringLiteral("Generating initramfs..."));
-        const int rc = ctx.run(QStringLiteral("cd ") + shellQuote(buildDir) +
-                               QStringLiteral(" && sudo mkinitcpio -c mkinitcpio.conf -g ") +
-                               shellQuote(buildDir + QStringLiteral("/boot/initramfs-x86_64.img")));
-        if (rc != 0) {
-            ctx.log(QStringLiteral("Error generating initramfs - check the output above."), LogLevel::Error);
+        if (!ctx.execute(QStringLiteral("cd ") + buildDir + QStringLiteral(" && sudo mkinitcpio -c mkinitcpio.conf -g ") +
+                         buildDir + QStringLiteral("/boot/initramfs-x86_64.img")))
             return;
-        }
         ctx.gui([this] {
             m_config.mkinitcpioGenerated = true;
             persist();
@@ -1090,28 +1065,26 @@ void MainWindow::cloneSquashfs(bool xz)
 
     startTask(xz ? QStringLiteral("Clone Current System (xz)") : QStringLiteral("Clone Current System (zstd)"),
               [=](TaskContext& ctx) {
-        if (!mountSystemToCloneDir(ctx, cloneDir))
-            return;
+        // showCloneOptionsMenu
+        ctx.execute(QStringLiteral("sudo mkdir -p ") + cloneDir, true);
 
-        QString cmd = QStringLiteral("sudo mksquashfs ") + shellQuote(cloneDir) + QStringLiteral(" ") +
-                      shellQuote(finalImgPath);
+        if (!mountSystemToCloneDir(ctx, cloneDir)) {
+            ctx.log(QStringLiteral("Failed to mount system!"), LogLevel::Error);
+            return;
+        }
+
+        // Cloner::createSquashFS / createSquashFS_xz - waits until mksquashfs has finished.
+        QString cmd = QStringLiteral("sudo mksquashfs ") + cloneDir + QStringLiteral(" ") + finalImgPath;
         if (xz)
             cmd += QStringLiteral(" -noappend -comp xz -b 256K -Xbcj x86 ");
         else
             cmd += QStringLiteral(" -noappend -comp zstd -Xcompression-level ") + level + QStringLiteral(" -b 256K ");
         cmd += squashfsExcludes();
+        ctx.execute(cmd, true);
 
-        const int rc = ctx.run(cmd);
         unmountCloneDir(ctx, cloneDir);
-        if (rc != 0) {
-            ctx.log(QStringLiteral("mksquashfs failed - check the output above."), LogLevel::Error);
-            return;
-        }
-
         createChecksum(ctx, finalImgPath);
-        ctx.log(QStringLiteral("SquashFS image created successfully: ") + finalImgPath, LogLevel::Success);
-        ctx.log(QStringLiteral("Checksum file: ") + finalImgPath + QStringLiteral(".sha512"), LogLevel::Success);
-        printImageSize(ctx, QStringLiteral("Size: "), finalImgPath);
+        printFinalMessage(ctx, finalImgPath);
         if (xz)
             ctx.log(QStringLiteral("Current system cloned successfully using xz compression!"), LogLevel::Success);
         else
@@ -1142,12 +1115,18 @@ void MainWindow::cloneErofs(bool lzma)
 
     startTask(lzma ? QStringLiteral("Clone Current System (erofs lzma)") : QStringLiteral("Clone Current System (erofs lz4hc)"),
               [=](TaskContext& ctx) {
-        if (!mountSystemToCloneDir(ctx, cloneDir))
-            return;
+        // showCloneOptionsMenu
+        ctx.execute(QStringLiteral("sudo mkdir -p ") + cloneDir, true);
 
+        if (!mountSystemToCloneDir(ctx, cloneDir)) {
+            ctx.log(QStringLiteral("Failed to mount system!"), LogLevel::Error);
+            return;
+        }
+
+        // Cloner::createErofsImage - same commands as the original.
         ctx.log(QStringLiteral("Creating EROFS image..."));
-        ctx.run(QStringLiteral("sudo mkdir -p ") + shellQuote(outputDir), false);
-        ctx.run(QStringLiteral("sudo rm -f ") + shellQuote(logFile), false);
+        ctx.execute(QStringLiteral("mkdir -p ") + outputDir, true);
+        ctx.execute(QStringLiteral("rm -f ") + logFile, true);
 
         const QString compressionArgs = lzma
             ? QStringLiteral("-zlzma,level=") + level + QStringLiteral(",dictsize=8388608")
@@ -1158,40 +1137,66 @@ void MainWindow::cloneErofs(bool lzma)
         exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral(" ");
         exclusions += QStringLiteral("--exclude-path=") + outputDir.mid(1) + QStringLiteral(" ");
         exclusions += QStringLiteral("--exclude-path=") + outputFile.mid(1) + QStringLiteral("/rootfs.img ");
-        for (const char* p : {"/etc/udev/rules.d/70-persistent-cd.rules", "/etc/udev/rules.d/70-persistent-net.rules",
-                              "/etc/mtab", "/etc/fstab", "/dev/*", "/proc/*", "/sys/*", "/tmp/*", "/run/*", "/mnt/*",
-                              "/lost+found", "/clone_system_temp"}) {
-            exclusions += QStringLiteral("--exclude-path=") + c + QString::fromLatin1(p) + QStringLiteral(" ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/etc/udev/rules.d/70-persistent-cd.rules ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/etc/udev/rules.d/70-persistent-net.rules ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/etc/mtab ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/etc/fstab ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/dev/* ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/proc/* ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/sys/* ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/tmp/* ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/run/* ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/mnt/* ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/lost+found ");
+        exclusions += QStringLiteral("--exclude-path=") + c + QStringLiteral("/clone_system_temp");
+
+        const QString cmd = QStringLiteral("sudo mkfs.erofs -d9 ") + compressionArgs + QStringLiteral(" -C1048576 ") +
+                            exclusions + QStringLiteral(" ") + outputFile + QStringLiteral(" ") + cloneDir +
+                            QStringLiteral(" > ") + logFile + QStringLiteral(" 2>&1 &");
+        ctx.system(cmd);
+
+        // Same progress logic as the original: 1% per 10 s up to 60%, hold at 60%
+        // until "Filesystem UUID" appears in log.txt, then wait 10 s. In addition,
+        // never continue while mkfs.erofs is still running.
+        auto erofsRunning = [&ctx] {
+            int code = 1;
+            ctx.capture(QStringLiteral("pgrep -x mkfs.erofs"), &code);
+            return code == 0;
+        };
+        int secondsElapsed = 0;
+        bool uuidDetected = false;
+        int uuidWaitCounter = 0;
+        while (true) {
+            QThread::sleep(1);
+            ++secondsElapsed;
+
+            const int percent = qBound(1, secondsElapsed / 10, 60);
+            const QString timer = QStringLiteral("%1:%2").arg(secondsElapsed / 60, 2, 10, QLatin1Char('0'))
+                                                         .arg(secondsElapsed % 60, 2, 10, QLatin1Char('0'));
+            ctx.progress(percent, QStringLiteral("%p%   [") + timer + QStringLiteral("]   [") +
+                                      humanSize(QFileInfo(outputFile).size()) + QStringLiteral("]"));
+
+            const bool running = erofsRunning();
+            if (!uuidDetected) {
+                QFile log(logFile);
+                if (log.open(QIODevice::ReadOnly) && log.readAll().contains("Filesystem UUID"))
+                    uuidDetected = true;
+            }
+            if (uuidDetected && !running && ++uuidWaitCounter >= 10)
+                break;
+            if (!uuidDetected && !running && secondsElapsed > 5) {
+                ctx.log(QStringLiteral("mkfs.erofs is not running and never finished - see ") + logFile, LogLevel::Error);
+                break;
+            }
         }
-
-        // mkfs.erofs -d9 is very chatty, so its output goes to log.txt (as in the
-        // terminal version) and the GUI shows a progress bar instead.
-        const QString cmd = QStringLiteral("set -o pipefail; sudo mkfs.erofs -d9 ") + compressionArgs +
-                            QStringLiteral(" -C1048576 ") + exclusions + outputFile + QStringLiteral(" ") + cloneDir +
-                            QStringLiteral(" 2>&1 | sudo tee ") + shellQuote(logFile) + QStringLiteral(" > /dev/null");
-
-        qint64 lastUpdate = -1000;
-        const int rc = ctx.runTimed(cmd, [&](qint64 elapsedMs) {
-            if (elapsedMs - lastUpdate < 500)
-                return;
-            lastUpdate = elapsedMs;
-            const qint64 secs = elapsedMs / 1000;
-            const int percent = qBound(1, static_cast<int>(secs / 10), 60);
-            const QString timer = QStringLiteral("%1:%2").arg(secs / 60, 2, 10, QLatin1Char('0'))
-                                                         .arg(secs % 60, 2, 10, QLatin1Char('0'));
-            const QString size = humanSize(QFileInfo(outputFile).size());
-            ctx.progress(percent, QStringLiteral("%p%   [") + timer + QStringLiteral("]   [") + size + QStringLiteral("]"));
-        });
+        QThread::sleep(1);
         ctx.progress(100, QStringLiteral("%p%   [") + humanSize(QFileInfo(outputFile).size()) + QStringLiteral("]"));
 
-        unmountCloneDir(ctx, cloneDir);
-        if (rc != 0) {
-            ctx.log(QStringLiteral("mkfs.erofs failed - see ") + logFile, LogLevel::Error);
-            return;
-        }
-
         ctx.log(QStringLiteral("EROFS image created successfully: ") + outputFile, LogLevel::Success);
-        printImageSize(ctx, QStringLiteral("Image size: "), outputFile);
+        ctx.log(QStringLiteral("Image size: "), LogLevel::Success);
+        ctx.execute(QStringLiteral("sudo du -h ") + outputFile + QStringLiteral(" | cut -f1"), true);
+
+        unmountCloneDir(ctx, cloneDir);
         createChecksum(ctx, outputFile);
         ctx.log(QStringLiteral("Current system cloned successfully using erofs ") +
                 (lzma ? QStringLiteral("lzma") : QStringLiteral("lz4hc")) +
