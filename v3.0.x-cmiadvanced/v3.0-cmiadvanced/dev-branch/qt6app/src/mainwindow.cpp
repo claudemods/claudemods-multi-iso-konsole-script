@@ -8,6 +8,7 @@
 #include <QCloseEvent>
 #include <QDateTime>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QFrame>
@@ -429,11 +430,64 @@ void MainWindow::refreshStatus()
     m_statusLabel->setText(html);
 }
 
+namespace {
+
+// Same key=value format as saveConfig() / the original terminal version.
+QByteArray configFileText(const ConfigState& c)
+{
+    auto flag = [](bool b) { return b ? QStringLiteral("1") : QStringLiteral("0"); };
+    QString t;
+    t += QStringLiteral("isoTag=") + c.isoTag + QStringLiteral("\n");
+    t += QStringLiteral("isoName=") + c.isoName + QStringLiteral("\n");
+    t += QStringLiteral("outputDir=") + c.outputDir + QStringLiteral("\n");
+    t += QStringLiteral("vmlinuzPath=") + c.vmlinuzPath + QStringLiteral("\n");
+    t += QStringLiteral("cloneDir=") + c.cloneDir + QStringLiteral("\n");
+    t += QStringLiteral("mkinitcpioGenerated=") + flag(c.mkinitcpioGenerated) + QStringLiteral("\n");
+    t += QStringLiteral("mkinitcpioConfigCopied=") + flag(c.mkinitcpioConfigCopied) + QStringLiteral("\n");
+    t += QStringLiteral("grubEdited=") + flag(c.grubEdited) + QStringLiteral("\n");
+    t += QStringLiteral("bootTextEdited=") + flag(c.bootTextEdited) + QStringLiteral("\n");
+    t += QStringLiteral("calamaresBrandingEdited=") + flag(c.calamaresBrandingEdited) + QStringLiteral("\n");
+    t += QStringLiteral("calamares1Edited=") + flag(c.calamares1Edited) + QStringLiteral("\n");
+    t += QStringLiteral("calamares2Edited=") + flag(c.calamares2Edited) + QStringLiteral("\n");
+    t += QStringLiteral("filesExtracted=") + flag(c.filesExtracted) + QStringLiteral("\n");
+    return t.toUtf8();
+}
+
+// Writes a file with `sudo -A tee`. A local event loop keeps the GUI thread
+// serving the askpass helper (which hands sudo the stored password) meanwhile.
+bool writeFileWithSudo(const QProcessEnvironment& env, const QString& path, const QByteArray& data)
+{
+    QProcess p;
+    p.setProcessEnvironment(env);
+    p.setStandardOutputFile(QProcess::nullDevice());
+    QEventLoop loop;
+    QObject::connect(&p, &QProcess::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&p, &QProcess::errorOccurred, &loop, &QEventLoop::quit);
+    QTimer::singleShot(30000, &loop, &QEventLoop::quit);
+
+    p.start(QStringLiteral("sudo"), {QStringLiteral("-A"), QStringLiteral("tee"), path});
+    if (!p.waitForStarted(5000))
+        return false;
+    p.write(data);
+    p.closeWriteChannel();
+    if (p.state() != QProcess::NotRunning)
+        loop.exec();
+    if (p.state() != QProcess::NotRunning) {
+        p.kill();
+        p.waitForFinished();
+        return false;
+    }
+    return p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
+}
+
+} // namespace
+
 void MainWindow::persist()
 {
     // configuration.txt may be root-owned (e.g. from running as root before):
     // fall back to writing it with sudo so the settings are always saved.
-    if (!saveConfig(m_config) && !m_sudo->writeFileAsRoot(Paths::configFile(), configText(m_config)))
+    if (!saveConfig(m_config) &&
+        !writeFileWithSudo(m_sudo->environment(), Paths::configFile(), configFileText(m_config)))
         showError(QStringLiteral("Configuration"),
                   QStringLiteral("Failed to save configuration to ") + Paths::configFile());
     refreshStatus();
