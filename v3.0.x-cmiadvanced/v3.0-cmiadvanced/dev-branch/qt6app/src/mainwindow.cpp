@@ -21,6 +21,8 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QTextCursor>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
@@ -582,6 +584,12 @@ void MainWindow::setLogExpanded(bool expanded)
     m_statusPanel->setVisible(!expanded);
     m_menus->setVisible(!expanded);
     m_expandButton->setText(expanded ? QStringLiteral("Restore") : QStringLiteral("Expand"));
+
+    // Jump to the newest line once the panel has been resized.
+    QTimer::singleShot(0, this, [this] {
+        m_console->moveCursor(QTextCursor::End);
+        m_console->verticalScrollBar()->setValue(m_console->verticalScrollBar()->maximum());
+    });
 }
 
 void MainWindow::startTask(const QString& title, TaskBody body, std::function<void()> onDone, bool expandLog)
