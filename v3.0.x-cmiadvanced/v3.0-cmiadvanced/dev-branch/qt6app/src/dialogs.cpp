@@ -35,7 +35,8 @@ QWidget* makeBanner(int pointSize, QWidget* parent)
     version->setObjectName(QStringLiteral("claudemodsText"));
     QFont vf = version->font();
     vf.setBold(true);
-    vf.setPointSize(pointSize + 4);
+    // Only the ASCII art scales down; the version line stays readable.
+    vf.setPointSize(qMax(12, pointSize + 4));
     version->setFont(vf);
     version->setAlignment(Qt::AlignCenter);
 

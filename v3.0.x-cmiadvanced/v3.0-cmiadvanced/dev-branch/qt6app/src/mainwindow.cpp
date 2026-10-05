@@ -18,6 +18,7 @@
 #include <QProcess>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QScreen>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -128,13 +129,17 @@ MainWindow::MainWindow(SudoManager* sudo, QWidget* parent)
     , m_sudo(sudo)
 {
     setWindowTitle(Theme::VersionText);
-    resize(1480, 940);
+
+    // Fit small screens (handhelds): smaller banner and a window no larger than the screen.
+    const QRect available = screen()->availableGeometry();
+    const bool compact = available.height() < 1000;
+    resize(qMin(1480, available.width()), qMin(940, available.height()));
 
     auto* central = new QWidget;
     auto* root = new QVBoxLayout(central);
-    root->setContentsMargins(12, 12, 12, 12);
-    root->setSpacing(10);
-    root->addWidget(makeBanner(8));
+    root->setContentsMargins(compact ? 6 : 12, compact ? 6 : 12, compact ? 6 : 12, compact ? 6 : 12);
+    root->setSpacing(compact ? 6 : 10);
+    root->addWidget(makeBanner(compact ? 4 : 8));
 
     auto* splitter = new QSplitter(Qt::Horizontal);
     splitter->setChildrenCollapsible(false);
@@ -303,11 +308,19 @@ QWidget* MainWindow::buildMenuPage(const QString& title, const QList<MenuEntry>&
         auto* button = new QPushButton(QStringLiteral("➤  ") + entry.text);
         button->setObjectName(QStringLiteral("menuButton"));
         button->setCursor(Qt::PointingHandCursor);
+        button->setMinimumHeight(button->sizeHint().height());
         connect(button, &QPushButton::clicked, this, entry.action);
         layout->addWidget(button);
     }
     layout->addStretch();
-    return frame;
+
+    // Scroll instead of squashing the buttons when the screen is too short.
+    auto* scroll = new QScrollArea;
+    scroll->setWidget(frame);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    return scroll;
 }
 
 QWidget* MainWindow::buildConsolePanel()
@@ -519,7 +532,7 @@ void MainWindow::showGuide()
         path = QStringLiteral("built-in guide");
     }
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        showError(QStringLiteral("Guide"), QStringLiteral("Could not open the guide: ") + readmePath);
+        showError(QStringLiteral("Guide"), QStringLiteral("No guide found. Put readme.txt at: ") + readmePath);
         return;
     }
     EditorDialog dlg(QStringLiteral("Guide"), path, QString::fromUtf8(file.readAll()), true, this);
