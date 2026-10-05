@@ -5,7 +5,4 @@
         <file alias="calamares-files.zip">../calamares-files.zip</file>
         <file alias="claudemods.zip">../claudemods.zip</file>
     </qresource>
-    <qresource prefix="/guide">
-        <file alias="readme.txt">../guide/readme.txt</file>
-    </qresource>
 </RCC>
